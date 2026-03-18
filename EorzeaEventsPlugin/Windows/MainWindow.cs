@@ -76,6 +76,9 @@ public class MainWindow : Window
             ImGui.EndTabItem();
         }
 
+        if (ImGui.TabItemButton("Parametres", ImGuiTabItemFlags.Trailing | ImGuiTabItemFlags.NoTooltip))
+            Plugin.OpenConfig();
+
         ImGui.EndTabBar();
     }
 
@@ -133,6 +136,11 @@ public class MainWindow : Window
                         ImGui.TextDisabled($"  {s.Description}");
                     if (s.PosX.HasValue && s.PosZ.HasValue)
                         ImGui.TextDisabled($"  X {s.PosX.Value:F1}  Y {s.PosZ.Value:F1}");
+                    if (!Plugin.HasActiveSession)
+                    {
+                        if (ImGui.SmallButton($"Reprendre##claim_{s.Id}"))
+                            Plugin.ClaimSession(s);
+                    }
                     ImGui.Separator();
                 }
                 ImGui.EndChild();

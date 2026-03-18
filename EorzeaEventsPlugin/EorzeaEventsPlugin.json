@@ -1,0 +1,10 @@
+{
+  "Name": "Eorzea Events",
+  "Author": "Neprena",
+  "Description": "Gérez vos sessions RP Eorzea Events directement depuis le jeu.",
+  "Punchline": "Sessions RP Eorzea Events en un clic.",
+  "InternalName": "EorzeaEventsPlugin",
+  "RepoUrl": "https://github.com/Neprena/eorzea-events-plugin",
+  "Tags": ["rp", "roleplay"],
+  "IconUrl": "https://raw.githubusercontent.com/Neprena/eorzea-events-plugin/main/Plugin_Logo.png"
+}

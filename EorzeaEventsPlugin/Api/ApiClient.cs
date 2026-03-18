@@ -1,0 +1,169 @@
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+namespace EorzeaEventsPlugin.Api;
+
+// ─── DTOs ─────────────────────────────────────────────────────────────────────
+
+public class RpSessionDto
+{
+    [JsonPropertyName("id")]            public string  Id            { get; set; } = string.Empty;
+    [JsonPropertyName("title")]         public string  Title         { get; set; } = string.Empty;
+    [JsonPropertyName("description")]   public string? Description   { get; set; }
+    [JsonPropertyName("location")]      public string  Location      { get; set; } = string.Empty;
+    [JsonPropertyName("server")]        public string  Server        { get; set; } = string.Empty;
+    [JsonPropertyName("characterName")] public string? CharacterName { get; set; }
+    [JsonPropertyName("posX")]          public float?  PosX          { get; set; }
+    [JsonPropertyName("posZ")]          public float?  PosZ          { get; set; }
+    [JsonPropertyName("ward")]          public int?    Ward          { get; set; }
+    [JsonPropertyName("plot")]          public int?    Plot          { get; set; }
+    [JsonPropertyName("endedAt")]       public string? EndedAt       { get; set; }
+}
+
+public class EstablishmentSummaryDto
+{
+    [JsonPropertyName("id")]   public string  Id   { get; set; } = string.Empty;
+    [JsonPropertyName("name")] public string  Name { get; set; } = string.Empty;
+    [JsonPropertyName("slug")] public string? Slug { get; set; }
+}
+
+public class EventDto
+{
+    [JsonPropertyName("id")]            public string                  Id            { get; set; } = string.Empty;
+    [JsonPropertyName("title")]         public string                  Title         { get; set; } = string.Empty;
+    [JsonPropertyName("description")]   public string?                 Description   { get; set; }
+    [JsonPropertyName("startDate")]     public string                  StartDate     { get; set; } = string.Empty;
+    [JsonPropertyName("endDate")]       public string?                 EndDate       { get; set; }
+    [JsonPropertyName("isRecurring")]   public bool                    IsRecurring   { get; set; }
+    [JsonPropertyName("establishment")] public EstablishmentSummaryDto? Establishment { get; set; }
+}
+
+public class SyncshellEntryDto
+{
+    [JsonPropertyName("type")] public string Type { get; set; } = string.Empty;
+    [JsonPropertyName("id")]   public string Id   { get; set; } = string.Empty;
+}
+
+public class EstablishmentDto
+{
+    [JsonPropertyName("id")]              public string  Id              { get; set; } = string.Empty;
+    [JsonPropertyName("name")]            public string  Name            { get; set; } = string.Empty;
+    [JsonPropertyName("slug")]            public string? Slug            { get; set; }
+    [JsonPropertyName("description")]     public string? Description     { get; set; }
+    [JsonPropertyName("server")]          public string? Server          { get; set; }
+    [JsonPropertyName("datacenter")]      public string? Datacenter      { get; set; }
+    [JsonPropertyName("address")]         public string? Address         { get; set; }
+    [JsonPropertyName("housingType")]     public string? HousingType     { get; set; }
+    [JsonPropertyName("district")]        public string? District        { get; set; }
+    [JsonPropertyName("ward")]            public int?    Ward            { get; set; }
+    [JsonPropertyName("plot")]            public int?    Plot            { get; set; }
+    [JsonPropertyName("wing")]            public bool    Wing            { get; set; }
+    [JsonPropertyName("apartmentNumber")] public int?    ApartmentNumber { get; set; }
+    [JsonPropertyName("syncshells")]      public string  Syncshells      { get; set; } = "[]";
+    [JsonPropertyName("discordInvite")]   public string? DiscordInvite   { get; set; }
+}
+
+// ─── Request bodies ───────────────────────────────────────────────────────────
+
+public class CreateSessionRequest
+{
+    [JsonPropertyName("title")]         public string  Title         { get; set; } = string.Empty;
+    [JsonPropertyName("description")]   public string? Description   { get; set; }
+    [JsonPropertyName("location")]      public string  Location      { get; set; } = string.Empty;
+    [JsonPropertyName("server")]        public string  Server        { get; set; } = string.Empty;
+    [JsonPropertyName("characterName")] public string? CharacterName { get; set; }
+    [JsonPropertyName("posX")]          public float?  PosX          { get; set; }
+    [JsonPropertyName("posZ")]          public float?  PosZ          { get; set; }
+    [JsonPropertyName("ward")]          public int?    Ward          { get; set; }
+    [JsonPropertyName("plot")]          public int?    Plot          { get; set; }
+    [JsonPropertyName("duration")]      public int     Duration      { get; set; } = 2;
+}
+
+public class UpdateSessionRequest
+{
+    [JsonPropertyName("title")]       public string? Title       { get; set; }
+    [JsonPropertyName("description")] public string? Description { get; set; }
+    [JsonPropertyName("posX")]        public float?  PosX        { get; set; }
+    [JsonPropertyName("posZ")]        public float?  PosZ        { get; set; }
+}
+
+// ─── Client ──────────────────────────────────────────────────────────────────
+
+public class ApiClient : IDisposable
+{
+    private readonly HttpClient _http;       // authenticated (user operations)
+    private readonly HttpClient _publicHttp; // no auth (public read)
+
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+    };
+
+    public ApiClient(string baseUrl, string? token = null)
+    {
+        var baseUri = new Uri(baseUrl.TrimEnd('/') + "/");
+        _publicHttp = new HttpClient { BaseAddress = baseUri };
+        _http       = new HttpClient { BaseAddress = baseUri };
+        if (!string.IsNullOrWhiteSpace(token))
+            _http.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", token);
+    }
+
+    // ─── Public read ─────────────────────────────────────────────────────────
+
+    public async Task<List<RpSessionDto>> GetActiveSessionsAsync(CancellationToken ct = default)
+    {
+        var res = await _publicHttp.GetFromJsonAsync<List<RpSessionDto>>("api/rp-sessions", JsonOptions, ct);
+        return res ?? [];
+    }
+
+    public async Task<List<EventDto>> GetUpcomingEventsAsync(int days = 14, CancellationToken ct = default)
+    {
+        var from = Uri.EscapeDataString(DateTime.UtcNow.ToString("o"));
+        var to   = Uri.EscapeDataString(DateTime.UtcNow.AddDays(days).ToString("o"));
+        var res  = await _publicHttp.GetFromJsonAsync<List<EventDto>>(
+            $"api/events?from={from}&to={to}", JsonOptions, ct);
+        return res ?? [];
+    }
+
+    public async Task<List<EstablishmentDto>> GetEstablishmentsAsync(string? search = null, CancellationToken ct = default)
+    {
+        var url = "api/establishments";
+        if (!string.IsNullOrWhiteSpace(search))
+            url += $"?search={Uri.EscapeDataString(search)}";
+        var res = await _publicHttp.GetFromJsonAsync<List<EstablishmentDto>>(url, JsonOptions, ct);
+        return res ?? [];
+    }
+
+    // ─── Authenticated ────────────────────────────────────────────────────────
+
+    public async Task<RpSessionDto?> CreateSessionAsync(CreateSessionRequest req, CancellationToken ct = default)
+    {
+        var res = await _http.PostAsJsonAsync("api/rp-sessions", req, ct);
+        if (!res.IsSuccessStatusCode) return null;
+        return await res.Content.ReadFromJsonAsync<RpSessionDto>(JsonOptions, ct);
+    }
+
+    public async Task<RpSessionDto?> UpdateSessionAsync(string sessionId, UpdateSessionRequest req, CancellationToken ct = default)
+    {
+        var res = await _http.PatchAsJsonAsync($"api/rp-sessions/{sessionId}", req, ct);
+        if (!res.IsSuccessStatusCode) return null;
+        return await res.Content.ReadFromJsonAsync<RpSessionDto>(JsonOptions, ct);
+    }
+
+    public async Task<bool> EndSessionAsync(string sessionId, CancellationToken ct = default)
+    {
+        var res = await _http.DeleteAsync($"api/rp-sessions/{sessionId}", ct);
+        return res.IsSuccessStatusCode;
+    }
+
+    public async Task<RpSessionDto?> GetSessionAsync(string sessionId, CancellationToken ct = default)
+    {
+        var sessions = await GetActiveSessionsAsync(ct);
+        return sessions.FirstOrDefault(s => s.Id == sessionId);
+    }
+
+    public void Dispose() { _http.Dispose(); _publicHttp.Dispose(); }
+}

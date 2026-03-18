@@ -50,7 +50,7 @@ public sealed class Plugin : IDalamudPlugin
 
     // Events DTR polling (moins fréquent)
     private DateTime _lastEventsCheck = DateTime.MinValue;
-    private const int EventsPollIntervalSeconds = 300; // 5 min
+    private const int EventsPollIntervalSeconds = 5;
 
     // Surveillance tag RP
     private uint       _lastRpStatus    = 0;
@@ -183,6 +183,9 @@ public sealed class Plugin : IDalamudPlugin
             _lastEventsCheck = now;
             Task.Run(async () => await CheckOngoingEventsAsync());
         }
+
+        // Polling session active (fenêtre ouverte ou non)
+        _sessionWindow?.PollSessionStatus();
 
         // Surveillance tag RP (chaque frame, lecture uint = négligeable)
         if (Config.AlertOnRpTagRemoved && _sessionWindow is { HasActiveSession: true })

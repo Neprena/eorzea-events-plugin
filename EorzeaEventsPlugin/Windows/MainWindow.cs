@@ -86,9 +86,6 @@ public class MainWindow : Window
 
     private void DrawRpSauvageTab()
     {
-        if (!_sessionsLoading && _sessionsLastFetch == DateTime.MinValue)
-            FetchSessions();
-
         ImGui.Spacing();
 
         // En-tête avec compteur + actualiser
@@ -330,6 +327,14 @@ public class MainWindow : Window
             catch { _estabList = []; }
             finally { _estabLoading = false; }
         });
+    }
+
+    /// <summary>Met à jour la liste depuis des données déjà chargées (ex: polling Plugin.cs).</summary>
+    public void UpdateSessionsList(List<RpSessionDto> sessions)
+    {
+        _sessionsList      = sessions;
+        _sessionsLastFetch = DateTime.UtcNow;
+        _sessionsLoading   = false;
     }
 
     private void FetchSessions()

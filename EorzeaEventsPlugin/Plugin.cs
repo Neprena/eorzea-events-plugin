@@ -211,9 +211,10 @@ public sealed class Plugin : IDalamudPlugin
             var sessions = await Api.GetActiveSessionsAsync();
             var ids      = sessions.Select(s => s.Id).ToHashSet();
 
-            // Mise à jour DTR sessions
+            // Mise à jour DTR sessions + liste MainWindow (réutilise les données, pas de 2e appel API)
             var activeCount = sessions.Count(s => s.EndedAt == null);
             SetDtrRp(activeCount);
+            _mainWindow?.UpdateSessionsList(sessions);
 
             if (!_notifInitialized)
             {

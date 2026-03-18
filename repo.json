@@ -1,0 +1,19 @@
+[
+  {
+    "Author": "Neprena",
+    "Name": "Eorzea Events",
+    "InternalName": "EorzeaEventsPlugin",
+    "AssemblyVersion": "1.0.0.0",
+    "TestingAssemblyVersion": "1.0.0.0",
+    "Description": "Gérez vos sessions RP Eorzea Events directement depuis le jeu.",
+    "Punchline": "Sessions RP Eorzea Events en un clic.",
+    "ApplicableVersion": "any",
+    "Tags": ["rp", "roleplay"],
+    "DalamudApiLevel": 14,
+    "IconUrl": "https://eorzea.events/Plugin_Logo.png",
+    "RepoUrl": "https://github.com/Neprena/eorzea-events-plugin",
+    "DownloadLinkInstall": "https://github.com/Neprena/eorzea-events-plugin/releases/latest/download/EorzeaEventsPlugin.zip",
+    "DownloadLinkTesting": "https://github.com/Neprena/eorzea-events-plugin/releases/latest/download/EorzeaEventsPlugin.zip",
+    "DownloadLinkUpdate": "https://github.com/Neprena/eorzea-events-plugin/releases/latest/download/EorzeaEventsPlugin.zip"
+  }
+]

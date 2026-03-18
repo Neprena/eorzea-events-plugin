@@ -83,10 +83,16 @@ public class CreateSessionRequest
 
 public class UpdateSessionRequest
 {
-    [JsonPropertyName("title")]       public string? Title       { get; set; }
-    [JsonPropertyName("description")] public string? Description { get; set; }
-    [JsonPropertyName("posX")]        public float?  PosX        { get; set; }
-    [JsonPropertyName("posZ")]        public float?  PosZ        { get; set; }
+    [JsonPropertyName("title")]         public string? Title         { get; set; }
+    [JsonPropertyName("description")]   public string? Description   { get; set; }
+    [JsonPropertyName("location")]      public string? Location      { get; set; }
+    [JsonPropertyName("server")]        public string? Server        { get; set; }
+    [JsonPropertyName("characterName")] public string? CharacterName { get; set; }
+    [JsonPropertyName("posX")]          public float?  PosX          { get; set; }
+    [JsonPropertyName("posZ")]          public float?  PosZ          { get; set; }
+    [JsonPropertyName("ward")]          public int?    Ward          { get; set; }
+    [JsonPropertyName("plot")]          public int?    Plot          { get; set; }
+    [JsonPropertyName("duration")]      public int?    Duration      { get; set; }
 }
 
 // ─── Client ──────────────────────────────────────────────────────────────────

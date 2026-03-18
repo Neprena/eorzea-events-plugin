@@ -28,6 +28,10 @@ public class MySessionWindow : Window
     private string _editTitle = string.Empty;
     private string _editDesc  = string.Empty;
 
+    // Alertes contextuelles
+    private bool _pendingZonePrompt  = false;
+    private bool _pendingRpTagPrompt = false;
+
     // Polling
     private DateTime _lastSessionCheck = DateTime.MinValue;
     private const int PollIntervalSeconds = 30;
@@ -89,7 +93,15 @@ public class MySessionWindow : Window
 
     // ─── API actions ──────────────────────────────────────────────────────────
 
-    public void SetActiveSession(RpSessionDto? session) => _activeSession = session;
+    public void SetActiveSession(RpSessionDto? session)
+    {
+        _activeSession      = session;
+        _pendingZonePrompt  = false;
+        _pendingRpTagPrompt = false;
+    }
+
+    public void OnZoneChanged()    => _pendingZonePrompt  = true;
+    public void OnRpTagRemoved()   => _pendingRpTagPrompt = true;
 
     private void StartSession()
     {
@@ -158,10 +170,22 @@ public class MySessionWindow : Window
     private void RefreshPosition()
     {
         if (_activeSession == null) return;
-        var pos = GetCurrentPosition();
-        if (pos == null) { ShowError("Position indisponible."); return; }
+        var pos     = GetCurrentPosition();
+        var housing = GetCurrentHousing();
+        var zone    = GetCurrentZone();
+        var world   = GetCurrentWorld();
+        var charName = GetCharacterName();
         var id  = _activeSession.Id;
-        var req = new UpdateSessionRequest { PosX = pos.Value.x, PosZ = pos.Value.z };
+        var req = new UpdateSessionRequest
+        {
+            PosX          = pos?.x,
+            PosZ          = pos?.z,
+            Ward          = housing?.Ward,
+            Plot          = housing?.Plot ?? housing?.Room,
+            Location      = zone,
+            Server        = world,
+            CharacterName = string.IsNullOrEmpty(charName) ? null : charName,
+        };
         _busy = true; _statusMsg = string.Empty;
         Task.Run(async () =>
         {
@@ -170,6 +194,25 @@ public class MySessionWindow : Window
                 var updated = await Plugin.Api.UpdateSessionAsync(id, req);
                 if (updated != null) { _activeSession = updated; ShowSuccess("Position mise à jour."); }
                 else ShowError("Erreur lors de la mise à jour.");
+            }
+            catch (Exception ex) { ShowError(ex.Message); }
+            finally { _busy = false; }
+        });
+    }
+
+    private void ExtendSession(int hours = 1)
+    {
+        if (_activeSession == null) return;
+        var id  = _activeSession.Id;
+        var req = new UpdateSessionRequest { Duration = hours };
+        _busy = true; _statusMsg = string.Empty;
+        Task.Run(async () =>
+        {
+            try
+            {
+                var updated = await Plugin.Api.UpdateSessionAsync(id, req);
+                if (updated != null) { _activeSession = updated; ShowSuccess($"Session prolongée de {hours}h."); }
+                else ShowError("Erreur lors de la prolongation.");
             }
             catch (Exception ex) { ShowError(ex.Message); }
             finally { _busy = false; }
@@ -186,7 +229,9 @@ public class MySessionWindow : Window
             try
             {
                 await Plugin.Api.EndSessionAsync(id);
-                _activeSession = null;
+                _activeSession      = null;
+                _pendingZonePrompt  = false;
+                _pendingRpTagPrompt = false;
                 _config.ActiveSessionId = null;
                 _config.Save();
                 ShowSuccess("Session terminée.");
@@ -323,12 +368,73 @@ public class MySessionWindow : Window
         ImGui.Separator();
         ImGui.Spacing();
 
+        // ── Alerte : changement de zone/TP ──────────────────────────────────
+        if (_pendingZonePrompt)
+        {
+            var dl    = ImGui.GetWindowDrawList();
+            var avail = ImGui.GetContentRegionAvail().X;
+            var p0    = ImGui.GetCursorScreenPos();
+            dl.ChannelsSplit(2);
+            dl.ChannelsSetCurrent(1); // contenu au-dessus
+            ImGui.Spacing();
+            ImGui.Indent(8f);
+            ImGui.TextColored(new Vector4(1f, 0.75f, 0.1f, 1f), "⚠  Changement de zone détecté");
+            ImGui.TextWrapped("Voulez-vous mettre à jour votre emplacement ou terminer la session ?");
+            ImGui.Spacing();
+            if (ImGui.SmallButton("Sync depuis le jeu"))   { _pendingZonePrompt = false; RefreshPosition(); }
+            ImGui.SameLine();
+            if (ImGui.SmallButton("Terminer##zone"))       { _pendingZonePrompt = false; EndSession(); }
+            ImGui.SameLine();
+            if (ImGui.SmallButton("Ignorer##zone"))          _pendingZonePrompt = false;
+            ImGui.Unindent(8f);
+            ImGui.Spacing();
+            var p1 = ImGui.GetCursorScreenPos();
+            dl.ChannelsSetCurrent(0); // fond en dessous
+            dl.AddRectFilled(p0, new Vector2(p0.X + avail, p1.Y), ImGui.GetColorU32(new Vector4(1f, 0.75f, 0.1f, 0.10f)), 4f);
+            dl.AddRect(      p0, new Vector2(p0.X + avail, p1.Y), ImGui.GetColorU32(new Vector4(1f, 0.75f, 0.1f, 0.45f)), 4f);
+            dl.ChannelsMerge();
+            ImGui.Spacing();
+        }
+
+        // ── Alerte : tag RP retiré ───────────────────────────────────────────
+        if (_pendingRpTagPrompt)
+        {
+            var dl    = ImGui.GetWindowDrawList();
+            var avail = ImGui.GetContentRegionAvail().X;
+            var p0    = ImGui.GetCursorScreenPos();
+            dl.ChannelsSplit(2);
+            dl.ChannelsSetCurrent(1); // contenu au-dessus
+            ImGui.Spacing();
+            ImGui.Indent(8f);
+            ImGui.TextColored(new Vector4(0.75f, 0.5f, 1f, 1f), "⚠  Tag RP retiré");
+            ImGui.TextWrapped("Vous n'êtes plus en mode RP. Souhaitez-vous terminer la session ?");
+            ImGui.Spacing();
+            if (ImGui.SmallButton("Terminer##rptag"))      { _pendingRpTagPrompt = false; EndSession(); }
+            ImGui.SameLine();
+            if (ImGui.SmallButton("Ignorer##rptag"))         _pendingRpTagPrompt = false;
+            ImGui.Unindent(8f);
+            ImGui.Spacing();
+            var p1 = ImGui.GetCursorScreenPos();
+            dl.ChannelsSetCurrent(0); // fond en dessous
+            dl.AddRectFilled(p0, new Vector2(p0.X + avail, p1.Y), ImGui.GetColorU32(new Vector4(0.75f, 0.5f, 1f, 0.10f)), 4f);
+            dl.AddRect(      p0, new Vector2(p0.X + avail, p1.Y), ImGui.GetColorU32(new Vector4(0.75f, 0.5f, 1f, 0.45f)), 4f);
+            dl.ChannelsMerge();
+            ImGui.Spacing();
+        }
+
         if (!_editing)
         {
             ImGui.Text($"Titre : {_activeSession!.Title}");
             ImGui.Text($"Lieu  : {_activeSession.Location} ({_activeSession.Server})");
             if (!string.IsNullOrEmpty(_activeSession.CharacterName))
                 ImGui.Text($"Perso : {_activeSession.CharacterName}");
+            if (_activeSession.Ward.HasValue)
+            {
+                var housing = _activeSession.Plot.HasValue
+                    ? $"Quartier {_activeSession.Ward}  —  Parcelle {_activeSession.Plot}"
+                    : $"Quartier {_activeSession.Ward}";
+                ImGui.TextDisabled($"Log.  : {housing}");
+            }
             var livePos = GetCurrentPosition();
             if (livePos.HasValue)
                 ImGui.TextDisabled($"Pos   : X {livePos.Value.x:F1}   Y {livePos.Value.z:F1}");
@@ -346,8 +452,11 @@ public class MySessionWindow : Window
                     _editing   = true;
                 }
                 ImGui.SameLine();
-                if (ImGui.Button("Actualiser position", new Vector2(150, 0)))
+                if (ImGui.Button("Sync depuis le jeu", new Vector2(150, 0)))
                     RefreshPosition();
+                ImGui.SameLine();
+                if (ImGui.Button("Prolonger (+1h)", new Vector2(120, 0)))
+                    ExtendSession(1);
                 ImGui.SameLine();
                 if (ImGui.Button("Voir en ligne", new Vector2(100, 0)))
                     OpenUrl(_config.BaseUrl + "/rp-live");

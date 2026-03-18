@@ -28,6 +28,7 @@ public sealed class Plugin : IDalamudPlugin
     [PluginService] internal static INotificationManager    NotificationMgr { get; private set; } = null!;
     [PluginService] internal static IObjectTable            ObjectTable     { get; private set; } = null!;
     [PluginService] internal static IDtrBar                 DtrBar          { get; private set; } = null!;
+    [PluginService] internal static IChatGui                ChatGui         { get; private set; } = null!;
 
     internal static Configuration Config { get; private set; } = null!;
     internal static ApiClient     Api    { get; private set; } = null!;
@@ -50,6 +51,10 @@ public sealed class Plugin : IDalamudPlugin
     // Events DTR polling (moins fréquent)
     private DateTime _lastEventsCheck = DateTime.MinValue;
     private const int EventsPollIntervalSeconds = 300; // 5 min
+
+    // Surveillance tag RP
+    private uint       _lastRpStatus    = 0;
+    private const uint RpOnlineStatusId = 22; // "Role-playing" dans FFXIV
 
     public Plugin()
     {
@@ -74,6 +79,7 @@ public sealed class Plugin : IDalamudPlugin
         PluginInterface.UiBuilder.OpenConfigUi += OpenConfig;
         PluginInterface.UiBuilder.OpenMainUi   += OpenMain;
         Framework.Update                        += OnFrameworkUpdate;
+        ClientState.TerritoryChanged            += OnTerritoryChanged;
 
         // DTR bar entries
         _dtrRp = DtrBar.Get("EorzeaEvents_RP");
@@ -107,6 +113,15 @@ public sealed class Plugin : IDalamudPlugin
     internal static void OpenMain()       { if (_mainWindow    != null) _mainWindow.IsOpen    = true; }
     internal static void OpenMySession()  { if (_sessionWindow != null) _sessionWindow.IsOpen = true; }
     internal static bool HasActiveSession => _sessionWindow?.HasActiveSession ?? false;
+
+    internal static void ClaimSession(RpSessionDto session)
+    {
+        if (_sessionWindow == null) return;
+        _sessionWindow.SetActiveSession(session);
+        Config.ActiveSessionId = session.Id;
+        Config.Save();
+        _sessionWindow.IsOpen = true;
+    }
 
     internal static void RebuildApiClient()
     {
@@ -154,8 +169,8 @@ public sealed class Plugin : IDalamudPlugin
     {
         var now = DateTime.UtcNow;
 
-        // Sessions RP (30s)
-        if (Config.NotifyRpLive && (now - _lastNotifCheck).TotalSeconds >= 30)
+        // Sessions RP (5s)
+        if ((Config.NotifyRpLive || Config.NotifyRpLiveChat) && (now - _lastNotifCheck).TotalSeconds >= 5)
         {
             _lastNotifCheck = now;
             var currentWorld = ObjectTable.LocalPlayer?.CurrentWorld.Value.Name.ToString();
@@ -167,6 +182,22 @@ public sealed class Plugin : IDalamudPlugin
         {
             _lastEventsCheck = now;
             Task.Run(async () => await CheckOngoingEventsAsync());
+        }
+
+        // Surveillance tag RP (chaque frame, lecture uint = négligeable)
+        if (Config.AlertOnRpTagRemoved && _sessionWindow is { HasActiveSession: true })
+        {
+            var player = ObjectTable.LocalPlayer;
+            if (player != null) // null = écran de chargement, on ignore
+            {
+                var current = player.OnlineStatus.RowId;
+                if (_lastRpStatus == RpOnlineStatusId && current != RpOnlineStatusId)
+                {
+                    _sessionWindow.OnRpTagRemoved();
+                    _sessionWindow.IsOpen = true;
+                }
+                _lastRpStatus = current; // player != null suffit à exclure les écrans de chargement
+            }
         }
     }
 
@@ -193,13 +224,22 @@ public sealed class Plugin : IDalamudPlugin
                 if (_knownSessionIds.Contains(session.Id)) continue;
                 if (Config.NotifyMyWorld && currentWorld != null && session.Server != currentWorld) continue;
 
-                NotificationMgr.AddNotification(new Notification
-                {
-                    Title           = "Nouvelle session RP Live",
-                    Content         = $"{session.Title} — {session.Location} ({session.Server})",
-                    Type            = NotificationType.Info,
-                    InitialDuration = TimeSpan.FromSeconds(6),
-                });
+                if (Config.NotifyRpLive)
+                    NotificationMgr.AddNotification(new Notification
+                    {
+                        Title           = "Nouvelle session RP Live",
+                        Content         = $"{session.Title} — {session.Location} ({session.Server})",
+                        Type            = NotificationType.Info,
+                        InitialDuration = TimeSpan.FromSeconds(6),
+                    });
+
+                if (Config.NotifyRpLiveChat)
+                    ChatGui.Print(new SeStringBuilder()
+                        .AddUiForeground(32)
+                        .AddText("[Eorzea Events] ")
+                        .AddUiForegroundOff()
+                        .AddText($"Nouvelle session RP : {session.Title} — {session.Location} ({session.Server})")
+                        .Build());
             }
 
             _knownSessionIds = ids;
@@ -251,8 +291,18 @@ public sealed class Plugin : IDalamudPlugin
         });
     }
 
+    private void OnTerritoryChanged(ushort territory)
+    {
+        if (Config.AlertOnZoneChange && _sessionWindow is { HasActiveSession: true })
+        {
+            _sessionWindow.OnZoneChanged();
+            _sessionWindow.IsOpen = true;
+        }
+    }
+
     public void Dispose()
     {
+        ClientState.TerritoryChanged            -= OnTerritoryChanged;
         Framework.Update                        -= OnFrameworkUpdate;
         PluginInterface.UiBuilder.Draw         -= _windowSystem.Draw;
         PluginInterface.UiBuilder.OpenConfigUi -= OpenConfig;

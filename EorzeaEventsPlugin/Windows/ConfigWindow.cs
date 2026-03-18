@@ -8,10 +8,12 @@ public class ConfigWindow : Window
 {
     private readonly Configuration _config;
     private string _tokenBuf    = string.Empty;
-    private string _urlBuf      = string.Empty;
     private bool   _tokenMasked = true;
     private bool   _notifyRpLive;
+    private bool   _notifyRpLiveChat;
     private bool   _notifyMyWorld;
+    private bool   _alertOnZoneChange;
+    private bool   _alertOnRpTagRemoved;
 
     public ConfigWindow(Configuration config) : base("Eorzea Events — Configuration##config")
     {
@@ -22,9 +24,11 @@ public class ConfigWindow : Window
         };
         _config        = config;
         _tokenBuf      = config.ApiToken;
-        _urlBuf        = config.BaseUrl;
-        _notifyRpLive  = config.NotifyRpLive;
-        _notifyMyWorld = config.NotifyMyWorld;
+        _notifyRpLive        = config.NotifyRpLive;
+        _notifyRpLiveChat    = config.NotifyRpLiveChat;
+        _notifyMyWorld       = config.NotifyMyWorld;
+        _alertOnZoneChange   = config.AlertOnZoneChange;
+        _alertOnRpTagRemoved = config.AlertOnRpTagRemoved;
     }
 
     public override void Draw()
@@ -33,7 +37,7 @@ public class ConfigWindow : Window
         ImGui.SameLine();
         if (ImGui.SmallButton("Ouvrir le dashboard"))
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
-                _urlBuf.TrimEnd('/') + "/dashboard") { UseShellExecute = true });
+                _config.BaseUrl + "/dashboard") { UseShellExecute = true });
         ImGui.Spacing();
 
         // Token
@@ -48,21 +52,15 @@ public class ConfigWindow : Window
             _tokenMasked = !_tokenMasked;
 
         ImGui.Spacing();
-
-        // URL
-        ImGui.Text("URL du site :");
-        ImGui.SetNextItemWidth(-1);
-        ImGui.InputText("##url", ref _urlBuf, 256);
-
-        ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
 
         // Notifications
         ImGui.TextColored(new Vector4(0.78f, 0.64f, 0.35f, 1), "Notifications");
         ImGui.Spacing();
-        ImGui.Checkbox("Notifier les nouvelles sessions RP Live", ref _notifyRpLive);
-        if (_notifyRpLive)
+        ImGui.Checkbox("Toast — Notifier les nouvelles sessions RP Live", ref _notifyRpLive);
+        ImGui.Checkbox("Chat — Annoncer les nouvelles sessions RP dans le chat", ref _notifyRpLiveChat);
+        if (_notifyRpLive || _notifyRpLiveChat)
         {
             ImGui.Indent();
             ImGui.Checkbox("Limiter aux sessions de mon monde", ref _notifyMyWorld);
@@ -73,12 +71,24 @@ public class ConfigWindow : Window
         ImGui.Separator();
         ImGui.Spacing();
 
+        // Alertes session
+        ImGui.TextColored(new Vector4(0.78f, 0.64f, 0.35f, 1), "Alertes de session RP");
+        ImGui.Spacing();
+        ImGui.Checkbox("Alerter après un changement de zone ou un TP", ref _alertOnZoneChange);
+        ImGui.Checkbox("Alerter quand le tag RP est retiré", ref _alertOnRpTagRemoved);
+
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
+
         if (ImGui.Button("Enregistrer"))
         {
             _config.ApiToken      = _tokenBuf.Trim();
-            _config.BaseUrl       = _urlBuf.TrimEnd('/');
-            _config.NotifyRpLive  = _notifyRpLive;
-            _config.NotifyMyWorld = _notifyMyWorld;
+            _config.NotifyRpLive        = _notifyRpLive;
+            _config.NotifyRpLiveChat    = _notifyRpLiveChat;
+            _config.NotifyMyWorld       = _notifyMyWorld;
+            _config.AlertOnZoneChange   = _alertOnZoneChange;
+            _config.AlertOnRpTagRemoved = _alertOnRpTagRemoved;
             _config.Save();
             Plugin.RebuildApiClient();
             IsOpen = false;
@@ -87,9 +97,11 @@ public class ConfigWindow : Window
         if (ImGui.Button("Annuler"))
         {
             _tokenBuf      = _config.ApiToken;
-            _urlBuf        = _config.BaseUrl;
-            _notifyRpLive  = _config.NotifyRpLive;
-            _notifyMyWorld = _config.NotifyMyWorld;
+            _notifyRpLive        = _config.NotifyRpLive;
+            _notifyRpLiveChat    = _config.NotifyRpLiveChat;
+            _notifyMyWorld       = _config.NotifyMyWorld;
+            _alertOnZoneChange   = _config.AlertOnZoneChange;
+            _alertOnRpTagRemoved = _config.AlertOnRpTagRemoved;
             IsOpen = false;
         }
     }

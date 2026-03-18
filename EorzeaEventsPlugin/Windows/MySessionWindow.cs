@@ -34,7 +34,7 @@ public class MySessionWindow : Window
 
     // Polling
     private DateTime _lastSessionCheck = DateTime.MinValue;
-    private const int PollIntervalSeconds = 30;
+    private const int PollIntervalSeconds = 5;
 
     public bool HasActiveSession => _activeSession != null;
 
@@ -241,7 +241,7 @@ public class MySessionWindow : Window
         });
     }
 
-    private void PollSessionStatus()
+    public void PollSessionStatus()
     {
         if (_busy || _activeSession == null) return;
         if ((DateTime.UtcNow - _lastSessionCheck).TotalSeconds < PollIntervalSeconds) return;
@@ -282,10 +282,7 @@ public class MySessionWindow : Window
         }
 
         if (_activeSession != null)
-        {
-            PollSessionStatus();
             DrawActiveSession();
-        }
         else
             DrawCreateForm();
 

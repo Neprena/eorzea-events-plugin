@@ -66,6 +66,11 @@ public sealed class Plugin : IDalamudPlugin
     // Zone courante (mise à jour au changement de territoire)
     internal static string? CurrentZone { get; private set; }
 
+    // IDs des sessions appartenant à l'utilisateur courant (rafraîchi toutes les 30 s)
+    internal static HashSet<string> MySessionIds { get; private set; } = [];
+    private DateTime _lastMySessionsCheck = DateTime.MinValue;
+    private const int MySessionsIntervalSeconds = 30;
+
     public Plugin()
     {
         Config = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
@@ -109,6 +114,10 @@ public sealed class Plugin : IDalamudPlugin
 
         if (!string.IsNullOrWhiteSpace(Config.ActiveSessionId))
             RestoreSession();
+
+        // Charger les sessions de l'utilisateur dès le démarrage
+        if (!string.IsNullOrWhiteSpace(Config.ApiToken))
+            Task.Run(async () => { MySessionIds = await Api.GetMySessionIdsAsync(); });
 
         // Initialiser la zone courante
         CurrentZone = ResolveTerritoryName(ClientState.TerritoryType);
@@ -203,6 +212,14 @@ public sealed class Plugin : IDalamudPlugin
         {
             _lastHeartbeat = now;
             Task.Run(async () => await Api.HeartbeatAsync());
+        }
+
+        // Sessions de l'utilisateur courant (30 s) — seulement si token configuré
+        if (!string.IsNullOrWhiteSpace(Config.ApiToken)
+            && (now - _lastMySessionsCheck).TotalSeconds >= MySessionsIntervalSeconds)
+        {
+            _lastMySessionsCheck = now;
+            Task.Run(async () => { MySessionIds = await Api.GetMySessionIdsAsync(); });
         }
 
         // Polling session active (fenêtre ouverte ou non)

@@ -31,6 +31,7 @@ public sealed class Plugin : IDalamudPlugin
     [PluginService] internal static IDtrBar                 DtrBar          { get; private set; } = null!;
     [PluginService] internal static IChatGui                ChatGui         { get; private set; } = null!;
     [PluginService] internal static IToastGui               ToastGui        { get; private set; } = null!;
+    [PluginService] internal static IGameGui                GameGui         { get; private set; } = null!;
 
     internal static Configuration Config { get; private set; } = null!;
     internal static ApiClient     Api    { get; private set; } = null!;

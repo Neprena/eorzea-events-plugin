@@ -1,6 +1,7 @@
 using Dalamud.Interface.Windowing;
 using EorzeaEventsPlugin.Api;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Game.Text.SeStringHandling.Payloads;
 using Lumina.Excel.Sheets;
 using System.Numerics;
 
@@ -42,6 +43,18 @@ public class MainWindow : Window
 
     private static void OpenUrl(string url) =>
         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
+
+    private void OpenOnMap(RpSessionDto s)
+    {
+        if (s.TerritoryId is not { } terId || s.MapId is not { } mapId) return;
+        if (s.PosX is not { } posX || s.PosZ is not { } posZ) return;
+
+        var coords = MapHelper.WorldToMapCoords(posX, posZ, mapId);
+        if (coords == null) return;
+
+        var payload = new MapLinkPayload(terId, mapId, coords.Value.x, coords.Value.y);
+        Plugin.GameGui.OpenMapWithMapLink(payload);
+    }
 
     private static readonly Dictionary<string, string> DistrictLabels = new()
     {
@@ -201,8 +214,18 @@ public class MainWindow : Window
             ImGui.TextDisabled($"  {s.CharacterName}");
         if (!string.IsNullOrEmpty(s.Description))
             ImGui.TextDisabled($"  {s.Description}");
-        if (s.PosX.HasValue && s.PosZ.HasValue)
-            ImGui.TextDisabled($"  X {s.PosX.Value:F1}  Y {s.PosZ.Value:F1}");
+        if (s.PosX.HasValue && s.PosZ.HasValue && s.MapId.HasValue)
+        {
+            var coords = MapHelper.WorldToMapCoords(s.PosX.Value, s.PosZ.Value, s.MapId.Value);
+            if (coords.HasValue)
+                ImGui.TextDisabled($"  X {coords.Value.x:F1}  Y {coords.Value.y:F1}");
+        }
+        if (s.TerritoryId.HasValue && s.PosX.HasValue && s.PosZ.HasValue)
+        {
+            if (ImGui.SmallButton($"Carte##map_{s.Id}"))
+                Plugin.Framework.RunOnFrameworkThread(() => OpenOnMap(s));
+            ImGui.SameLine();
+        }
         if (!Plugin.HasActiveSession)
         {
             if (ImGui.SmallButton($"Reprendre##claim_{s.Id}"))

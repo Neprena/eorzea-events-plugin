@@ -63,6 +63,15 @@ public class MySessionWindow : Window
         return row?.PlaceName.Value.Name.ToString() ?? "Zone inconnue";
     }
 
+    private (uint territoryId, uint mapId) GetCurrentTerritoryMap()
+    {
+        var territoryId = (uint)Plugin.ClientState.TerritoryType;
+        var sheet       = Plugin.DataManager.GetExcelSheet<TerritoryType>();
+        var row         = sheet?.GetRowOrDefault(Plugin.ClientState.TerritoryType);
+        var mapId       = row?.Map.RowId ?? 0u;
+        return (territoryId, mapId);
+    }
+
     private string GetCharacterName()
         => Plugin.ObjectTable.LocalPlayer?.Name.ToString() ?? string.Empty;
 
@@ -109,8 +118,9 @@ public class MySessionWindow : Window
     private void StartSession()
     {
         if (string.IsNullOrWhiteSpace(Plugin.Config.ApiToken)) { ShowError("Token API non configuré."); return; }
-        var pos = GetCurrentPosition();
-        var housing = GetCurrentHousing();
+        var pos      = GetCurrentPosition();
+        var housing  = GetCurrentHousing();
+        var (terId, mapId) = GetCurrentTerritoryMap();
         var req = new CreateSessionRequest
         {
             Title         = _title.Trim(),
@@ -123,6 +133,8 @@ public class MySessionWindow : Window
             Ward          = housing?.Ward,
             Plot          = housing?.Plot ?? housing?.Room,
             Duration      = _duration,
+            TerritoryId   = terId,
+            MapId         = mapId,
         };
         if (string.IsNullOrWhiteSpace(req.Title)) { ShowError("Le titre est requis."); return; }
 
@@ -174,11 +186,12 @@ public class MySessionWindow : Window
     private void RefreshPosition()
     {
         if (_activeSession == null) return;
-        var pos     = GetCurrentPosition();
-        var housing = GetCurrentHousing();
-        var zone    = GetCurrentZone();
-        var world   = GetCurrentWorld();
+        var pos      = GetCurrentPosition();
+        var housing  = GetCurrentHousing();
+        var zone     = GetCurrentZone();
+        var world    = GetCurrentWorld();
         var charName = GetCharacterName();
+        var (terId, mapId) = GetCurrentTerritoryMap();
         var id  = _activeSession.Id;
         var req = new UpdateSessionRequest
         {
@@ -189,6 +202,8 @@ public class MySessionWindow : Window
             Location      = zone,
             Server        = world,
             CharacterName = string.IsNullOrEmpty(charName) ? null : charName,
+            TerritoryId   = terId,
+            MapId         = mapId,
         };
         _busy = true; _statusMsg = string.Empty;
         Task.Run(async () =>
@@ -465,7 +480,18 @@ public class MySessionWindow : Window
             }
             var livePos = GetCurrentPosition();
             if (livePos.HasValue)
-                ImGui.TextDisabled($"Pos   : X {livePos.Value.x:F1}   Y {livePos.Value.z:F1}");
+            {
+                var mapId  = Plugin.DataManager.GetExcelSheet<TerritoryType>()
+                                   ?.GetRowOrDefault(Plugin.ClientState.TerritoryType)
+                                   ?.Map.RowId;
+                var coords = mapId.HasValue
+                    ? MapHelper.WorldToMapCoords(livePos.Value.x, livePos.Value.z, mapId.Value)
+                    : null;
+                if (coords.HasValue)
+                    ImGui.TextDisabled($"Pos   : X {coords.Value.x:F1}   Y {coords.Value.y:F1}");
+                else
+                    ImGui.TextDisabled($"Pos   : X {livePos.Value.x:F1}   Y {livePos.Value.z:F1}");
+            }
 
             ImGui.Spacing();
             ImGui.Separator();

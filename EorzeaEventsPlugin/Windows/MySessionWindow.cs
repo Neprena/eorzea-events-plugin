@@ -29,8 +29,9 @@ public class MySessionWindow : Window
     private string _editDesc  = string.Empty;
 
     // Alertes contextuelles
-    private bool _pendingZonePrompt  = false;
-    private bool _pendingRpTagPrompt = false;
+    private bool _pendingZonePrompt         = false;
+    private bool _pendingRpTagPrompt        = false;
+    private bool _pendingRpTagActivePrompt  = false;
 
     // Polling
     private DateTime _lastSessionCheck = DateTime.MinValue;
@@ -43,8 +44,8 @@ public class MySessionWindow : Window
     {
         SizeConstraints = new WindowSizeConstraints
         {
-            MinimumSize = new Vector2(420, 360),
-            MaximumSize = new Vector2(640, 600),
+            MinimumSize = new Vector2(420, 460),
+            MaximumSize = new Vector2(640, 700),
         };
         _config = config;
     }
@@ -95,13 +96,15 @@ public class MySessionWindow : Window
 
     public void SetActiveSession(RpSessionDto? session)
     {
-        _activeSession      = session;
-        _pendingZonePrompt  = false;
-        _pendingRpTagPrompt = false;
+        _activeSession           = session;
+        _pendingZonePrompt       = false;
+        _pendingRpTagPrompt      = false;
+        _pendingRpTagActivePrompt = false;
     }
 
-    public void OnZoneChanged()    => _pendingZonePrompt  = true;
-    public void OnRpTagRemoved()   => _pendingRpTagPrompt = true;
+    public void OnZoneChanged()      => _pendingZonePrompt        = true;
+    public void OnRpTagRemoved()     => _pendingRpTagPrompt       = true;
+    public void OnRpTagActivated()   => _pendingRpTagActivePrompt = true;
 
     private void StartSession()
     {
@@ -131,8 +134,9 @@ public class MySessionWindow : Window
                 var session = await Plugin.Api.CreateSessionAsync(req);
                 if (session != null)
                 {
-                    _activeSession = session;
-                    _config.ActiveSessionId = session.Id;
+                    _activeSession            = session;
+                    _pendingRpTagActivePrompt = false;
+                    _config.ActiveSessionId   = session.Id;
                     _config.Save();
                     ShowSuccess("Session démarrée !");
                     _title = _description = string.Empty;
@@ -229,9 +233,10 @@ public class MySessionWindow : Window
             try
             {
                 await Plugin.Api.EndSessionAsync(id);
-                _activeSession      = null;
-                _pendingZonePrompt  = false;
-                _pendingRpTagPrompt = false;
+                _activeSession            = null;
+                _pendingZonePrompt        = false;
+                _pendingRpTagPrompt       = false;
+                _pendingRpTagActivePrompt = false;
                 _config.ActiveSessionId = null;
                 _config.Save();
                 ShowSuccess("Session terminée.");
@@ -305,6 +310,30 @@ public class MySessionWindow : Window
         ImGui.Separator();
         ImGui.Spacing();
 
+        // ── Suggestion : tag RP activé ──────────────────────────────────────────
+        if (_pendingRpTagActivePrompt)
+        {
+            var dl    = ImGui.GetWindowDrawList();
+            var avail = ImGui.GetContentRegionAvail().X;
+            var p0    = ImGui.GetCursorScreenPos();
+            dl.ChannelsSplit(2);
+            dl.ChannelsSetCurrent(1);
+            ImGui.Spacing();
+            ImGui.Indent(8f);
+            ImGui.TextColored(new Vector4(0.3f, 0.9f, 0.5f, 1f), "✦  Tag RP activé !");
+            ImGui.TextWrapped("Vous êtes en mode RP. Souhaitez-vous annoncer une session RP sauvage ?");
+            ImGui.Spacing();
+            if (ImGui.SmallButton("Ignorer##rptag_active")) { _pendingRpTagActivePrompt = false; IsOpen = false; }
+            ImGui.Unindent(8f);
+            ImGui.Spacing();
+            var p1 = ImGui.GetCursorScreenPos();
+            dl.ChannelsSetCurrent(0);
+            dl.AddRectFilled(p0, new Vector2(p0.X + avail, p1.Y), ImGui.GetColorU32(new Vector4(0.3f, 0.9f, 0.5f, 0.10f)), 4f);
+            dl.AddRect(      p0, new Vector2(p0.X + avail, p1.Y), ImGui.GetColorU32(new Vector4(0.3f, 0.9f, 0.5f, 0.45f)), 4f);
+            dl.ChannelsMerge();
+            ImGui.Spacing();
+        }
+
         var world   = GetCurrentWorld();
         var zone    = GetCurrentZone();
         var pos     = GetCurrentPosition();
@@ -328,6 +357,10 @@ public class MySessionWindow : Window
         ImGui.InputText("##title", ref _title, 100);
 
         ImGui.Spacing();
+        // Pré-remplissage automatique si le champ est vide
+        if (string.IsNullOrEmpty(_characterName))
+            _characterName = GetCharacterName();
+
         ImGui.Text("Nom du personnage");
         ImGui.SetNextItemWidth(-80);
         ImGui.InputText("##charname", ref _characterName, 60);
@@ -378,11 +411,9 @@ public class MySessionWindow : Window
             ImGui.TextColored(new Vector4(1f, 0.75f, 0.1f, 1f), "⚠  Changement de zone détecté");
             ImGui.TextWrapped("Voulez-vous mettre à jour votre emplacement ou terminer la session ?");
             ImGui.Spacing();
-            if (ImGui.SmallButton("Sync depuis le jeu"))   { _pendingZonePrompt = false; RefreshPosition(); }
+            if (ImGui.SmallButton("Update de la position")) { _pendingZonePrompt = false; RefreshPosition(); }
             ImGui.SameLine();
-            if (ImGui.SmallButton("Terminer##zone"))       { _pendingZonePrompt = false; EndSession(); }
-            ImGui.SameLine();
-            if (ImGui.SmallButton("Ignorer##zone"))          _pendingZonePrompt = false;
+            if (ImGui.SmallButton("Ignorer##zone"))        { _pendingZonePrompt = false; IsOpen = false; }
             ImGui.Unindent(8f);
             ImGui.Spacing();
             var p1 = ImGui.GetCursorScreenPos();
@@ -449,7 +480,7 @@ public class MySessionWindow : Window
                     _editing   = true;
                 }
                 ImGui.SameLine();
-                if (ImGui.Button("Sync depuis le jeu", new Vector2(150, 0)))
+                if (ImGui.Button("Update de la position", new Vector2(150, 0)))
                     RefreshPosition();
                 ImGui.SameLine();
                 if (ImGui.Button("Prolonger (+1h)", new Vector2(120, 0)))

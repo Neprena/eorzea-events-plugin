@@ -165,6 +165,12 @@ public class ApiClient : IDisposable
         return res.IsSuccessStatusCode;
     }
 
+    public async Task HeartbeatAsync(CancellationToken ct = default)
+    {
+        try { await _http.PostAsync("api/plugin/heartbeat", null, ct); }
+        catch { /* silencieux */ }
+    }
+
     public async Task<RpSessionDto?> GetSessionAsync(string sessionId, CancellationToken ct = default)
     {
         var sessions = await GetActiveSessionsAsync(ct);

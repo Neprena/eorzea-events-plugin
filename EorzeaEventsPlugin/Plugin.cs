@@ -54,6 +54,10 @@ public sealed class Plugin : IDalamudPlugin
     private DateTime _lastEventsCheck = DateTime.MinValue;
     private const int EventsPollIntervalSeconds = 5;
 
+    // Heartbeat plugin (toutes les 60 s, seulement si token configuré)
+    private DateTime _lastHeartbeat = DateTime.MinValue;
+    private const int HeartbeatIntervalSeconds = 60;
+
     // Surveillance tag RP
     private uint       _lastRpStatus    = 0;
     private const uint RpOnlineStatusId = 22; // "Role-playing" dans FFXIV
@@ -185,11 +189,19 @@ public sealed class Plugin : IDalamudPlugin
             Task.Run(async () => await CheckNewSessionsAsync(currentWorld));
         }
 
-        // Evénements en cours (5 min)
+        // Evénements en cours (5 s)
         if ((now - _lastEventsCheck).TotalSeconds >= EventsPollIntervalSeconds)
         {
             _lastEventsCheck = now;
             Task.Run(async () => await CheckOngoingEventsAsync());
+        }
+
+        // Heartbeat (60 s) — seulement si token configuré
+        if (!string.IsNullOrWhiteSpace(Config.ApiToken)
+            && (now - _lastHeartbeat).TotalSeconds >= HeartbeatIntervalSeconds)
+        {
+            _lastHeartbeat = now;
+            Task.Run(async () => await Api.HeartbeatAsync());
         }
 
         // Polling session active (fenêtre ouverte ou non)

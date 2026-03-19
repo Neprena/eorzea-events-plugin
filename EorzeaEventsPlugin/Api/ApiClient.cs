@@ -171,6 +171,17 @@ public class ApiClient : IDisposable
         return res.IsSuccessStatusCode;
     }
 
+    // Retourne les IDs des sessions actives appartenant à l'utilisateur authentifié
+    public async Task<HashSet<string>> GetMySessionIdsAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var res = await _http.GetFromJsonAsync<List<string>>("api/rp-sessions/mine", JsonOptions, ct);
+            return res != null ? [..res] : [];
+        }
+        catch { return []; }
+    }
+
     public async Task HeartbeatAsync(CancellationToken ct = default)
     {
         try { await _http.PostAsync("api/plugin/heartbeat", null, ct); }

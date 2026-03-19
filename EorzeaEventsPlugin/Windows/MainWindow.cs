@@ -1,8 +1,10 @@
 using Dalamud.Interface.Windowing;
 using EorzeaEventsPlugin.Api;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Game.Text.SeStringHandling.Payloads;
 using Lumina.Excel.Sheets;
+using System.Linq;
 using System.Numerics;
 
 namespace EorzeaEventsPlugin.Windows;
@@ -52,7 +54,11 @@ public class MainWindow : Window
         var coords = MapHelper.WorldToMapCoords(posX, posZ, mapId);
         if (coords == null) return;
 
-        var payload = new MapLinkPayload(terId, mapId, coords.Value.x, coords.Value.y);
+        // SeString.CreateMapLink construit le payload natif FFXIV (flag + navigation)
+        var seStr   = SeString.CreateMapLink(terId, mapId, coords.Value.x, coords.Value.y);
+        var payload = seStr.Payloads.OfType<MapLinkPayload>().FirstOrDefault();
+        if (payload == null) return;
+
         Plugin.GameGui.OpenMapWithMapLink(payload);
     }
 
@@ -214,19 +220,22 @@ public class MainWindow : Window
             ImGui.TextDisabled($"  {s.CharacterName}");
         if (!string.IsNullOrEmpty(s.Description))
             ImGui.TextDisabled($"  {s.Description}");
-        if (s.PosX.HasValue && s.PosZ.HasValue && s.MapId.HasValue)
+        if (s.TerritoryId.HasValue && s.MapId.HasValue && s.PosX.HasValue && s.PosZ.HasValue)
         {
-            var coords = MapHelper.WorldToMapCoords(s.PosX.Value, s.PosZ.Value, s.MapId.Value);
+            var coords   = MapHelper.WorldToMapCoords(s.PosX.Value, s.PosZ.Value, s.MapId.Value);
+            var btnWidth = ImGui.CalcTextSize("Carte").X + ImGui.GetStyle().FramePadding.X * 2;
+            var rightX   = ImGui.GetWindowWidth() - btnWidth - ImGui.GetStyle().WindowPadding.X;
             if (coords.HasValue)
+            {
                 ImGui.TextDisabled($"  X {coords.Value.x:F1}  Y {coords.Value.y:F1}");
-        }
-        if (s.TerritoryId.HasValue && s.PosX.HasValue && s.PosZ.HasValue)
-        {
+                ImGui.SameLine(rightX);
+            }
+            else
+                ImGui.SetCursorPosX(rightX);
             if (ImGui.SmallButton($"Carte##map_{s.Id}"))
                 Plugin.Framework.RunOnFrameworkThread(() => OpenOnMap(s));
-            ImGui.SameLine();
         }
-        if (!Plugin.HasActiveSession)
+        if (!Plugin.HasActiveSession && Plugin.MySessionIds.Contains(s.Id))
         {
             if (ImGui.SmallButton($"Reprendre##claim_{s.Id}"))
                 Plugin.ClaimSession(s);

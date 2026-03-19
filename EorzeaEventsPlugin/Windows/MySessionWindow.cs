@@ -364,7 +364,12 @@ public class MySessionWindow : Window
             ImGui.TextDisabled($"Logement : {loc}");
         }
         if (pos.HasValue)
-            ImGui.TextDisabled($"Position : X {pos.Value.x:F1}   Y {pos.Value.z:F1}");
+        {
+            var c = MapHelper.WorldToCurrentMapCoords(pos.Value.x, pos.Value.z);
+            ImGui.TextDisabled(c.HasValue
+                ? $"Position : X {c.Value.x:F1}   Y {c.Value.y:F1}"
+                : $"Position : X {pos.Value.x:F1}   Y {pos.Value.z:F1}");
+        }
         ImGui.Spacing();
 
         ImGui.Text("Titre *");
@@ -481,16 +486,9 @@ public class MySessionWindow : Window
             var livePos = GetCurrentPosition();
             if (livePos.HasValue)
             {
-                var mapId  = Plugin.DataManager.GetExcelSheet<TerritoryType>()
-                                   ?.GetRowOrDefault(Plugin.ClientState.TerritoryType)
-                                   ?.Map.RowId;
-                var coords = mapId.HasValue
-                    ? MapHelper.WorldToMapCoords(livePos.Value.x, livePos.Value.z, mapId.Value)
-                    : null;
+                var coords = MapHelper.WorldToCurrentMapCoords(livePos.Value.x, livePos.Value.z);
                 if (coords.HasValue)
                     ImGui.TextDisabled($"Pos   : X {coords.Value.x:F1}   Y {coords.Value.y:F1}");
-                else
-                    ImGui.TextDisabled($"Pos   : X {livePos.Value.x:F1}   Y {livePos.Value.z:F1}");
             }
 
             ImGui.Spacing();

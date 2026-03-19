@@ -31,5 +31,8 @@ public class Configuration : IPluginConfiguration
     /// <summary>Proposer de terminer la session quand le tag RP est retiré.</summary>
     public bool AlertOnRpTagRemoved { get; set; } = true;
 
+    /// <summary>Proposer de démarrer une session quand le tag RP est activé sans session en cours.</summary>
+    public bool SuggestSessionOnRpTag { get; set; } = true;
+
     public void Save() => Plugin.PluginInterface.SavePluginConfig(this);
 }

@@ -188,19 +188,28 @@ public sealed class Plugin : IDalamudPlugin
         _sessionWindow?.PollSessionStatus();
 
         // Surveillance tag RP (chaque frame, lecture uint = négligeable)
-        if (Config.AlertOnRpTagRemoved && _sessionWindow is { HasActiveSession: true })
+        var rpPlayer = ObjectTable.LocalPlayer;
+        if (rpPlayer != null) // null = écran de chargement, on ignore
         {
-            var player = ObjectTable.LocalPlayer;
-            if (player != null) // null = écran de chargement, on ignore
+            var current = rpPlayer.OnlineStatus.RowId;
+
+            // Tag RP activé sans session en cours → proposer de démarrer une session
+            if (Config.SuggestSessionOnRpTag && _sessionWindow is { HasActiveSession: false }
+                && _lastRpStatus != RpOnlineStatusId && current == RpOnlineStatusId)
             {
-                var current = player.OnlineStatus.RowId;
-                if (_lastRpStatus == RpOnlineStatusId && current != RpOnlineStatusId)
-                {
-                    _sessionWindow.OnRpTagRemoved();
-                    _sessionWindow.IsOpen = true;
-                }
-                _lastRpStatus = current; // player != null suffit à exclure les écrans de chargement
+                _sessionWindow.OnRpTagActivated();
+                _sessionWindow.IsOpen = true;
             }
+
+            // Tag RP retiré avec session en cours → proposer de terminer
+            if (Config.AlertOnRpTagRemoved && _sessionWindow is { HasActiveSession: true }
+                && _lastRpStatus == RpOnlineStatusId && current != RpOnlineStatusId)
+            {
+                _sessionWindow.OnRpTagRemoved();
+                _sessionWindow.IsOpen = true;
+            }
+
+            _lastRpStatus = current;
         }
     }
 

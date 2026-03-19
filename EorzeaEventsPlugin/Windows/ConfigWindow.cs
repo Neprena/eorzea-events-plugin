@@ -14,6 +14,7 @@ public class ConfigWindow : Window
     private bool   _notifyMyWorld;
     private bool   _alertOnZoneChange;
     private bool   _alertOnRpTagRemoved;
+    private bool   _suggestSessionOnRpTag;
 
     public ConfigWindow(Configuration config) : base("Eorzea Events — Configuration##config")
     {
@@ -27,8 +28,9 @@ public class ConfigWindow : Window
         _notifyRpLive        = config.NotifyRpLive;
         _notifyRpLiveChat    = config.NotifyRpLiveChat;
         _notifyMyWorld       = config.NotifyMyWorld;
-        _alertOnZoneChange   = config.AlertOnZoneChange;
-        _alertOnRpTagRemoved = config.AlertOnRpTagRemoved;
+        _alertOnZoneChange     = config.AlertOnZoneChange;
+        _alertOnRpTagRemoved   = config.AlertOnRpTagRemoved;
+        _suggestSessionOnRpTag = config.SuggestSessionOnRpTag;
     }
 
     public override void Draw()
@@ -74,6 +76,7 @@ public class ConfigWindow : Window
         // Alertes session
         ImGui.TextColored(new Vector4(0.78f, 0.64f, 0.35f, 1), "Alertes de session RP");
         ImGui.Spacing();
+        ImGui.Checkbox("Proposer de démarrer une session quand le tag RP est activé", ref _suggestSessionOnRpTag);
         ImGui.Checkbox("Alerter après un changement de zone ou un TP", ref _alertOnZoneChange);
         ImGui.Checkbox("Alerter quand le tag RP est retiré", ref _alertOnRpTagRemoved);
 
@@ -87,8 +90,9 @@ public class ConfigWindow : Window
             _config.NotifyRpLive        = _notifyRpLive;
             _config.NotifyRpLiveChat    = _notifyRpLiveChat;
             _config.NotifyMyWorld       = _notifyMyWorld;
-            _config.AlertOnZoneChange   = _alertOnZoneChange;
-            _config.AlertOnRpTagRemoved = _alertOnRpTagRemoved;
+            _config.SuggestSessionOnRpTag = _suggestSessionOnRpTag;
+            _config.AlertOnZoneChange     = _alertOnZoneChange;
+            _config.AlertOnRpTagRemoved   = _alertOnRpTagRemoved;
             _config.Save();
             Plugin.RebuildApiClient();
             IsOpen = false;
@@ -100,8 +104,9 @@ public class ConfigWindow : Window
             _notifyRpLive        = _config.NotifyRpLive;
             _notifyRpLiveChat    = _config.NotifyRpLiveChat;
             _notifyMyWorld       = _config.NotifyMyWorld;
-            _alertOnZoneChange   = _config.AlertOnZoneChange;
-            _alertOnRpTagRemoved = _config.AlertOnRpTagRemoved;
+            _suggestSessionOnRpTag = _config.SuggestSessionOnRpTag;
+            _alertOnZoneChange     = _config.AlertOnZoneChange;
+            _alertOnRpTagRemoved   = _config.AlertOnRpTagRemoved;
             IsOpen = false;
         }
     }

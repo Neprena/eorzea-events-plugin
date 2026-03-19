@@ -1,6 +1,7 @@
 using Dalamud.Interface.Windowing;
 using EorzeaEventsPlugin.Api;
 using Dalamud.Bindings.ImGui;
+using Lumina.Excel.Sheets;
 using System.Numerics;
 
 namespace EorzeaEventsPlugin.Windows;
@@ -84,6 +85,13 @@ public class MainWindow : Window
 
     // ─── Tab: Session RP sauvage ──────────────────────────────────────────────
 
+    private string? GetCurrentZoneName()
+    {
+        var sheet = Plugin.DataManager.GetExcelSheet<TerritoryType>();
+        var row   = sheet?.GetRowOrDefault(Plugin.ClientState.TerritoryType);
+        return row?.PlaceName.Value.Name.ToString();
+    }
+
     private void DrawRpSauvageTab()
     {
         ImGui.Spacing();
@@ -113,33 +121,53 @@ public class MainWindow : Window
         // Liste des sessions (laisse de la place pour le bouton en bas)
         if (!_sessionsLoading)
         {
-            if (_sessionsList.All(s => s.EndedAt != null))
+            var activeSessions = _sessionsList.Where(s => s.EndedAt == null).ToList();
+            if (activeSessions.Count == 0)
             {
                 ImGui.TextDisabled("Aucune session RP sauvage pour le moment.");
                 ImGui.TextDisabled("Soyez le premier a en demarrer une !");
             }
             else
             {
+                // Détection des sessions "proches" : même serveur et même zone
+                var currentWorld = Plugin.ObjectTable.LocalPlayer?.CurrentWorld.Value.Name.ToString();
+                var currentZone  = GetCurrentZoneName();
+
+                List<RpSessionDto> nearby = [];
+                List<RpSessionDto> others = [];
+                foreach (var s in activeSessions)
+                {
+                    if (currentWorld != null && currentZone != null
+                        && s.Server == currentWorld && s.Location == currentZone)
+                        nearby.Add(s);
+                    else
+                        others.Add(s);
+                }
+
                 if (!ImGui.BeginChild("##sessionsscroll", new Vector2(-1, -110), false))
                     goto DrawButton;
-                foreach (var s in _sessionsList.Where(s => s.EndedAt == null))
+
+                // ── Section "Dans votre zone" ──────────────────────────────────
+                if (nearby.Count > 0)
                 {
-                    ImGui.TextColored(new Vector4(0.78f, 0.64f, 0.35f, 1), s.Title);
-                    ImGui.SameLine(0, 8);
-                    ImGui.TextDisabled($"— {s.Location} ({s.Server})");
-                    if (!string.IsNullOrEmpty(s.CharacterName))
-                        ImGui.TextDisabled($"  {s.CharacterName}");
-                    if (!string.IsNullOrEmpty(s.Description))
-                        ImGui.TextDisabled($"  {s.Description}");
-                    if (s.PosX.HasValue && s.PosZ.HasValue)
-                        ImGui.TextDisabled($"  X {s.PosX.Value:F1}  Y {s.PosZ.Value:F1}");
-                    if (!Plugin.HasActiveSession)
+                    ImGui.TextColored(new Vector4(0.3f, 0.9f, 0.5f, 1f),
+                        $"✦  Dans votre zone ({currentZone})");
+                    ImGui.Spacing();
+                    foreach (var s in nearby)
+                        DrawSessionEntry(s);
+
+                    if (others.Count > 0)
                     {
-                        if (ImGui.SmallButton($"Reprendre##claim_{s.Id}"))
-                            Plugin.ClaimSession(s);
+                        ImGui.Spacing();
+                        ImGui.TextDisabled("── Autres serveurs ──────────────────────────────────");
+                        ImGui.Spacing();
                     }
-                    ImGui.Separator();
                 }
+
+                // ── Autres sessions ────────────────────────────────────────────
+                foreach (var s in others)
+                    DrawSessionEntry(s);
+
                 ImGui.EndChild();
             }
         }
@@ -162,6 +190,25 @@ public class MainWindow : Window
             if (ImGui.Button("Nouvelle session RP sauvage", new Vector2(-1, 0)))
                 Plugin.OpenMySession();
         }
+    }
+
+    private void DrawSessionEntry(RpSessionDto s)
+    {
+        ImGui.TextColored(new Vector4(0.78f, 0.64f, 0.35f, 1), s.Title);
+        ImGui.SameLine(0, 8);
+        ImGui.TextDisabled($"— {s.Location} ({s.Server})");
+        if (!string.IsNullOrEmpty(s.CharacterName))
+            ImGui.TextDisabled($"  {s.CharacterName}");
+        if (!string.IsNullOrEmpty(s.Description))
+            ImGui.TextDisabled($"  {s.Description}");
+        if (s.PosX.HasValue && s.PosZ.HasValue)
+            ImGui.TextDisabled($"  X {s.PosX.Value:F1}  Y {s.PosZ.Value:F1}");
+        if (!Plugin.HasActiveSession)
+        {
+            if (ImGui.SmallButton($"Reprendre##claim_{s.Id}"))
+                Plugin.ClaimSession(s);
+        }
+        ImGui.Separator();
     }
 
     // ─── Tab: Événements ──────────────────────────────────────────────────────

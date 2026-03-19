@@ -16,11 +16,14 @@ public class Configuration : IPluginConfiguration
     /// <summary>ID de la session RP en cours (null si aucune).</summary>
     public string? ActiveSessionId { get; set; }
 
-    /// <summary>Notifier quand une nouvelle session RP Live démarre (toast).</summary>
-    public bool NotifyRpLive  { get; set; } = true;
+    /// <summary>Alerte écran (toast natif FFXIV) pour les nouvelles sessions RP Live.</summary>
+    public bool NotifyRpLiveScreen { get; set; } = true;
+
+    /// <summary>Notifier quand une nouvelle session RP Live démarre (toast Dalamud, coin de l'écran).</summary>
+    public bool NotifyRpLive { get; set; } = false;
 
     /// <summary>Annoncer les nouvelles sessions RP dans le chat du jeu.</summary>
-    public bool NotifyRpLiveChat { get; set; } = true;
+    public bool NotifyRpLiveChat { get; set; } = false;
 
     /// <summary>Limiter les notifications au monde courant du joueur.</summary>
     public bool NotifyMyWorld { get; set; } = true;
@@ -33,6 +36,9 @@ public class Configuration : IPluginConfiguration
 
     /// <summary>Proposer de démarrer une session quand le tag RP est activé sans session en cours.</summary>
     public bool SuggestSessionOnRpTag { get; set; } = true;
+
+    /// <summary>Notifier (toast) quand une nouvelle session RP démarre dans la zone courante du joueur.</summary>
+    public bool NotifyNearbyZone { get; set; } = true;
 
     public void Save() => Plugin.PluginInterface.SavePluginConfig(this);
 }

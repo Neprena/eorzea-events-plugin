@@ -9,6 +9,7 @@ using Dalamud.Interface.Windowing;
 using Dalamud.Interface.ImGuiNotification;
 using EorzeaEventsPlugin.Api;
 using EorzeaEventsPlugin.Windows;
+using Lumina.Excel.Sheets;
 
 namespace EorzeaEventsPlugin;
 
@@ -29,6 +30,7 @@ public sealed class Plugin : IDalamudPlugin
     [PluginService] internal static IObjectTable            ObjectTable     { get; private set; } = null!;
     [PluginService] internal static IDtrBar                 DtrBar          { get; private set; } = null!;
     [PluginService] internal static IChatGui                ChatGui         { get; private set; } = null!;
+    [PluginService] internal static IToastGui               ToastGui        { get; private set; } = null!;
 
     internal static Configuration Config { get; private set; } = null!;
     internal static ApiClient     Api    { get; private set; } = null!;
@@ -55,6 +57,9 @@ public sealed class Plugin : IDalamudPlugin
     // Surveillance tag RP
     private uint       _lastRpStatus    = 0;
     private const uint RpOnlineStatusId = 22; // "Role-playing" dans FFXIV
+
+    // Zone courante (mise à jour au changement de territoire)
+    internal static string? CurrentZone { get; private set; }
 
     public Plugin()
     {
@@ -99,6 +104,9 @@ public sealed class Plugin : IDalamudPlugin
 
         if (!string.IsNullOrWhiteSpace(Config.ActiveSessionId))
             RestoreSession();
+
+        // Initialiser la zone courante
+        CurrentZone = ResolveTerritoryName(ClientState.TerritoryType);
     }
 
     private void OnCommand(string command, string args)
@@ -235,24 +243,44 @@ public sealed class Plugin : IDalamudPlugin
             foreach (var session in sessions)
             {
                 if (_knownSessionIds.Contains(session.Id)) continue;
-                if (Config.NotifyMyWorld && currentWorld != null && session.Server != currentWorld) continue;
 
-                if (Config.NotifyRpLive)
-                    NotificationMgr.AddNotification(new Notification
-                    {
-                        Title           = "Nouvelle session RP Live",
-                        Content         = $"{session.Title} — {session.Location} ({session.Server})",
-                        Type            = NotificationType.Info,
-                        InitialDuration = TimeSpan.FromSeconds(6),
-                    });
+                var isNearby = currentWorld != null && CurrentZone != null
+                    && session.Server == currentWorld && session.Location == CurrentZone;
 
-                if (Config.NotifyRpLiveChat)
-                    ChatGui.Print(new SeStringBuilder()
-                        .AddUiForeground(32)
-                        .AddText("[Eorzea Events] ")
-                        .AddUiForegroundOff()
-                        .AddText($"Nouvelle session RP : {session.Title} — {session.Location} ({session.Server})")
-                        .Build());
+                // Alerte "dans votre zone" — ShowQuest pour le son + style doré
+                if (isNearby && Config.NotifyNearbyZone)
+                {
+                    ToastGui.ShowQuest(
+                        $"Session RP dans votre zone !\n{session.Title}",
+                        new Dalamud.Game.Gui.Toast.QuestToastOptions { PlaySound = true, DisplayCheckmark = false });
+                }
+                // Notifications globales (filtrées si "mon monde" est coché)
+                else
+                {
+                    if (Config.NotifyMyWorld && currentWorld != null && session.Server != currentWorld) continue;
+
+                    if (Config.NotifyRpLiveScreen)
+                        ToastGui.ShowNormal(
+                            $"Nouvelle session RP !\n{session.Title} — {session.Location} ({session.Server})",
+                            new Dalamud.Game.Gui.Toast.ToastOptions { Speed = Dalamud.Game.Gui.Toast.ToastSpeed.Slow });
+
+                    if (Config.NotifyRpLive)
+                        NotificationMgr.AddNotification(new Notification
+                        {
+                            Title           = "Nouvelle session RP Live",
+                            Content         = $"{session.Title} — {session.Location} ({session.Server})",
+                            Type            = NotificationType.Info,
+                            InitialDuration = TimeSpan.FromSeconds(6),
+                        });
+
+                    if (Config.NotifyRpLiveChat)
+                        ChatGui.Print(new SeStringBuilder()
+                            .AddUiForeground(32)
+                            .AddText("[Eorzea Events] ")
+                            .AddUiForegroundOff()
+                            .AddText($"Nouvelle session RP : {session.Title} — {session.Location} ({session.Server})")
+                            .Build());
+                }
             }
 
             _knownSessionIds = ids;
@@ -304,8 +332,17 @@ public sealed class Plugin : IDalamudPlugin
         });
     }
 
+    private static string? ResolveTerritoryName(ushort territoryId)
+    {
+        var sheet = DataManager.GetExcelSheet<TerritoryType>();
+        var row   = sheet?.GetRowOrDefault(territoryId);
+        return row?.PlaceName.Value.Name.ToString();
+    }
+
     private void OnTerritoryChanged(ushort territory)
     {
+        CurrentZone = ResolveTerritoryName(territory);
+
         if (Config.AlertOnZoneChange && _sessionWindow is { HasActiveSession: true })
         {
             _sessionWindow.OnZoneChanged();

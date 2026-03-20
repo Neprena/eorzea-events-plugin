@@ -78,6 +78,12 @@ public class MainWindow : Window
 
     public override void Draw()
     {
+        if (Plugin.IsBlocked)
+        {
+            DrawBlockedScreen();
+            return;
+        }
+
         if (!ImGui.BeginTabBar("##maintabs")) return;
 
         if (ImGui.BeginTabItem("Session RP sauvage"))
@@ -109,6 +115,45 @@ public class MainWindow : Window
         var sheet = Plugin.DataManager.GetExcelSheet<TerritoryType>();
         var row   = sheet?.GetRowOrDefault(Plugin.ClientState.TerritoryType);
         return row?.PlaceName.Value.Name.ToString();
+    }
+
+    private static void DrawBlockedScreen()
+    {
+        var windowSize  = ImGui.GetContentRegionAvail();
+        var iconSize    = new Vector2(48, 48);
+        var textPadding = 16f;
+
+        // Centrer verticalement
+        ImGui.SetCursorPosY((windowSize.Y - 200f) * 0.5f);
+
+        // Icône d'avertissement centrée
+        var iconX = (windowSize.X - iconSize.X) * 0.5f;
+        ImGui.SetCursorPosX(iconX);
+        ImGui.TextColored(new Vector4(1f, 0.4f, 0.4f, 1f), "  ⚠");
+        ImGui.Dummy(new Vector2(0, 4));
+
+        // Message centré
+        var lines = Plugin.BlockedMessage.Split('\n');
+        foreach (var line in lines)
+        {
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                ImGui.Dummy(new Vector2(0, 4));
+                continue;
+            }
+            var textSize = ImGui.CalcTextSize(line);
+            var textX    = (windowSize.X - textSize.X) * 0.5f;
+            ImGui.SetCursorPosX(Math.Max(textPadding, textX));
+            ImGui.TextWrapped(line);
+        }
+
+        ImGui.Dummy(new Vector2(0, 12));
+
+        // Indication de commande
+        var hint = "Tape /xlplugins en jeu pour ouvrir le gestionnaire de plugins.";
+        var hintSize = ImGui.CalcTextSize(hint);
+        ImGui.SetCursorPosX((windowSize.X - hintSize.X) * 0.5f);
+        ImGui.TextColored(new Vector4(0.6f, 0.6f, 0.6f, 1f), hint);
     }
 
     private void DrawRpSauvageTab()

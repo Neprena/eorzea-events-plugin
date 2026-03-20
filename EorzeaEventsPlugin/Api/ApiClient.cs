@@ -7,6 +7,12 @@ namespace EorzeaEventsPlugin.Api;
 
 // ─── DTOs ─────────────────────────────────────────────────────────────────────
 
+public class PluginVersionInfoDto
+{
+    [JsonPropertyName("minimum")]        public string Minimum        { get; set; } = "0.0.0";
+    [JsonPropertyName("testingMinimum")] public string TestingMinimum { get; set; } = "0.0.0";
+}
+
 public class RpSessionDto
 {
     [JsonPropertyName("id")]            public string  Id            { get; set; } = string.Empty;
@@ -125,6 +131,15 @@ public class ApiClient : IDisposable
 
     // ─── Public read ─────────────────────────────────────────────────────────
 
+    public async Task<PluginVersionInfoDto?> GetVersionInfoAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _publicHttp.GetFromJsonAsync<PluginVersionInfoDto>("api/plugin/version", JsonOptions, ct);
+        }
+        catch { return null; }
+    }
+
     public async Task<List<RpSessionDto>> GetActiveSessionsAsync(CancellationToken ct = default)
     {
         var res = await _publicHttp.GetFromJsonAsync<List<RpSessionDto>>("api/rp-sessions", JsonOptions, ct);
@@ -185,6 +200,18 @@ public class ApiClient : IDisposable
     public async Task HeartbeatAsync(CancellationToken ct = default)
     {
         try { await _http.PostAsync("api/plugin/heartbeat", null, ct); }
+        catch { /* silencieux */ }
+    }
+
+    // Signale la présence du joueur dans un quartier résidentiel (pour le badge "en ligne" sur le site)
+    // Utilise le clientId anonyme — pas de token requis
+    public async Task PresenceHeartbeatAsync(uint territoryId, string worldName, string clientId, CancellationToken ct = default)
+    {
+        try
+        {
+            var body = new { territoryId, worldName, clientId };
+            await _publicHttp.PostAsJsonAsync("api/presence/heartbeat", body, ct);
+        }
         catch { /* silencieux */ }
     }
 

@@ -59,6 +59,10 @@ public sealed class Plugin : IDalamudPlugin
     private DateTime _lastHeartbeat = DateTime.MinValue;
     private const int HeartbeatIntervalSeconds = 60;
 
+    // Heartbeat présence en venue (toutes les 60 s, seulement si dans un quartier résidentiel)
+    private DateTime _lastPresenceHeartbeat = DateTime.MinValue;
+    private const int PresenceHeartbeatIntervalSeconds = 60;
+
     // Surveillance tag RP
     private uint       _lastRpStatus    = 0;
     private const uint RpOnlineStatusId = 22; // "Role-playing" dans FFXIV
@@ -70,6 +74,10 @@ public sealed class Plugin : IDalamudPlugin
     internal static HashSet<string> MySessionIds { get; private set; } = [];
     private DateTime _lastMySessionsCheck = DateTime.MinValue;
     private const int MySessionsIntervalSeconds = 30;
+
+    // Version gate — bloque le plugin si la version est trop ancienne
+    internal static bool   IsBlocked      { get; private set; } = false;
+    internal static string BlockedMessage { get; private set; } = string.Empty;
 
     public Plugin()
     {
@@ -118,6 +126,9 @@ public sealed class Plugin : IDalamudPlugin
         // Charger les sessions de l'utilisateur dès le démarrage
         if (!string.IsNullOrWhiteSpace(Config.ApiToken))
             Task.Run(async () => { MySessionIds = await Api.GetMySessionIdsAsync(); });
+
+        // Vérifier la version minimale requise
+        Task.Run(async () => await CheckMinimumVersionAsync());
 
         // Initialiser la zone courante
         CurrentZone = ResolveTerritoryName(ClientState.TerritoryType);
@@ -220,6 +231,17 @@ public sealed class Plugin : IDalamudPlugin
         {
             _lastMySessionsCheck = now;
             Task.Run(async () => { MySessionIds = await Api.GetMySessionIdsAsync(); });
+        }
+
+        // Présence en venue (60 s) — toujours actif si joueur connecté (pas de token requis)
+        if (ClientState.IsLoggedIn
+            && (now - _lastPresenceHeartbeat).TotalSeconds >= PresenceHeartbeatIntervalSeconds)
+        {
+            _lastPresenceHeartbeat = now;
+            var territory = ClientState.TerritoryType;
+            var world     = ObjectTable.LocalPlayer?.CurrentWorld.Value.Name.ToString();
+            if (territory > 0 && !string.IsNullOrWhiteSpace(world))
+                Task.Run(async () => await Api.PresenceHeartbeatAsync(territory, world, Config.ClientId));
         }
 
         // Polling session active (fenêtre ouverte ou non)
@@ -337,6 +359,32 @@ public sealed class Plugin : IDalamudPlugin
             SetDtrEvents(count);
         }
         catch { /* silencieux */ }
+    }
+
+    private static async Task CheckMinimumVersionAsync()
+    {
+        try
+        {
+            var info = await Api.GetVersionInfoAsync();
+            if (info == null) return;
+
+            var current     = PluginInterface.Manifest.AssemblyVersion;
+            var minimumStr  = PluginInterface.IsTesting ? info.TestingMinimum : info.Minimum;
+            if (!Version.TryParse(minimumStr, out var minimum)) return;
+            if (current >= minimum) return;
+
+            IsBlocked      = true;
+            BlockedMessage = $"Le plugin nécessite une mise à jour.\n\n" +
+                             $"Version installée : {current.Major}.{current.Minor}.{current.Build}\n" +
+                             $"Version minimale  : {minimum.Major}.{minimum.Minor}.{minimum.Build}\n\n" +
+                             $"Ouvre le gestionnaire de plugins pour mettre à jour Eorzea Events.";
+
+            Log.Warning($"[EorzeaEvents] Plugin bloqué — version {current} < minimum {minimum}");
+        }
+        catch (Exception ex)
+        {
+            Log.Warning($"[EorzeaEvents] Impossible de vérifier la version minimale : {ex.Message}");
+        }
     }
 
     private void RestoreSession()

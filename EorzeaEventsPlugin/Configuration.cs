@@ -10,6 +10,9 @@ public class Configuration : IPluginConfiguration
     /// <summary>Token API généré depuis le dashboard Eorzea Events.</summary>
     public string ApiToken { get; set; } = string.Empty;
 
+    /// <summary>Identifiant anonyme unique généré automatiquement pour les heartbeats de présence.</summary>
+    public string ClientId { get; set; } = Guid.NewGuid().ToString();
+
     /// <summary>URL de base de l'API (sans slash final).</summary>
     public string BaseUrl { get; set; } = "https://eorzea.events";
 

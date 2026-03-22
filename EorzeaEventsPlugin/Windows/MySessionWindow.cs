@@ -66,9 +66,7 @@ public class MySessionWindow : Window
     private (uint territoryId, uint mapId) GetCurrentTerritoryMap()
     {
         var territoryId = (uint)Plugin.ClientState.TerritoryType;
-        var sheet       = Plugin.DataManager.GetExcelSheet<TerritoryType>();
-        var row         = sheet?.GetRowOrDefault(Plugin.ClientState.TerritoryType);
-        var mapId       = row?.Map.RowId ?? 0u;
+        var mapId       = Plugin.ClientState.MapId; // sous-map active (logement, etc.)
         return (territoryId, mapId);
     }
 
@@ -121,9 +119,8 @@ public class MySessionWindow : Window
         var pos      = GetCurrentPosition();
         var housing  = GetCurrentHousing();
         var (terId, mapId) = GetCurrentTerritoryMap();
-        var mapCoords = (pos.HasValue && mapId > 0)
-            ? MapHelper.WorldToMapCoords(pos.Value.x, pos.Value.z, mapId)
-            : pos.HasValue ? ((float, float)?)(pos.Value.x, pos.Value.z) : null;
+        var mapCoords = pos.HasValue ? MapHelper.WorldToCurrentMapCoords(pos.Value.x, pos.Value.z) : null;
+        Plugin.Log.Debug($"[StartSession] world=({pos?.x:F2},{pos?.z:F2}) mapId={mapId} → map=({mapCoords?.x:F2},{mapCoords?.y:F2})");
         var req = new CreateSessionRequest
         {
             Title         = _title.Trim(),
@@ -216,9 +213,8 @@ public class MySessionWindow : Window
         var world    = GetCurrentWorld();
         var charName = GetCharacterName();
         var (terId, mapId) = GetCurrentTerritoryMap();
-        var mapCoords = (pos.HasValue && mapId > 0)
-            ? MapHelper.WorldToMapCoords(pos.Value.x, pos.Value.z, mapId)
-            : pos.HasValue ? ((float, float)?)(pos.Value.x, pos.Value.z) : null;
+        var mapCoords = pos.HasValue ? MapHelper.WorldToCurrentMapCoords(pos.Value.x, pos.Value.z) : null;
+        Plugin.Log.Debug($"[RefreshPosition] world=({pos?.x:F2},{pos?.z:F2}) mapId={mapId} → map=({mapCoords?.x:F2},{mapCoords?.y:F2})");
         var id  = _activeSession.Id;
         var req = new UpdateSessionRequest
         {
@@ -238,7 +234,14 @@ public class MySessionWindow : Window
             try
             {
                 var updated = await Plugin.Api.UpdateSessionAsync(id, req);
-                if (updated != null) { _activeSession = updated; ShowSuccess("Position mise à jour."); }
+                if (updated != null)
+                {
+                    _activeSession = updated;
+                    var posMsg = (updated.PosX.HasValue && updated.PosZ.HasValue)
+                        ? $" (X {updated.PosX.Value:F1}  Y {updated.PosZ.Value:F1})"
+                        : string.Empty;
+                    ShowSuccess($"Position mise à jour{posMsg}");
+                }
                 else ShowError("Erreur lors de la mise à jour.");
             }
             catch (Exception ex) { ShowError(ex.Message); }
@@ -522,7 +525,6 @@ public class MySessionWindow : Window
                 if (coords.HasValue)
                     ImGui.TextDisabled($"Pos   : X {coords.Value.x:F1}   Y {coords.Value.y:F1}");
             }
-
             ImGui.Spacing();
             ImGui.Separator();
             ImGui.Spacing();

@@ -187,7 +187,19 @@ public class ApiClient : IDisposable
     {
         var res = await _http.PostAsJsonAsync("api/rp-sessions", req, ct);
         HandleAuthResponse(res.StatusCode);
-        if (!res.IsSuccessStatusCode) return null;
+        if (!res.IsSuccessStatusCode)
+        {
+            var body = await res.Content.ReadAsStringAsync(ct);
+            // Essayer d'extraire le champ "error" du JSON
+            try
+            {
+                var err = System.Text.Json.JsonDocument.Parse(body).RootElement;
+                if (err.TryGetProperty("error", out var msg))
+                    throw new Exception(msg.GetString() ?? $"HTTP {(int)res.StatusCode}");
+            }
+            catch (System.Text.Json.JsonException) { }
+            throw new Exception($"HTTP {(int)res.StatusCode}");
+        }
         return await res.Content.ReadFromJsonAsync<RpSessionDto>(JsonOptions, ct);
     }
 
@@ -195,7 +207,18 @@ public class ApiClient : IDisposable
     {
         var res = await _http.PatchAsJsonAsync($"api/rp-sessions/{sessionId}", req, JsonOptions, ct);
         HandleAuthResponse(res.StatusCode);
-        if (!res.IsSuccessStatusCode) return null;
+        if (!res.IsSuccessStatusCode)
+        {
+            var body = await res.Content.ReadAsStringAsync(ct);
+            try
+            {
+                var err = System.Text.Json.JsonDocument.Parse(body).RootElement;
+                if (err.TryGetProperty("error", out var msg))
+                    throw new Exception(msg.GetString() ?? $"HTTP {(int)res.StatusCode}");
+            }
+            catch (System.Text.Json.JsonException) { }
+            throw new Exception($"HTTP {(int)res.StatusCode}");
+        }
         return await res.Content.ReadFromJsonAsync<RpSessionDto>(JsonOptions, ct);
     }
 

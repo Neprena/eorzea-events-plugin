@@ -37,6 +37,19 @@ public class ConfigWindow : Window
         _suggestSessionOnRpTag = config.SuggestSessionOnRpTag;
     }
 
+    public override void OnOpen()
+    {
+        _tokenBuf            = _config.ApiToken;
+        _notifyRpLiveScreen  = _config.NotifyRpLiveScreen;
+        _notifyRpLive        = _config.NotifyRpLive;
+        _notifyRpLiveChat    = _config.NotifyRpLiveChat;
+        _notifyMyWorld       = _config.NotifyMyWorld;
+        _notifyNearbyZone    = _config.NotifyNearbyZone;
+        _alertOnZoneChange   = _config.AlertOnZoneChange;
+        _alertOnRpTagRemoved = _config.AlertOnRpTagRemoved;
+        _suggestSessionOnRpTag = _config.SuggestSessionOnRpTag;
+    }
+
     public override void Draw()
     {
         ImGui.TextWrapped("Collez ici le token API généré depuis votre dashboard Eorzea Events.");

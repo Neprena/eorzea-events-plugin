@@ -121,7 +121,7 @@ public sealed class Plugin : IDalamudPlugin
         SetDtrEvents(0);
 
         if (string.IsNullOrWhiteSpace(Config.ApiToken))
-            _setupWindow.IsOpen = true;
+            OpenSetup();
 
         if (!string.IsNullOrWhiteSpace(Config.ActiveSessionId))
             RestoreSession();
@@ -152,6 +152,14 @@ public sealed class Plugin : IDalamudPlugin
     internal static void OpenConfig()     { if (_configWindow  != null) _configWindow.IsOpen  = true; }
     internal static void OpenMain()       { if (_mainWindow    != null) _mainWindow.IsOpen    = true; }
     internal static void OpenMySession()  { if (_sessionWindow != null) _sessionWindow.IsOpen = true; }
+    internal static void OpenSetup(bool tokenInvalid = false)
+    {
+        // Fermer toutes les autres fenêtres avant de rouvrir l'assistant
+        if (_mainWindow    != null) _mainWindow.IsOpen    = false;
+        if (_sessionWindow != null) _sessionWindow.IsOpen = false;
+        if (_configWindow  != null) _configWindow.IsOpen  = false;
+        _setupWindow?.Restart(tokenInvalid);
+    }
     internal static bool HasActiveSession => _sessionWindow?.HasActiveSession ?? false;
 
     internal static void ClaimSession(RpSessionDto session)
@@ -397,6 +405,8 @@ public sealed class Plugin : IDalamudPlugin
             .Build());
 
         Log.Warning("[EorzeaEvents] Token API invalide — 401 reçu sur le heartbeat.");
+
+        OpenSetup(tokenInvalid: true);
     }
 
     private static async Task CheckMinimumVersionAsync()

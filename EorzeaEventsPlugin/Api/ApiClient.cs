@@ -117,6 +117,7 @@ public class ApiClient : IDisposable
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.Never,
     };
 
     /// <summary>
@@ -192,7 +193,7 @@ public class ApiClient : IDisposable
 
     public async Task<RpSessionDto?> UpdateSessionAsync(string sessionId, UpdateSessionRequest req, CancellationToken ct = default)
     {
-        var res = await _http.PatchAsJsonAsync($"api/rp-sessions/{sessionId}", req, ct);
+        var res = await _http.PatchAsJsonAsync($"api/rp-sessions/{sessionId}", req, JsonOptions, ct);
         HandleAuthResponse(res.StatusCode);
         if (!res.IsSuccessStatusCode) return null;
         return await res.Content.ReadFromJsonAsync<RpSessionDto>(JsonOptions, ct);

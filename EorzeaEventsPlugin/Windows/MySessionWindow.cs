@@ -121,6 +121,9 @@ public class MySessionWindow : Window
         var pos      = GetCurrentPosition();
         var housing  = GetCurrentHousing();
         var (terId, mapId) = GetCurrentTerritoryMap();
+        var mapCoords = (pos.HasValue && mapId > 0)
+            ? MapHelper.WorldToMapCoords(pos.Value.x, pos.Value.z, mapId)
+            : (ValueTuple<float, float>?)null;
         var req = new CreateSessionRequest
         {
             Title         = _title.Trim(),
@@ -128,8 +131,8 @@ public class MySessionWindow : Window
             Location      = GetCurrentZone(),
             Server        = GetCurrentWorld(),
             CharacterName = string.IsNullOrWhiteSpace(_characterName) ? null : _characterName.Trim(),
-            PosX          = pos?.x,
-            PosZ          = pos?.z,
+            PosX          = mapCoords?.Item1,
+            PosZ          = mapCoords?.Item2,
             Ward          = housing?.Ward,
             Plot          = housing?.Plot ?? housing?.Room,
             Duration      = _duration,
@@ -192,11 +195,14 @@ public class MySessionWindow : Window
         var world    = GetCurrentWorld();
         var charName = GetCharacterName();
         var (terId, mapId) = GetCurrentTerritoryMap();
+        var mapCoords = (pos.HasValue && mapId > 0)
+            ? MapHelper.WorldToMapCoords(pos.Value.x, pos.Value.z, mapId)
+            : (ValueTuple<float, float>?)null;
         var id  = _activeSession.Id;
         var req = new UpdateSessionRequest
         {
-            PosX          = pos?.x,
-            PosZ          = pos?.z,
+            PosX          = mapCoords?.Item1,
+            PosZ          = mapCoords?.Item2,
             Ward          = housing?.Ward,
             Plot          = housing?.Plot ?? housing?.Room,
             Location      = zone,

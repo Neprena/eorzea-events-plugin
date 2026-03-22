@@ -79,6 +79,9 @@ public sealed class Plugin : IDalamudPlugin
     internal static bool   IsBlocked      { get; private set; } = false;
     internal static string BlockedMessage { get; private set; } = string.Empty;
 
+    // Token invalide — notification envoyée une seule fois jusqu'au prochain renouvellement
+    private bool _tokenInvalidNotified = false;
+
     public Plugin()
     {
         Config = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
@@ -123,9 +126,13 @@ public sealed class Plugin : IDalamudPlugin
         if (!string.IsNullOrWhiteSpace(Config.ActiveSessionId))
             RestoreSession();
 
-        // Charger les sessions de l'utilisateur dès le démarrage
+        // Charger les sessions de l'utilisateur dès le démarrage + vérifier la validité du token
         if (!string.IsNullOrWhiteSpace(Config.ApiToken))
-            Task.Run(async () => { MySessionIds = await Api.GetMySessionIdsAsync(); });
+            Task.Run(async () =>
+            {
+                MySessionIds = await Api.GetMySessionIdsAsync();
+                CheckTokenValidity();
+            });
 
         // Vérifier la version minimale requise
         Task.Run(async () => await CheckMinimumVersionAsync());
@@ -222,8 +229,16 @@ public sealed class Plugin : IDalamudPlugin
             && (now - _lastHeartbeat).TotalSeconds >= HeartbeatIntervalSeconds)
         {
             _lastHeartbeat = now;
-            Task.Run(async () => await Api.HeartbeatAsync());
+            Task.Run(async () =>
+            {
+                await Api.HeartbeatAsync();
+                CheckTokenValidity();
+            });
         }
+
+        // Réinitialise le flag si le token a été renouvelé et est redevenu valide
+        if (_tokenInvalidNotified && Api.IsTokenValid)
+            _tokenInvalidNotified = false;
 
         // Sessions de l'utilisateur courant (30 s) — seulement si token configuré
         if (!string.IsNullOrWhiteSpace(Config.ApiToken)
@@ -359,6 +374,29 @@ public sealed class Plugin : IDalamudPlugin
             SetDtrEvents(count);
         }
         catch { /* silencieux */ }
+    }
+
+    private void CheckTokenValidity()
+    {
+        if (Api.IsTokenValid || _tokenInvalidNotified) return;
+        _tokenInvalidNotified = true;
+
+        NotificationMgr.AddNotification(new Notification
+        {
+            Title           = "Token API expiré — Eorzea Events",
+            Content         = "Ton token API n'est plus valide. Génère-en un nouveau depuis ton tableau de bord.",
+            Type            = NotificationType.Warning,
+            InitialDuration = TimeSpan.FromSeconds(12),
+        });
+
+        ChatGui.Print(new SeStringBuilder()
+            .AddUiForeground(17) // jaune
+            .AddText("[Eorzea Events] ")
+            .AddUiForegroundOff()
+            .AddText("Token API invalide ou expiré. Génère-en un nouveau depuis ton tableau de bord (/eorzea config).")
+            .Build());
+
+        Log.Warning("[EorzeaEvents] Token API invalide — 401 reçu sur le heartbeat.");
     }
 
     private static async Task CheckMinimumVersionAsync()

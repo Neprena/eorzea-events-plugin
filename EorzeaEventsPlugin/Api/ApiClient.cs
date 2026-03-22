@@ -119,6 +119,14 @@ public class ApiClient : IDisposable
         PropertyNameCaseInsensitive = true,
     };
 
+    /// <summary>
+    /// Devient false dès qu'un appel authentifié reçoit un 401.
+    /// Repasse à true si un appel authentifié réussit (token renouvelé).
+    /// </summary>
+    public bool IsTokenValid { get; private set; } = true;
+
+    public bool HasToken => _http.DefaultRequestHeaders.Authorization != null;
+
     public ApiClient(string baseUrl, string? token = null)
     {
         var baseUri = new Uri(baseUrl.TrimEnd('/') + "/");
@@ -127,6 +135,14 @@ public class ApiClient : IDisposable
         if (!string.IsNullOrWhiteSpace(token))
             _http.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue("Bearer", token);
+    }
+
+    private void HandleAuthResponse(System.Net.HttpStatusCode status)
+    {
+        if (status == System.Net.HttpStatusCode.Unauthorized)
+            IsTokenValid = false;
+        else if ((int)status < 500)
+            IsTokenValid = true;
     }
 
     // ─── Public read ─────────────────────────────────────────────────────────
@@ -169,6 +185,7 @@ public class ApiClient : IDisposable
     public async Task<RpSessionDto?> CreateSessionAsync(CreateSessionRequest req, CancellationToken ct = default)
     {
         var res = await _http.PostAsJsonAsync("api/rp-sessions", req, ct);
+        HandleAuthResponse(res.StatusCode);
         if (!res.IsSuccessStatusCode) return null;
         return await res.Content.ReadFromJsonAsync<RpSessionDto>(JsonOptions, ct);
     }
@@ -176,6 +193,7 @@ public class ApiClient : IDisposable
     public async Task<RpSessionDto?> UpdateSessionAsync(string sessionId, UpdateSessionRequest req, CancellationToken ct = default)
     {
         var res = await _http.PatchAsJsonAsync($"api/rp-sessions/{sessionId}", req, ct);
+        HandleAuthResponse(res.StatusCode);
         if (!res.IsSuccessStatusCode) return null;
         return await res.Content.ReadFromJsonAsync<RpSessionDto>(JsonOptions, ct);
     }
@@ -183,6 +201,7 @@ public class ApiClient : IDisposable
     public async Task<bool> EndSessionAsync(string sessionId, CancellationToken ct = default)
     {
         var res = await _http.DeleteAsync($"api/rp-sessions/{sessionId}", ct);
+        HandleAuthResponse(res.StatusCode);
         return res.IsSuccessStatusCode;
     }
 
@@ -191,15 +210,22 @@ public class ApiClient : IDisposable
     {
         try
         {
-            var res = await _http.GetFromJsonAsync<List<string>>("api/rp-sessions/mine", JsonOptions, ct);
-            return res != null ? [..res] : [];
+            var res = await _http.GetAsync("api/rp-sessions/mine", ct);
+            HandleAuthResponse(res.StatusCode);
+            if (!res.IsSuccessStatusCode) return [];
+            var list = await res.Content.ReadFromJsonAsync<List<string>>(JsonOptions, ct);
+            return list != null ? [..list] : [];
         }
         catch { return []; }
     }
 
     public async Task HeartbeatAsync(CancellationToken ct = default)
     {
-        try { await _http.PostAsync("api/plugin/heartbeat", null, ct); }
+        try
+        {
+            var res = await _http.PostAsync("api/plugin/heartbeat", null, ct);
+            HandleAuthResponse(res.StatusCode);
+        }
         catch { /* silencieux */ }
     }
 

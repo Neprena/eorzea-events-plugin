@@ -84,6 +84,20 @@ public class MainWindow : Window
             return;
         }
 
+        // Bannière token invalide
+        if (Plugin.Api.HasToken && !Plugin.Api.IsTokenValid)
+        {
+            ImGui.PushStyleColor(ImGuiCol.ChildBg, new Vector4(0.6f, 0.3f, 0.0f, 0.35f));
+            ImGui.BeginChild("##tokenwarning", new Vector2(0, 42), false);
+            ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 4);
+            ImGui.TextColored(new Vector4(1f, 0.7f, 0.2f, 1f), "  ⚠  Token API invalide ou expiré.");
+            ImGui.SameLine();
+            ImGui.TextDisabled("Génère-en un nouveau depuis ton tableau de bord (/eorzea config).");
+            ImGui.EndChild();
+            ImGui.PopStyleColor();
+            ImGui.Spacing();
+        }
+
         if (!ImGui.BeginTabBar("##maintabs")) return;
 
         if (ImGui.BeginTabItem("Session RP sauvage"))

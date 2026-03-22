@@ -54,7 +54,6 @@ public class MainWindow : Window
         var coords = MapHelper.WorldToMapCoords(posX, posZ, mapId);
         if (coords == null) return;
 
-        // SeString.CreateMapLink construit le payload natif FFXIV (flag + navigation)
         var seStr   = SeString.CreateMapLink(terId, mapId, coords.Value.x, coords.Value.y);
         var payload = seStr.Payloads.OfType<MapLinkPayload>().FirstOrDefault();
         if (payload == null) return;

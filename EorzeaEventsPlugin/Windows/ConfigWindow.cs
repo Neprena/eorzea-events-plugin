@@ -7,8 +7,6 @@ namespace EorzeaEventsPlugin.Windows;
 public class ConfigWindow : Window
 {
     private readonly Configuration _config;
-    private string _tokenBuf    = string.Empty;
-    private bool   _tokenMasked = true;
     private bool   _notifyRpLiveScreen;
     private bool   _notifyRpLive;
     private bool   _notifyRpLiveChat;
@@ -25,8 +23,7 @@ public class ConfigWindow : Window
             MinimumSize = new Vector2(460, 400),
             MaximumSize = new Vector2(700, 620),
         };
-        _config        = config;
-        _tokenBuf      = config.ApiToken;
+        _config              = config;
         _notifyRpLiveScreen  = config.NotifyRpLiveScreen;
         _notifyRpLive        = config.NotifyRpLive;
         _notifyRpLiveChat    = config.NotifyRpLiveChat;
@@ -39,7 +36,6 @@ public class ConfigWindow : Window
 
     public override void OnOpen()
     {
-        _tokenBuf            = _config.ApiToken;
         _notifyRpLiveScreen  = _config.NotifyRpLiveScreen;
         _notifyRpLive        = _config.NotifyRpLive;
         _notifyRpLiveChat    = _config.NotifyRpLiveChat;
@@ -52,23 +48,17 @@ public class ConfigWindow : Window
 
     public override void Draw()
     {
-        ImGui.TextWrapped("Collez ici le token API généré depuis votre dashboard Eorzea Events.");
-        ImGui.SameLine();
-        if (ImGui.SmallButton("Ouvrir le dashboard"))
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
-                _config.BaseUrl + "/dashboard") { UseShellExecute = true });
-        ImGui.Spacing();
-
-        // Token
+        // Token API — affiché en lecture seule, modifiable via l'assistant
         ImGui.Text("Token API :");
-        ImGui.SetNextItemWidth(-80);
-        if (_tokenMasked)
-            ImGui.InputText("##token", ref _tokenBuf, 256, ImGuiInputTextFlags.Password);
-        else
-            ImGui.InputText("##token", ref _tokenBuf, 256);
         ImGui.SameLine();
-        if (ImGui.Button(_tokenMasked ? "Afficher" : "Masquer"))
-            _tokenMasked = !_tokenMasked;
+        var hasToken = !string.IsNullOrWhiteSpace(_config.ApiToken);
+        if (hasToken)
+            ImGui.TextColored(new Vector4(0.3f, 0.9f, 0.5f, 1f), "Configuré ✓");
+        else
+            ImGui.TextColored(new Vector4(1f, 0.4f, 0.4f, 1f), "Non configuré");
+        ImGui.SameLine();
+        if (ImGui.SmallButton("Modifier##token"))
+            Plugin.OpenSetup(tokenInvalid: !hasToken || !Plugin.Api.IsTokenValid);
 
         ImGui.Spacing();
         ImGui.Separator();
@@ -146,7 +136,6 @@ public class ConfigWindow : Window
 
         if (ImGui.Button("Enregistrer"))
         {
-            _config.ApiToken      = _tokenBuf.Trim();
             _config.NotifyRpLiveScreen  = _notifyRpLiveScreen;
             _config.NotifyRpLive        = _notifyRpLive;
             _config.NotifyRpLiveChat    = _notifyRpLiveChat;
@@ -162,7 +151,6 @@ public class ConfigWindow : Window
         ImGui.SameLine();
         if (ImGui.Button("Annuler"))
         {
-            _tokenBuf      = _config.ApiToken;
             _notifyRpLiveScreen  = _config.NotifyRpLiveScreen;
             _notifyRpLive        = _config.NotifyRpLive;
             _notifyRpLiveChat    = _config.NotifyRpLiveChat;

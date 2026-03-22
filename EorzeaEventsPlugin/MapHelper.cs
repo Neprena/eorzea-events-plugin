@@ -27,17 +27,13 @@ internal static class MapHelper
 
     /// <summary>
     /// Raccourci : convertit des coordonnées monde en coordonnées carte (affichage)
-    /// en résolvant automatiquement la map depuis le territoire actif du joueur.
-    /// Applique deux passes pour correspondre au comportement des sous-maps de logement.
+    /// en utilisant Plugin.ClientState.MapId — la sous-map active du joueur (ex : quartier de logement)
+    /// qui possède le bon sizeFactor/offset pour les coordonnées affichées en jeu.
     /// </summary>
     public static (float x, float y)? WorldToCurrentMapCoords(float worldX, float worldZ)
     {
-        var mapId = Plugin.DataManager.GetExcelSheet<TerritoryType>()
-                          ?.GetRowOrDefault(Plugin.ClientState.TerritoryType)
-                          ?.Map.RowId;
-        if (!mapId.HasValue) return null;
-        var pass1 = WorldToMapCoords(worldX, worldZ, mapId.Value);
-        if (!pass1.HasValue) return null;
-        return WorldToMapCoords(pass1.Value.x, pass1.Value.y, mapId.Value);
+        var mapId = Plugin.ClientState.MapId;
+        if (mapId == 0) return null;
+        return WorldToMapCoords(worldX, worldZ, mapId);
     }
 }

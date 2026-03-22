@@ -51,10 +51,8 @@ public class MainWindow : Window
         if (s.TerritoryId is not { } terId || s.MapId is not { } mapId) return;
         if (s.PosX is not { } posX || s.PosZ is not { } posZ) return;
 
-        var coords = MapHelper.WorldToMapCoords(posX, posZ, mapId);
-        if (coords == null) return;
-
-        var seStr   = SeString.CreateMapLink(terId, mapId, coords.Value.x, coords.Value.y);
+        // posX/posZ sont déjà des coordonnées carte (1–42) — pas de conversion supplémentaire
+        var seStr   = SeString.CreateMapLink(terId, mapId, posX, posZ);
         var payload = seStr.Payloads.OfType<MapLinkPayload>().FirstOrDefault();
         if (payload == null) return;
 
@@ -306,16 +304,10 @@ public class MainWindow : Window
             ImGui.TextDisabled($"  {s.Description}");
         if (s.TerritoryId.HasValue && s.MapId.HasValue && s.PosX.HasValue && s.PosZ.HasValue)
         {
-            var coords   = MapHelper.WorldToMapCoords(s.PosX.Value, s.PosZ.Value, s.MapId.Value);
             var btnWidth = ImGui.CalcTextSize("Carte").X + ImGui.GetStyle().FramePadding.X * 2;
             var rightX   = ImGui.GetWindowWidth() - btnWidth - ImGui.GetStyle().WindowPadding.X;
-            if (coords.HasValue)
-            {
-                ImGui.TextDisabled($"  X {coords.Value.x:F1}  Y {coords.Value.y:F1}");
-                ImGui.SameLine(rightX);
-            }
-            else
-                ImGui.SetCursorPosX(rightX);
+            ImGui.TextDisabled($"  X {s.PosX.Value:F1}  Y {s.PosZ.Value:F1}");
+            ImGui.SameLine(rightX);
             if (ImGui.SmallButton($"Carte##map_{s.Id}"))
                 Plugin.Framework.RunOnFrameworkThread(() => OpenOnMap(s));
         }

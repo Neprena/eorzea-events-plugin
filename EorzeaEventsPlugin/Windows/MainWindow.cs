@@ -344,7 +344,16 @@ public class MainWindow : Window
             return;
         }
 
-        ImGui.TextDisabled($"{_eventsList.Count} evenement(s)");
+        var nowCount   = DateTime.UtcNow;
+        var ongoingCount = _eventsList.Count(e => IsOngoing(e, nowCount));
+        if (ongoingCount > 0)
+        {
+            ImGui.TextColored(new Vector4(0.3f, 0.9f, 0.5f, 1), $"{ongoingCount} en cours");
+            ImGui.SameLine(0, 8);
+            ImGui.TextDisabled($"· {_eventsList.Count} evenement(s) au total");
+        }
+        else
+            ImGui.TextDisabled($"{_eventsList.Count} evenement(s)");
         ImGui.Spacing();
 
         if (!ImGui.BeginChild("##eventsscroll", new Vector2(-1, -1), false)) return;

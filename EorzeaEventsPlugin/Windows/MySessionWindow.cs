@@ -147,18 +147,39 @@ public class MySessionWindow : Window
             try
             {
                 var session = await Plugin.Api.CreateSessionAsync(req);
-                if (session != null)
-                {
-                    _activeSession            = session;
-                    _pendingRpTagActivePrompt = false;
-                    _config.ActiveSessionId   = session.Id;
-                    _config.Save();
-                    ShowSuccess("Session démarrée !");
-                    _title = _description = string.Empty;
-                }
-                else ShowError("Erreur lors de la création.");
+                _activeSession            = session;
+                _pendingRpTagActivePrompt = false;
+                _config.ActiveSessionId   = session!.Id;
+                _config.Save();
+                ShowSuccess("Session démarrée !");
+                _title = _description = string.Empty;
             }
-            catch (Exception ex) { ShowError(ex.Message); }
+            catch (Exception ex)
+            {
+                // 409 : une session est déjà active en base — on tente de la récupérer
+                if (ex.Message.Contains("déjà en cours", StringComparison.OrdinalIgnoreCase)
+                    || ex.Message.Contains("already", StringComparison.OrdinalIgnoreCase))
+                {
+                    try
+                    {
+                        var ids      = await Plugin.Api.GetMySessionIdsAsync();
+                        var firstId  = ids.Count > 0 ? System.Linq.Enumerable.First(ids) : null;
+                        var existing = firstId != null ? await Plugin.Api.GetSessionAsync(firstId) : null;
+                        if (existing != null)
+                        {
+                            _activeSession            = existing;
+                            _pendingRpTagActivePrompt = false;
+                            _config.ActiveSessionId   = existing.Id;
+                            _config.Save();
+                            ShowSuccess("Session existante récupérée.");
+                            _title = _description = string.Empty;
+                            return;
+                        }
+                    }
+                    catch { /* si la récupération échoue, on affiche l'erreur originale */ }
+                }
+                ShowError(ex.Message);
+            }
             finally { _busy = false; }
         });
     }
@@ -296,14 +317,19 @@ public class MySessionWindow : Window
 
     public override void Draw()
     {
-        if (string.IsNullOrWhiteSpace(_config.ApiToken))
+        if (string.IsNullOrWhiteSpace(_config.ApiToken) || !Plugin.Api.IsTokenValid)
         {
+            var tokenMissing = string.IsNullOrWhiteSpace(_config.ApiToken);
             ImGui.Spacing();
-            ImGui.TextColored(new Vector4(1, 0.6f, 0, 1), "Token API non configuré.");
-            ImGui.TextWrapped("Générez un token sur votre dashboard, puis collez-le dans la configuration.");
+            ImGui.TextColored(new Vector4(1, 0.6f, 0, 1),
+                tokenMissing ? "Token API non configuré." : "⚠  Token API invalide ou expiré.");
             ImGui.Spacing();
-            if (ImGui.Button("Ouvrir la configuration"))
-                Plugin.OpenConfig();
+            ImGui.TextWrapped(tokenMissing
+                ? "Génère un token depuis ton dashboard pour accéder aux sessions RP."
+                : "Tu dois générer un nouveau token pour continuer à utiliser le plugin.");
+            ImGui.Spacing();
+            if (ImGui.Button(tokenMissing ? "Configurer maintenant" : "Reconfigurer le token"))
+                Plugin.OpenSetup(tokenInvalid: !tokenMissing);
             return;
         }
 

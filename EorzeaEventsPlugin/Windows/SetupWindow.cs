@@ -10,10 +10,25 @@ public class SetupWindow : Window
 {
     private readonly Configuration            _config;
     private          ISharedImmediateTexture? _banner;
-    private int    _step        = 0;
-    private string _tokenBuf    = string.Empty;
-    private bool   _tokenMasked = true;
-    private string _error       = string.Empty;
+    private int    _step           = 0;
+    private string _tokenBuf       = string.Empty;
+    private bool   _tokenMasked    = true;
+    private string _error          = string.Empty;
+    private string _contextMessage = string.Empty;
+
+    /// <summary>
+    /// Relance l'onboarding depuis le début (pas de token) ou directement à l'étape token (token invalide).
+    /// </summary>
+    public void Restart(bool tokenInvalid = false)
+    {
+        _step           = tokenInvalid ? 1 : 0;
+        _tokenBuf       = string.Empty;
+        _error          = string.Empty;
+        _contextMessage = tokenInvalid
+            ? "⚠  Ton token API est expiré ou invalide.\nGénère-en un nouveau depuis le dashboard pour continuer."
+            : string.Empty;
+        IsOpen = true;
+    }
 
     public SetupWindow(Configuration config)
         : base("Eorzea Events — Configuration##setup",
@@ -76,6 +91,18 @@ public class SetupWindow : Window
     private void DrawToken()
     {
         DrawBanner();
+
+        // Bannière contextuelle (token expiré)
+        if (!string.IsNullOrEmpty(_contextMessage))
+        {
+            ImGui.PushStyleColor(ImGuiCol.ChildBg, new Vector4(0.6f, 0.3f, 0.0f, 0.35f));
+            ImGui.BeginChild("##tokenctx", new Vector2(0, 50), false);
+            ImGui.SetCursorPos(new Vector2(8, 6));
+            ImGui.TextColored(new Vector4(1f, 0.7f, 0.2f, 1f), _contextMessage);
+            ImGui.EndChild();
+            ImGui.PopStyleColor();
+            ImGui.Spacing();
+        }
 
         ImGui.Text("Étape 1 / 1 — Token API");
         ImGui.Spacing();

@@ -84,18 +84,11 @@ public class MainWindow : Window
             return;
         }
 
-        // Bannière token invalide
+        // Blocage token invalide
         if (Plugin.Api.HasToken && !Plugin.Api.IsTokenValid)
         {
-            ImGui.PushStyleColor(ImGuiCol.ChildBg, new Vector4(0.6f, 0.3f, 0.0f, 0.35f));
-            ImGui.BeginChild("##tokenwarning", new Vector2(0, 42), false);
-            ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 4);
-            ImGui.TextColored(new Vector4(1f, 0.7f, 0.2f, 1f), "  ⚠  Token API invalide ou expiré.");
-            ImGui.SameLine();
-            ImGui.TextDisabled("Génère-en un nouveau depuis ton tableau de bord (/eorzea config).");
-            ImGui.EndChild();
-            ImGui.PopStyleColor();
-            ImGui.Spacing();
+            DrawTokenInvalidScreen();
+            return;
         }
 
         if (!ImGui.BeginTabBar("##maintabs")) return;
@@ -129,6 +122,39 @@ public class MainWindow : Window
         var sheet = Plugin.DataManager.GetExcelSheet<TerritoryType>();
         var row   = sheet?.GetRowOrDefault(Plugin.ClientState.TerritoryType);
         return row?.PlaceName.Value.Name.ToString();
+    }
+
+    private static void DrawTokenInvalidScreen()
+    {
+        var windowSize = ImGui.GetContentRegionAvail();
+
+        ImGui.SetCursorPosY((windowSize.Y - 180f) * 0.5f);
+
+        var icon = "⚠";
+        var iconSize = ImGui.CalcTextSize(icon);
+        ImGui.SetCursorPosX((windowSize.X - iconSize.X) * 0.5f);
+        ImGui.TextColored(new Vector4(1f, 0.6f, 0.1f, 1f), icon);
+        ImGui.Dummy(new Vector2(0, 6));
+
+        var lines = new[] {
+            "Token API invalide ou expiré.",
+            "Tu dois en générer un nouveau pour continuer",
+            "à utiliser Eorzea Events.",
+        };
+        foreach (var line in lines)
+        {
+            var sz = ImGui.CalcTextSize(line);
+            ImGui.SetCursorPosX(Math.Max(12f, (windowSize.X - sz.X) * 0.5f));
+            ImGui.TextColored(new Vector4(0.9f, 0.9f, 0.9f, 1f), line);
+        }
+
+        ImGui.Dummy(new Vector2(0, 14));
+
+        var btnLabel = "Reconfigurer le token";
+        var btnWidth = 180f;
+        ImGui.SetCursorPosX((windowSize.X - btnWidth) * 0.5f);
+        if (ImGui.Button(btnLabel, new Vector2(btnWidth, 0)))
+            Plugin.OpenSetup(tokenInvalid: true);
     }
 
     private static void DrawBlockedScreen()

@@ -123,7 +123,7 @@ public class MySessionWindow : Window
         var (terId, mapId) = GetCurrentTerritoryMap();
         var mapCoords = (pos.HasValue && mapId > 0)
             ? MapHelper.WorldToMapCoords(pos.Value.x, pos.Value.z, mapId)
-            : (ValueTuple<float, float>?)null;
+            : pos.HasValue ? ((float, float)?)(pos.Value.x, pos.Value.z) : null;
         var req = new CreateSessionRequest
         {
             Title         = _title.Trim(),
@@ -197,7 +197,7 @@ public class MySessionWindow : Window
         var (terId, mapId) = GetCurrentTerritoryMap();
         var mapCoords = (pos.HasValue && mapId > 0)
             ? MapHelper.WorldToMapCoords(pos.Value.x, pos.Value.z, mapId)
-            : (ValueTuple<float, float>?)null;
+            : pos.HasValue ? ((float, float)?)(pos.Value.x, pos.Value.z) : null;
         var id  = _activeSession.Id;
         var req = new UpdateSessionRequest
         {

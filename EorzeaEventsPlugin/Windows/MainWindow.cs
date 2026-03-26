@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using Dalamud.Interface.Windowing;
 using EorzeaEventsPlugin.Api;
 using Dalamud.Bindings.ImGui;
@@ -30,6 +31,11 @@ public class MainWindow : Window
     private List<EstablishmentDto> _estabList        = [];
     private bool                   _estabLoading     = false;
     private string                 _estabSearchInput = string.Empty;
+
+    // ─── Online count ─────────────────────────────────────────────────────────
+
+    private int      _onlineCount      = 0;
+    private DateTime _onlineLastFetch  = DateTime.MinValue;
 
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -106,6 +112,30 @@ public class MainWindow : Window
             Plugin.OpenConfig();
 
         ImGui.EndTabBar();
+
+        DrawOnlineFooter();
+    }
+
+    private void DrawOnlineFooter()
+    {
+        // Rafraîchissement toutes les 60s
+        if ((DateTime.UtcNow - _onlineLastFetch).TotalSeconds > 60)
+        {
+            _onlineLastFetch = DateTime.UtcNow;
+            _ = Task.Run(async () =>
+            {
+                _onlineCount = await Plugin.Api.GetOnlineCountAsync();
+            });
+        }
+
+        if (_onlineCount <= 0) return;
+
+        ImGui.Separator();
+        ImGui.Spacing();
+        var text = string.Format(Plugin.L.PlayersOnline, _onlineCount);
+        ImGui.SetCursorPosX(ImGui.GetWindowWidth() - ImGui.CalcTextSize(text).X - ImGui.GetStyle().WindowPadding.X);
+        ImGui.TextDisabled(text);
+        ImGui.Spacing();
     }
 
     // ─── Tab: Session RP sauvage ──────────────────────────────────────────────

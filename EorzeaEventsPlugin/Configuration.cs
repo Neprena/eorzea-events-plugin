@@ -2,6 +2,8 @@ using Dalamud.Configuration;
 
 namespace EorzeaEventsPlugin;
 
+public enum PluginLanguage { Auto, French, English }
+
 [Serializable]
 public class Configuration : IPluginConfiguration
 {
@@ -23,10 +25,10 @@ public class Configuration : IPluginConfiguration
     public bool NotifyRpLiveScreen { get; set; } = true;
 
     /// <summary>Notifier quand une nouvelle session RP Live démarre (toast Dalamud, coin de l'écran).</summary>
-    public bool NotifyRpLive { get; set; } = false;
+    public bool NotifyRpLive { get; set; } = true;
 
     /// <summary>Annoncer les nouvelles sessions RP dans le chat du jeu.</summary>
-    public bool NotifyRpLiveChat { get; set; } = false;
+    public bool NotifyRpLiveChat { get; set; } = true;
 
     /// <summary>Limiter les notifications au monde courant du joueur.</summary>
     public bool NotifyMyWorld { get; set; } = true;
@@ -42,6 +44,9 @@ public class Configuration : IPluginConfiguration
 
     /// <summary>Notifier (toast) quand une nouvelle session RP démarre dans la zone courante du joueur.</summary>
     public bool NotifyNearbyZone { get; set; } = true;
+
+    /// <summary>Langue de l'interface du plugin (Auto = détection depuis le client FFXIV).</summary>
+    public PluginLanguage Language { get; set; } = PluginLanguage.Auto;
 
     public void Save() => Plugin.PluginInterface.SavePluginConfig(this);
 }

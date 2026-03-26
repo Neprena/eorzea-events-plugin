@@ -14,20 +14,15 @@ public class SetupWindow : Window
     private string _tokenBuf       = string.Empty;
     private bool   _tokenMasked    = true;
     private string _error          = string.Empty;
-    private string _contextMessage = string.Empty;
+    private bool   _tokenInvalid   = false;
 
-    /// <summary>
-    /// Relance l'onboarding depuis le début (pas de token) ou directement à l'étape token (token invalide).
-    /// </summary>
     public void Restart(bool tokenInvalid = false)
     {
-        _step           = tokenInvalid ? 1 : 0;
-        _tokenBuf       = string.Empty;
-        _error          = string.Empty;
-        _contextMessage = tokenInvalid
-            ? "⚠  Ton token API est expiré ou invalide.\nGénère-en un nouveau depuis le dashboard pour continuer."
-            : string.Empty;
-        IsOpen = true;
+        _step         = tokenInvalid ? 1 : 0;
+        _tokenBuf     = string.Empty;
+        _error        = string.Empty;
+        _tokenInvalid = tokenInvalid;
+        IsOpen        = true;
     }
 
     public SetupWindow(Configuration config)
@@ -54,8 +49,6 @@ public class SetupWindow : Window
         }
     }
 
-    // ─── Bannière commune ─────────────────────────────────────────────────────
-
     private void DrawBanner()
     {
         if (_banner == null) return;
@@ -68,60 +61,69 @@ public class SetupWindow : Window
         ImGui.Spacing();
     }
 
-    // ─── Étape 0 : Bienvenue ─────────────────────────────────────────────────
+    private static void OpenUrl(string url) =>
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
 
     private void DrawWelcome()
     {
+        var l = Plugin.L;
         DrawBanner();
 
-        ImGui.TextWrapped("Ce plugin vous permet de créer et gérer vos sessions RP");
-        ImGui.TextWrapped("directement depuis le jeu, sans quitter FFXIV.");
+        // Ligne 1 + lien inline
+        ImGui.Text(l.SetupWelcomeL1);
+        ImGui.SameLine(0, 4);
+        ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(0.4f, 0.7f, 1f, 1f));
+        ImGui.Text("eorzea.events");
+        if (ImGui.IsItemHovered()) ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
+        if (ImGui.IsItemClicked()) OpenUrl("https://eorzea.events");
+        ImGui.PopStyleColor();
+
         ImGui.Spacing();
-        ImGui.TextWrapped("La configuration ne prend que quelques secondes.");
+        ImGui.TextWrapped(l.SetupWelcomeL2);
+        ImGui.Spacing();
+        ImGui.TextWrapped(l.SetupWelcomeL3);
         ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
 
-        if (ImGui.Button("Commencer", new Vector2(120, 0)))
+        if (ImGui.Button(l.SetupStart, new Vector2(120, 0)))
             _step = 1;
     }
 
-    // ─── Étape 1 : Token API ─────────────────────────────────────────────────
-
     private void DrawToken()
     {
+        var l = Plugin.L;
         DrawBanner();
 
-        // Bannière contextuelle (token expiré)
-        if (!string.IsNullOrEmpty(_contextMessage))
+        if (_tokenInvalid)
         {
             ImGui.PushStyleColor(ImGuiCol.ChildBg, new Vector4(0.6f, 0.3f, 0.0f, 0.35f));
             ImGui.BeginChild("##tokenctx", new Vector2(0, 50), false);
             ImGui.SetCursorPos(new Vector2(8, 6));
-            ImGui.TextColored(new Vector4(1f, 0.7f, 0.2f, 1f), _contextMessage);
+            ImGui.TextColored(new Vector4(1f, 0.7f, 0.2f, 1f), $"⚠  {l.SetupTokenInvalid}");
             ImGui.EndChild();
             ImGui.PopStyleColor();
             ImGui.Spacing();
         }
 
-        ImGui.Text("Étape 1 / 1 — Token API");
+        ImGui.Text(l.SetupStepTitle);
         ImGui.Spacing();
-        ImGui.TextWrapped("Générez un token API sur votre dashboard, puis collez-le ici.");
+        ImGui.TextWrapped(l.SetupStepDesc);
         ImGui.Spacing();
 
-        if (ImGui.Button("Ouvrir le dashboard eorzea.events"))
+        if (ImGui.Button(l.SetupOpenDashboard))
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
                 _config.BaseUrl.TrimEnd('/') + "/dashboard") { UseShellExecute = true });
 
         ImGui.Spacing();
-        ImGui.Text("Token API :");
+        ImGui.Text(l.SetupTokenLabel);
         ImGui.SetNextItemWidth(-80);
         if (_tokenMasked)
             ImGui.InputText("##token", ref _tokenBuf, 256, ImGuiInputTextFlags.Password);
         else
             ImGui.InputText("##token", ref _tokenBuf, 256);
         ImGui.SameLine();
-        if (ImGui.Button(_tokenMasked ? "Afficher" : "Masquer"))
+        if (ImGui.Button(_tokenMasked ? l.Show : l.Hide))
             _tokenMasked = !_tokenMasked;
 
         if (!string.IsNullOrEmpty(_error))
@@ -136,48 +138,47 @@ public class SetupWindow : Window
 
         var canSave = !string.IsNullOrWhiteSpace(_tokenBuf);
         if (!canSave) ImGui.BeginDisabled();
-        if (ImGui.Button("Enregistrer", new Vector2(120, 0)))
+        if (ImGui.Button(l.Save, new Vector2(120, 0)))
         {
             var trimmed = _tokenBuf.Trim();
             if (!trimmed.StartsWith("ee_"))
             {
-                _error = "Le token doit commencer par « ee_ ».";
+                _error = l.SetupErrPrefix;
             }
             else
             {
                 _config.ApiToken = trimmed;
                 _config.Save();
                 Plugin.RebuildApiClient();
+                _tokenInvalid = false;
                 _step = 2;
                 _error = string.Empty;
             }
         }
         if (!canSave) ImGui.EndDisabled();
         ImGui.SameLine();
-        if (ImGui.Button("Passer", new Vector2(80, 0)))
+        if (ImGui.Button(l.SetupSkip, new Vector2(80, 0)))
         {
             IsOpen = false;
             Plugin.OpenMain();
         }
     }
 
-    // ─── Étape 2 : Terminé ───────────────────────────────────────────────────
-
     private void DrawDone()
     {
+        var l = Plugin.L;
         DrawBanner();
-
-        ImGui.TextColored(new Vector4(0.3f, 0.9f, 0.5f, 1), "Tout est prêt !");
+        ImGui.TextColored(new Vector4(0.3f, 0.9f, 0.5f, 1), l.SetupDoneTitle);
         ImGui.Spacing();
-        ImGui.TextWrapped("Votre token est enregistré. Vous pouvez maintenant créer");
-        ImGui.TextWrapped("des sessions RP directement depuis le jeu.");
+        ImGui.TextWrapped(l.SetupDoneL1);
+        ImGui.TextWrapped(l.SetupDoneL2);
         ImGui.Spacing();
-        ImGui.TextDisabled("Utilisez /eorzea pour ouvrir le panneau principal.");
+        ImGui.TextDisabled(l.SetupDoneHint);
         ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
 
-        if (ImGui.Button("Ouvrir Eorzea Events", new Vector2(160, 0)))
+        if (ImGui.Button(l.SetupOpenPlugin, new Vector2(160, 0)))
         {
             IsOpen = false;
             Plugin.OpenMain();

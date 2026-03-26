@@ -163,6 +163,7 @@ internal sealed class Loc
     public required string NotifNewRpChat       { get; init; }   // {0}=title {1}=loc {2}=server
     public required string DtrRpTooltip         { get; init; }
     public required string DtrEventsTooltip     { get; init; }
+    public required string PlayersOnline        { get; init; }   // {0} = count
 
     // ── Static instances ──────────────────────────────────────────────────────
 
@@ -325,6 +326,7 @@ internal sealed class Loc
         NotifNewRpChat    = "Nouveau RP ouvert : {0} — {1} ({2})",
         DtrRpTooltip      = "Sessions RP ouvertes en cours\nCliquez pour ouvrir",
         DtrEventsTooltip  = "Événements en cours\nCliquez pour ouvrir",
+        PlayersOnline     = "🟢 {0} joueur(s) en ligne",
     };
 
     public static readonly Loc En = new()
@@ -486,5 +488,6 @@ internal sealed class Loc
         NotifNewRpChat    = "New open RP: {0} — {1} ({2})",
         DtrRpTooltip      = "Active open RP sessions\nClick to open",
         DtrEventsTooltip  = "Ongoing events\nClick to open",
+        PlayersOnline     = "🟢 {0} player(s) online",
     };
 }

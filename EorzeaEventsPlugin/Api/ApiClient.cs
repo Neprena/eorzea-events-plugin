@@ -48,6 +48,11 @@ public class EventDto
     [JsonPropertyName("establishment")] public EstablishmentSummaryDto? Establishment { get; set; }
 }
 
+public class OnlineCountDto
+{
+    [JsonPropertyName("count")] public int Count { get; set; }
+}
+
 public class SyncshellEntryDto
 {
     [JsonPropertyName("type")] public string Type { get; set; } = string.Empty;
@@ -251,6 +256,16 @@ public class ApiClient : IDisposable
             HandleAuthResponse(res.StatusCode);
         }
         catch { /* silencieux */ }
+    }
+
+    public async Task<int> GetOnlineCountAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var res = await _publicHttp.GetFromJsonAsync<OnlineCountDto>("api/presence/count", JsonOptions, ct);
+            return res?.Count ?? 0;
+        }
+        catch { return 0; }
     }
 
     // Signale la présence du joueur dans un quartier résidentiel (pour le badge "en ligne" sur le site)

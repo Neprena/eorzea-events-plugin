@@ -1,86 +1,97 @@
-# Plugin Dalamud — Eorzea Events
+# Eorzea Events — Plugin Dalamud
 
-Plugin Dalamud pour interagir avec [eorzea.events](https://eorzea.events) directement depuis FFXIV.
-
-## Fonctionnalités
-
-- 🎭 **RP Live** : créer et terminer une session RP sauvage depuis le jeu, avec zone et serveur auto-remplis
-- 🔄 Restauration automatique de la session si le jeu est relancé
+> 🇫🇷 [Français](#français) · 🇬🇧 [English](#english)
 
 ---
 
-## Installation (via repo custom Dalamud)
+## Français
 
-1. Ouvrez **XIVLauncher** → **Dalamud Settings** → onglet **Experimental**
-2. Dans "Custom Plugin Repositories", ajoutez :
+Plugin Dalamud pour [eorzea.events](https://eorzea.events) — gérez vos sessions de RP ouvert et consultez les événements directement depuis Final Fantasy XIV.
+
+### Fonctionnalités
+
+- 🎭 **RP Ouvert** — annoncez et gérez une session RP ouverte sans quitter le jeu (zone, serveur et position auto-remplis)
+- 📅 **Événements** — consultez les événements à venir sur les 14 prochains jours
+- 🏠 **Lieux** — recherchez les établissements RP par nom, serveur ou quartier
+- 🔔 **Notifications** — soyez alerté quand une nouvelle session RP démarre près de vous
+- 🌐 **Bilingue** — interface disponible en français et en anglais (détection automatique depuis le client FFXIV)
+
+### Installation
+
+1. Ouvrez **XIVLauncher** → **Paramètres Dalamud** → onglet **Expérimental**
+2. Dans "Dépôts de plugins personnalisés", ajoutez :
    ```
    https://raw.githubusercontent.com/Neprena/eorzea-events-plugin/main/repo.json
    ```
-3. Enregistrez, puis ouvrez le **Plugin Installer** et cherchez **Eorzea Events**
-4. Installez et redémarrez Dalamud si demandé
+3. Enregistrez, ouvrez le **Gestionnaire de plugins** et cherchez **Eorzea Events**
+4. Installez le plugin
 
-### Configuration
+### Première configuration
 
-1. Dans FFXIV, tapez `/eorzea config` ou cliquez sur l'icône du plugin
-2. Générez un **token API** sur [eorzea.events/dashboard](https://eorzea.events/dashboard)
-3. Collez-le dans le champ Token API et enregistrez
+Au premier lancement, un assistant s'ouvre automatiquement :
 
-### Utilisation
+1. Rendez-vous sur [eorzea.events/dashboard](https://eorzea.events/dashboard)
+2. Générez un **token API** dans votre espace personnel
+3. Collez-le dans le champ dédié et enregistrez
 
-- `/eorzea` — ouvre le panneau principal
-- `/eorzea config` — ouvre la configuration
+> Vous pouvez aussi ouvrir l'assistant à tout moment via `/eorzea config`.
 
-Dans le panneau, remplissez le titre de votre session (le serveur et la zone sont auto-remplis depuis votre position en jeu), puis cliquez sur **Démarrer la session RP**.
+### Commandes
 
----
+| Commande | Action |
+|---|---|
+| `/eorzea` | Ouvre le panneau principal |
+| `/eorzea config` | Ouvre les paramètres |
 
-## Développement
+### Paramètres disponibles
 
-### Prérequis
-
-- [XIVLauncher](https://github.com/goatcorp/FFXIVQuickLauncher) avec Dalamud activé
-- .NET SDK (version compatible avec le Sdk `Dalamud.NET.Sdk` utilisé)
-
-### Build local
-
-```bash
-cd EorzeaEventsPlugin
-dotnet build -c Debug
-```
-
-Le `.dll` compilé se trouve dans `bin/Debug/`.
-
-Copiez le dossier dans `%APPDATA%\XIVLauncher\devPlugins\EorzeaEventsPlugin\`.
-
-### Release
-
-Les releases sont gérées automatiquement via GitHub Actions.
-
-Créez un tag `vX.Y.Z` pour déclencher un build Release, packager le zip et créer la GitHub Release :
-
-```bash
-git tag v1.2.0
-git push origin v1.2.0
-```
-
-Le workflow :
-1. Build en mode Release avec la version du tag
-2. Package `EorzeaEventsPlugin.zip` (DLL + JSON + banner)
-3. Met à jour `AssemblyVersion` dans `repo.json` et commit sur `main`
-4. Crée la GitHub Release avec le zip en pièce jointe
+- **Notifications** : alerte écran native FFXIV, bulle Dalamud, message dans le chat
+- **Alertes de session** : proposition de démarrage au tag RP, avertissement en cas de changement de zone ou de retrait du tag
+- **Langue** : automatique, français ou anglais
 
 ---
 
-## Structure
+## English
 
-```
-EorzeaEventsPlugin/
-├── Plugin.cs              # Point d'entrée Dalamud
-├── Configuration.cs       # Persistance des paramètres
-├── Api/
-│   └── ApiClient.cs       # Client HTTP vers l'API Eorzea Events
-└── Windows/
-    ├── MainWindow.cs      # Fenêtre principale (RP Live)
-    ├── ConfigWindow.cs    # Fenêtre de configuration
-    └── SetupWindow.cs     # Assistant de première configuration
-```
+Dalamud plugin for [eorzea.events](https://eorzea.events) — manage your open RP sessions and browse upcoming events directly from Final Fantasy XIV.
+
+### Features
+
+- 🎭 **Open RP** — announce and manage an open RP session without leaving the game (zone, server and position auto-filled)
+- 📅 **Events** — browse events scheduled in the next 14 days
+- 🏠 **Venues** — search RP establishments by name, server or ward
+- 🔔 **Notifications** — get alerted when a new RP session starts near you
+- 🌐 **Bilingual** — interface available in French and English (auto-detected from your FFXIV client language)
+
+### Installation
+
+1. Open **XIVLauncher** → **Dalamud Settings** → **Experimental** tab
+2. Under "Custom Plugin Repositories", add:
+   ```
+   https://raw.githubusercontent.com/Neprena/eorzea-events-plugin/main/repo.json
+   ```
+3. Save, open the **Plugin Installer** and search for **Eorzea Events**
+4. Install the plugin
+
+### First-time setup
+
+A setup wizard opens automatically on first launch:
+
+1. Go to [eorzea.events/dashboard](https://eorzea.events/dashboard)
+2. Generate an **API token** from your personal dashboard
+3. Paste it into the token field and save
+
+> You can reopen the wizard at any time with `/eorzea config`.
+
+### Commands
+
+| Command | Action |
+|---|---|
+| `/eorzea` | Open the main panel |
+| `/eorzea config` | Open settings |
+
+### Available settings
+
+- **Notifications**: native FFXIV screen alert, Dalamud bubble, chat message
+- **Session alerts**: suggest session on RP tag activation, warn on zone change or tag removal
+- **Language**: auto, French or English

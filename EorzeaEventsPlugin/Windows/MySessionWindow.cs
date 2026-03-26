@@ -40,7 +40,7 @@ public class MySessionWindow : Window
     public bool HasActiveSession => _activeSession != null;
 
     public MySessionWindow(Configuration config)
-        : base("Ma session RP##mysession")
+        : base("My RP Session##mysession")
     {
         SizeConstraints = new WindowSizeConstraints
         {
@@ -53,20 +53,20 @@ public class MySessionWindow : Window
     // ─── Helpers jeu ─────────────────────────────────────────────────────────
 
     private string GetCurrentWorld()
-        => Plugin.ObjectTable.LocalPlayer?.CurrentWorld.Value.Name.ToString() ?? "Monde inconnu";
+        => Plugin.ObjectTable.LocalPlayer?.CurrentWorld.Value.Name.ToString() ?? Plugin.L.WorldUnknown;
 
     private string GetCurrentZone()
     {
         var sheet = Plugin.DataManager.GetExcelSheet<TerritoryType>();
-        if (sheet == null) return "Zone inconnue";
+        if (sheet == null) return Plugin.L.ZoneUnknown;
         var row = sheet.GetRowOrDefault(Plugin.ClientState.TerritoryType);
-        return row?.PlaceName.Value.Name.ToString() ?? "Zone inconnue";
+        return row?.PlaceName.Value.Name.ToString() ?? Plugin.L.ZoneUnknown;
     }
 
     private (uint territoryId, uint mapId) GetCurrentTerritoryMap()
     {
         var territoryId = (uint)Plugin.ClientState.TerritoryType;
-        var mapId       = Plugin.ClientState.MapId; // sous-map active (logement, etc.)
+        var mapId       = Plugin.ClientState.MapId;
         return (territoryId, mapId);
     }
 
@@ -115,7 +115,8 @@ public class MySessionWindow : Window
 
     private void StartSession()
     {
-        if (string.IsNullOrWhiteSpace(Plugin.Config.ApiToken)) { ShowError("Token API non configuré."); return; }
+        var l = Plugin.L;
+        if (string.IsNullOrWhiteSpace(Plugin.Config.ApiToken)) { ShowError(l.ErrTokenMissing); return; }
         var pos      = GetCurrentPosition();
         var housing  = GetCurrentHousing();
         var (terId, mapId) = GetCurrentTerritoryMap();
@@ -136,7 +137,7 @@ public class MySessionWindow : Window
             TerritoryId   = terId,
             MapId         = mapId,
         };
-        if (string.IsNullOrWhiteSpace(req.Title)) { ShowError("Le titre est requis."); return; }
+        if (string.IsNullOrWhiteSpace(req.Title)) { ShowError(l.ErrTitleRequired); return; }
 
         _busy = true; _statusMsg = string.Empty;
         Task.Run(async () =>
@@ -148,7 +149,7 @@ public class MySessionWindow : Window
                 _pendingRpTagActivePrompt = false;
                 _config.ActiveSessionId   = session!.Id;
                 _config.Save();
-                ShowSuccess("Session démarrée !");
+                ShowSuccess(l.StatusStarted);
                 _title = _description = string.Empty;
             }
             catch (Exception ex)
@@ -168,7 +169,7 @@ public class MySessionWindow : Window
                             _pendingRpTagActivePrompt = false;
                             _config.ActiveSessionId   = existing.Id;
                             _config.Save();
-                            ShowSuccess("Session existante récupérée.");
+                            ShowSuccess(l.StatusRecovered);
                             _title = _description = string.Empty;
                             return;
                         }
@@ -183,6 +184,7 @@ public class MySessionWindow : Window
 
     private void UpdateSession()
     {
+        var l = Plugin.L;
         if (_activeSession == null) return;
         var id  = _activeSession.Id;
         var req = new UpdateSessionRequest
@@ -196,8 +198,8 @@ public class MySessionWindow : Window
             try
             {
                 var updated = await Plugin.Api.UpdateSessionAsync(id, req);
-                if (updated != null) { _activeSession = updated; _editing = false; ShowSuccess("Session mise à jour."); }
-                else ShowError("Erreur lors de la mise à jour.");
+                if (updated != null) { _activeSession = updated; _editing = false; ShowSuccess(l.StatusUpdated); }
+                else ShowError(l.ErrUpdate);
             }
             catch (Exception ex) { ShowError(ex.Message); }
             finally { _busy = false; }
@@ -206,6 +208,7 @@ public class MySessionWindow : Window
 
     private void RefreshPosition()
     {
+        var l = Plugin.L;
         if (_activeSession == null) return;
         var pos      = GetCurrentPosition();
         var housing  = GetCurrentHousing();
@@ -240,9 +243,9 @@ public class MySessionWindow : Window
                     var posMsg = (updated.PosX.HasValue && updated.PosZ.HasValue)
                         ? $" (X {updated.PosX.Value:F1}  Y {updated.PosZ.Value:F1})"
                         : string.Empty;
-                    ShowSuccess($"Position mise à jour{posMsg}");
+                    ShowSuccess(l.StatusPosUpdated + posMsg);
                 }
-                else ShowError("Erreur lors de la mise à jour.");
+                else ShowError(l.ErrUpdate);
             }
             catch (Exception ex) { ShowError(ex.Message); }
             finally { _busy = false; }
@@ -251,6 +254,7 @@ public class MySessionWindow : Window
 
     private void ExtendSession(int hours = 1)
     {
+        var l = Plugin.L;
         if (_activeSession == null) return;
         var id  = _activeSession.Id;
         var req = new UpdateSessionRequest { Duration = hours };
@@ -260,8 +264,8 @@ public class MySessionWindow : Window
             try
             {
                 var updated = await Plugin.Api.UpdateSessionAsync(id, req);
-                if (updated != null) { _activeSession = updated; ShowSuccess($"Session prolongée de {hours}h."); }
-                else ShowError("Erreur lors de la prolongation.");
+                if (updated != null) { _activeSession = updated; ShowSuccess(string.Format(l.StatusExtended, hours)); }
+                else ShowError(l.ErrExtend);
             }
             catch (Exception ex) { ShowError(ex.Message); }
             finally { _busy = false; }
@@ -270,6 +274,7 @@ public class MySessionWindow : Window
 
     private void EndSession()
     {
+        var l = Plugin.L;
         if (_activeSession == null) return;
         _busy = true; _statusMsg = string.Empty;
         var id = _activeSession.Id;
@@ -284,7 +289,7 @@ public class MySessionWindow : Window
                 _pendingRpTagActivePrompt = false;
                 _config.ActiveSessionId = null;
                 _config.Save();
-                ShowSuccess("Session terminée.");
+                ShowSuccess(l.StatusEnded);
             }
             catch (Exception ex) { ShowError(ex.Message); }
             finally { _busy = false; }
@@ -320,18 +325,19 @@ public class MySessionWindow : Window
 
     public override void Draw()
     {
+        var l = Plugin.L;
+        WindowName = l.MySessionTitle + "##mysession";
+
         if (string.IsNullOrWhiteSpace(_config.ApiToken) || !Plugin.Api.IsTokenValid)
         {
             var tokenMissing = string.IsNullOrWhiteSpace(_config.ApiToken);
             ImGui.Spacing();
             ImGui.TextColored(new Vector4(1, 0.6f, 0, 1),
-                tokenMissing ? "Token API non configuré." : "⚠  Token API invalide ou expiré.");
+                tokenMissing ? l.ErrTokenMissing : "⚠  " + l.TokenInvalidLine1);
             ImGui.Spacing();
-            ImGui.TextWrapped(tokenMissing
-                ? "Génère un token depuis ton dashboard pour accéder aux sessions RP."
-                : "Tu dois générer un nouveau token pour continuer à utiliser le plugin.");
+            ImGui.TextWrapped(tokenMissing ? l.MySessionTokenMissingDesc : l.MySessionTokenInvalidDesc);
             ImGui.Spacing();
-            if (ImGui.Button(tokenMissing ? "Configurer maintenant" : "Reconfigurer le token"))
+            if (ImGui.Button(tokenMissing ? l.BtnConfigureNow : l.TokenReconfigure))
                 Plugin.OpenSetup(tokenInvalid: !tokenMissing);
             return;
         }
@@ -355,8 +361,9 @@ public class MySessionWindow : Window
 
     private void DrawCreateForm()
     {
+        var l = Plugin.L;
         ImGui.Spacing();
-        ImGui.TextColored(new Vector4(0.78f, 0.64f, 0.35f, 1), "Nouvelle session RP sauvage");
+        ImGui.TextColored(new Vector4(0.78f, 0.64f, 0.35f, 1), l.SessionCreate);
         ImGui.Separator();
         ImGui.Spacing();
 
@@ -370,10 +377,10 @@ public class MySessionWindow : Window
             dl.ChannelsSetCurrent(1);
             ImGui.Spacing();
             ImGui.Indent(8f);
-            ImGui.TextColored(new Vector4(0.3f, 0.9f, 0.5f, 1f), "✦  Tag RP activé !");
-            ImGui.TextWrapped("Vous êtes en mode RP. Souhaitez-vous annoncer une session RP sauvage ?");
+            ImGui.TextColored(new Vector4(0.3f, 0.9f, 0.5f, 1f), l.AlertRpTagActivTitle);
+            ImGui.TextWrapped(l.AlertRpTagActivDesc);
             ImGui.Spacing();
-            if (ImGui.SmallButton("Ignorer##rptag_active")) { _pendingRpTagActivePrompt = false; IsOpen = false; }
+            if (ImGui.SmallButton(l.Ignore + "##rptag_active")) { _pendingRpTagActivePrompt = false; IsOpen = false; }
             ImGui.Unindent(8f);
             ImGui.Spacing();
             var p1 = ImGui.GetCursorScreenPos();
@@ -388,48 +395,47 @@ public class MySessionWindow : Window
         var zone    = GetCurrentZone();
         var pos     = GetCurrentPosition();
         var housing = GetCurrentHousing();
-        ImGui.TextDisabled($"Serveur : {world}   •   Zone : {zone}");
+        ImGui.TextDisabled($"{l.FieldServer}: {world}   •   {l.FieldLocation}: {zone}");
         if (housing != null)
         {
             var loc = housing.Plot.HasValue
-                ? $"Quartier {housing.Ward}  —  Parcelle {housing.Plot}"
+                ? string.Format(l.HousingWardPlot, housing.Ward, housing.Plot)
                 : housing.Room.HasValue
-                    ? $"Quartier {housing.Ward}  —  Appartement {housing.Room}"
-                    : $"Quartier {housing.Ward}";
-            ImGui.TextDisabled($"Logement : {loc}");
+                    ? string.Format(l.HousingWardRoom, housing.Ward, housing.Room)
+                    : string.Format(l.HousingWard, housing.Ward);
+            ImGui.TextDisabled($"{l.FieldHousing}: {loc}");
         }
         if (pos.HasValue)
         {
             var c = MapHelper.WorldToCurrentMapCoords(pos.Value.x, pos.Value.z);
             ImGui.TextDisabled(c.HasValue
-                ? $"Position : X {c.Value.x:F1}   Y {c.Value.y:F1}"
-                : $"Position : X {pos.Value.x:F1}   Y {pos.Value.z:F1}");
+                ? $"{l.FieldPosition}: X {c.Value.x:F1}   Y {c.Value.y:F1}"
+                : $"{l.FieldPosition}: X {pos.Value.x:F1}   Y {pos.Value.z:F1}");
         }
         ImGui.Spacing();
 
-        ImGui.Text("Titre *");
+        ImGui.Text(l.FieldTitle + " *");
         ImGui.SetNextItemWidth(-1);
         ImGui.InputText("##title", ref _title, 100);
 
         ImGui.Spacing();
-        // Pré-remplissage automatique si le champ est vide
         if (string.IsNullOrEmpty(_characterName))
             _characterName = GetCharacterName();
 
-        ImGui.Text("Nom du personnage");
+        ImGui.Text(l.FieldCharName);
         ImGui.SetNextItemWidth(-80);
         ImGui.InputText("##charname", ref _characterName, 60);
         ImGui.SameLine();
-        if (ImGui.Button("Auto"))
+        if (ImGui.Button(l.Auto))
             _characterName = GetCharacterName();
 
         ImGui.Spacing();
-        ImGui.Text("Description (optionnelle)");
+        ImGui.Text(l.FieldDesc + " (opt.)");
         ImGui.SetNextItemWidth(-1);
         ImGui.InputTextMultiline("##desc", ref _description, 500, new Vector2(-1, 60));
 
         ImGui.Spacing();
-        ImGui.Text("Durée (heures)");
+        ImGui.Text(l.FieldDuration);
         ImGui.SetNextItemWidth(120);
         ImGui.SliderInt("##duration", ref _duration, 1, 8);
 
@@ -439,7 +445,7 @@ public class MySessionWindow : Window
 
         var canStart = !_busy && !string.IsNullOrWhiteSpace(_title);
         if (!canStart) ImGui.BeginDisabled();
-        if (ImGui.Button(_busy ? "Démarrage..." : "Démarrer la session", new Vector2(-1, 0)))
+        if (ImGui.Button(_busy ? l.StatusCreating : l.RpNewSession, new Vector2(-1, 0)))
             StartSession();
         if (!canStart) ImGui.EndDisabled();
     }
@@ -448,8 +454,9 @@ public class MySessionWindow : Window
 
     private void DrawActiveSession()
     {
+        var l = Plugin.L;
         ImGui.Spacing();
-        ImGui.TextColored(new Vector4(0.3f, 0.9f, 0.5f, 1), "Session en cours");
+        ImGui.TextColored(new Vector4(0.3f, 0.9f, 0.5f, 1), l.SessionActive);
         ImGui.Separator();
         ImGui.Spacing();
 
@@ -460,19 +467,19 @@ public class MySessionWindow : Window
             var avail = ImGui.GetContentRegionAvail().X;
             var p0    = ImGui.GetCursorScreenPos();
             dl.ChannelsSplit(2);
-            dl.ChannelsSetCurrent(1); // contenu au-dessus
+            dl.ChannelsSetCurrent(1);
             ImGui.Spacing();
             ImGui.Indent(8f);
-            ImGui.TextColored(new Vector4(1f, 0.75f, 0.1f, 1f), "⚠  Changement de zone détecté");
-            ImGui.TextWrapped("Voulez-vous mettre à jour votre emplacement ou terminer la session ?");
+            ImGui.TextColored(new Vector4(1f, 0.75f, 0.1f, 1f), l.AlertZoneChangedTitle);
+            ImGui.TextWrapped(l.AlertZoneChangedDesc);
             ImGui.Spacing();
-            if (ImGui.SmallButton("Update de la position")) { _pendingZonePrompt = false; RefreshPosition(); }
+            if (ImGui.SmallButton(l.BtnUpdatePos + "##zone")) { _pendingZonePrompt = false; RefreshPosition(); }
             ImGui.SameLine();
-            if (ImGui.SmallButton("Ignorer##zone"))        { _pendingZonePrompt = false; IsOpen = false; }
+            if (ImGui.SmallButton(l.Ignore + "##zone"))       { _pendingZonePrompt = false; IsOpen = false; }
             ImGui.Unindent(8f);
             ImGui.Spacing();
             var p1 = ImGui.GetCursorScreenPos();
-            dl.ChannelsSetCurrent(0); // fond en dessous
+            dl.ChannelsSetCurrent(0);
             dl.AddRectFilled(p0, new Vector2(p0.X + avail, p1.Y), ImGui.GetColorU32(new Vector4(1f, 0.75f, 0.1f, 0.10f)), 4f);
             dl.AddRect(      p0, new Vector2(p0.X + avail, p1.Y), ImGui.GetColorU32(new Vector4(1f, 0.75f, 0.1f, 0.45f)), 4f);
             dl.ChannelsMerge();
@@ -486,19 +493,19 @@ public class MySessionWindow : Window
             var avail = ImGui.GetContentRegionAvail().X;
             var p0    = ImGui.GetCursorScreenPos();
             dl.ChannelsSplit(2);
-            dl.ChannelsSetCurrent(1); // contenu au-dessus
+            dl.ChannelsSetCurrent(1);
             ImGui.Spacing();
             ImGui.Indent(8f);
-            ImGui.TextColored(new Vector4(0.75f, 0.5f, 1f, 1f), "⚠  Tag RP retiré");
-            ImGui.TextWrapped("Vous n'êtes plus en mode RP. Souhaitez-vous terminer la session ?");
+            ImGui.TextColored(new Vector4(0.75f, 0.5f, 1f, 1f), l.AlertRpTagRemovedTitle);
+            ImGui.TextWrapped(l.AlertRpTagRemovedDesc);
             ImGui.Spacing();
-            if (ImGui.SmallButton("Terminer##rptag"))      { _pendingRpTagPrompt = false; EndSession(); }
+            if (ImGui.SmallButton(l.BtnEnd + "##rptag"))    { _pendingRpTagPrompt = false; EndSession(); }
             ImGui.SameLine();
-            if (ImGui.SmallButton("Ignorer##rptag"))         _pendingRpTagPrompt = false;
+            if (ImGui.SmallButton(l.Ignore + "##rptag"))      _pendingRpTagPrompt = false;
             ImGui.Unindent(8f);
             ImGui.Spacing();
             var p1 = ImGui.GetCursorScreenPos();
-            dl.ChannelsSetCurrent(0); // fond en dessous
+            dl.ChannelsSetCurrent(0);
             dl.AddRectFilled(p0, new Vector2(p0.X + avail, p1.Y), ImGui.GetColorU32(new Vector4(0.75f, 0.5f, 1f, 0.10f)), 4f);
             dl.AddRect(      p0, new Vector2(p0.X + avail, p1.Y), ImGui.GetColorU32(new Vector4(0.75f, 0.5f, 1f, 0.45f)), 4f);
             dl.ChannelsMerge();
@@ -507,23 +514,23 @@ public class MySessionWindow : Window
 
         if (!_editing)
         {
-            ImGui.Text($"Titre : {_activeSession!.Title}");
-            ImGui.Text($"Lieu  : {_activeSession.Location} ({_activeSession.Server})");
+            ImGui.Text($"{l.FieldTitle}: {_activeSession!.Title}");
+            ImGui.Text($"{l.FieldLocation}: {_activeSession.Location} ({_activeSession.Server})");
             if (!string.IsNullOrEmpty(_activeSession.CharacterName))
-                ImGui.Text($"Perso : {_activeSession.CharacterName}");
+                ImGui.Text($"{l.FieldCharName}: {_activeSession.CharacterName}");
             if (_activeSession.Ward.HasValue)
             {
                 var housing = _activeSession.Plot.HasValue
-                    ? $"Quartier {_activeSession.Ward}  —  Parcelle {_activeSession.Plot}"
-                    : $"Quartier {_activeSession.Ward}";
-                ImGui.TextDisabled($"Log.  : {housing}");
+                    ? string.Format(l.HousingWardPlot, _activeSession.Ward, _activeSession.Plot)
+                    : string.Format(l.HousingWard, _activeSession.Ward);
+                ImGui.TextDisabled($"{l.FieldHousing}: {housing}");
             }
             var livePos = GetCurrentPosition();
             if (livePos.HasValue)
             {
                 var coords = MapHelper.WorldToCurrentMapCoords(livePos.Value.x, livePos.Value.z);
                 if (coords.HasValue)
-                    ImGui.TextDisabled($"Pos   : X {coords.Value.x:F1}   Y {coords.Value.y:F1}");
+                    ImGui.TextDisabled($"{l.FieldPosition}: X {coords.Value.x:F1}   Y {coords.Value.y:F1}");
             }
             ImGui.Spacing();
             ImGui.Separator();
@@ -531,40 +538,40 @@ public class MySessionWindow : Window
 
             if (!_busy)
             {
-                if (ImGui.Button("Modifier", new Vector2(100, 0)))
+                if (ImGui.Button(l.BtnModify, new Vector2(100, 0)))
                 {
                     _editTitle = _activeSession.Title;
                     _editDesc  = string.Empty;
                     _editing   = true;
                 }
                 ImGui.SameLine();
-                if (ImGui.Button("Update de la position", new Vector2(150, 0)))
+                if (ImGui.Button(l.BtnUpdatePos, new Vector2(160, 0)))
                     RefreshPosition();
                 ImGui.SameLine();
-                if (ImGui.Button("Prolonger (+1h)", new Vector2(120, 0)))
+                if (ImGui.Button(l.BtnExtend, new Vector2(130, 0)))
                     ExtendSession(1);
                 ImGui.SameLine();
-                if (ImGui.Button("Voir en ligne", new Vector2(100, 0)))
+                if (ImGui.Button(l.ViewOnline, new Vector2(100, 0)))
                     OpenUrl(_config.BaseUrl + "/rp-live");
 
                 ImGui.Spacing();
                 ImGui.PushStyleColor(ImGuiCol.Button,        new Vector4(0.8f, 0.15f, 0.15f, 1));
                 ImGui.PushStyleColor(ImGuiCol.ButtonHovered, new Vector4(0.9f, 0.2f,  0.2f,  1));
                 ImGui.PushStyleColor(ImGuiCol.ButtonActive,  new Vector4(0.7f, 0.1f,  0.1f,  1));
-                if (ImGui.Button("Terminer la session", new Vector2(-1, 0)))
+                if (ImGui.Button(l.BtnEnd, new Vector2(-1, 0)))
                     EndSession();
                 ImGui.PopStyleColor(3);
             }
-            else ImGui.TextDisabled("Traitement...");
+            else ImGui.TextDisabled(l.Processing);
         }
         else
         {
-            ImGui.Text("Titre *");
+            ImGui.Text(l.FieldTitle + " *");
             ImGui.SetNextItemWidth(-1);
             ImGui.InputText("##edittitle", ref _editTitle, 100);
 
             ImGui.Spacing();
-            ImGui.Text("Description");
+            ImGui.Text(l.FieldDesc);
             ImGui.SetNextItemWidth(-1);
             ImGui.InputTextMultiline("##editdesc", ref _editDesc, 500, new Vector2(-1, 55));
 
@@ -574,11 +581,11 @@ public class MySessionWindow : Window
 
             var canSave = !_busy && !string.IsNullOrWhiteSpace(_editTitle);
             if (!canSave) ImGui.BeginDisabled();
-            if (ImGui.Button("Enregistrer", new Vector2(120, 0)))
+            if (ImGui.Button(l.Save, new Vector2(120, 0)))
                 UpdateSession();
             if (!canSave) ImGui.EndDisabled();
             ImGui.SameLine();
-            if (ImGui.Button("Annuler", new Vector2(80, 0)))
+            if (ImGui.Button(l.Cancel, new Vector2(80, 0)))
                 _editing = false;
         }
     }

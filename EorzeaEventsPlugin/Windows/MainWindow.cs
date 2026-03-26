@@ -59,22 +59,18 @@ public class MainWindow : Window
         Plugin.GameGui.OpenMapWithMapLink(payload);
     }
 
-    private static readonly Dictionary<string, string> DistrictLabels = new()
+    private static string DistrictLabel(string slug)
     {
-        ["brumee"]     = "Brumée",
-        ["lavandiere"] = "Lavandière",
-        ["coupe"]      = "La Coupe",
-        ["shirogane"]  = "Shirogane",
-        ["empyree"]    = "Empyrée",
-    };
-
-    private static string DistrictLabel(string slug) =>
-        DistrictLabels.TryGetValue(slug, out var label) ? label : slug;
+        var labels = Plugin.L.DistrictLabels;
+        return labels.TryGetValue(slug, out var label) ? label : slug;
+    }
 
     // ─── Draw ─────────────────────────────────────────────────────────────────
 
     public override void Draw()
     {
+        var l = Plugin.L;
+
         if (Plugin.IsBlocked)
         {
             DrawBlockedScreen();
@@ -90,23 +86,23 @@ public class MainWindow : Window
 
         if (!ImGui.BeginTabBar("##maintabs")) return;
 
-        if (ImGui.BeginTabItem("Session RP sauvage"))
+        if (ImGui.BeginTabItem(l.TabRp))
         {
             DrawRpSauvageTab();
             ImGui.EndTabItem();
         }
-        if (ImGui.BeginTabItem("Evenements"))
+        if (ImGui.BeginTabItem(l.TabEvents))
         {
             DrawEventsTab();
             ImGui.EndTabItem();
         }
-        if (ImGui.BeginTabItem("Etablissements"))
+        if (ImGui.BeginTabItem(l.TabEstabs))
         {
             DrawEstabTab();
             ImGui.EndTabItem();
         }
 
-        if (ImGui.TabItemButton("Parametres", ImGuiTabItemFlags.Trailing | ImGuiTabItemFlags.NoTooltip))
+        if (ImGui.TabItemButton(l.TabSettings, ImGuiTabItemFlags.Trailing | ImGuiTabItemFlags.NoTooltip))
             Plugin.OpenConfig();
 
         ImGui.EndTabBar();
@@ -123,21 +119,18 @@ public class MainWindow : Window
 
     private static void DrawTokenInvalidScreen()
     {
+        var l          = Plugin.L;
         var windowSize = ImGui.GetContentRegionAvail();
 
         ImGui.SetCursorPosY((windowSize.Y - 180f) * 0.5f);
 
-        var icon = "⚠";
+        var icon     = "⚠";
         var iconSize = ImGui.CalcTextSize(icon);
         ImGui.SetCursorPosX((windowSize.X - iconSize.X) * 0.5f);
         ImGui.TextColored(new Vector4(1f, 0.6f, 0.1f, 1f), icon);
         ImGui.Dummy(new Vector2(0, 6));
 
-        var lines = new[] {
-            "Token API invalide ou expiré.",
-            "Tu dois en générer un nouveau pour continuer",
-            "à utiliser Eorzea Events.",
-        };
+        var lines = new[] { l.TokenInvalidLine1, l.TokenInvalidLine2, l.TokenInvalidLine3 };
         foreach (var line in lines)
         {
             var sz = ImGui.CalcTextSize(line);
@@ -147,29 +140,24 @@ public class MainWindow : Window
 
         ImGui.Dummy(new Vector2(0, 14));
 
-        var btnLabel = "Reconfigurer le token";
-        var btnWidth = 180f;
+        var btnWidth = 200f;
         ImGui.SetCursorPosX((windowSize.X - btnWidth) * 0.5f);
-        if (ImGui.Button(btnLabel, new Vector2(btnWidth, 0)))
+        if (ImGui.Button(l.TokenReconfigure, new Vector2(btnWidth, 0)))
             Plugin.OpenSetup(tokenInvalid: true);
     }
 
     private static void DrawBlockedScreen()
     {
+        var l           = Plugin.L;
         var windowSize  = ImGui.GetContentRegionAvail();
-        var iconSize    = new Vector2(48, 48);
         var textPadding = 16f;
 
-        // Centrer verticalement
         ImGui.SetCursorPosY((windowSize.Y - 200f) * 0.5f);
 
-        // Icône d'avertissement centrée
-        var iconX = (windowSize.X - iconSize.X) * 0.5f;
-        ImGui.SetCursorPosX(iconX);
+        ImGui.SetCursorPosX((windowSize.X - 48f) * 0.5f);
         ImGui.TextColored(new Vector4(1f, 0.4f, 0.4f, 1f), "  ⚠");
         ImGui.Dummy(new Vector2(0, 4));
 
-        // Message centré
         var lines = Plugin.BlockedMessage.Split('\n');
         foreach (var line in lines)
         {
@@ -186,32 +174,30 @@ public class MainWindow : Window
 
         ImGui.Dummy(new Vector2(0, 12));
 
-        // Indication de commande
-        var hint = "Tape /xlplugins en jeu pour ouvrir le gestionnaire de plugins.";
-        var hintSize = ImGui.CalcTextSize(hint);
+        var hintSize = ImGui.CalcTextSize(l.BlockedHint);
         ImGui.SetCursorPosX((windowSize.X - hintSize.X) * 0.5f);
-        ImGui.TextColored(new Vector4(0.6f, 0.6f, 0.6f, 1f), hint);
+        ImGui.TextColored(new Vector4(0.6f, 0.6f, 0.6f, 1f), l.BlockedHint);
     }
 
     private void DrawRpSauvageTab()
     {
+        var l = Plugin.L;
         ImGui.Spacing();
 
-        // En-tête avec compteur + actualiser
         if (_sessionsLoading)
         {
-            ImGui.TextDisabled("Chargement...");
+            ImGui.TextDisabled(l.Loading);
         }
         else
         {
             var activeCount = _sessionsList.Count(s => s.EndedAt == null);
             ImGui.TextDisabled(activeCount == 0
-                ? "Aucune session active en ce moment"
-                : $"{activeCount} session(s) en cours");
+                ? l.RpNoSession
+                : string.Format(l.RpSessionsActive, activeCount));
             ImGui.SameLine();
-            if (ImGui.SmallButton("Actualiser##sessions")) FetchSessions();
+            if (ImGui.SmallButton(l.Refresh + "##sessions")) FetchSessions();
             ImGui.SameLine();
-            if (ImGui.SmallButton("Voir en ligne##sessions"))
+            if (ImGui.SmallButton(l.ViewOnline + "##sessions"))
                 OpenUrl(_config.BaseUrl + "/rp-live");
         }
 
@@ -219,18 +205,16 @@ public class MainWindow : Window
         ImGui.Separator();
         ImGui.Spacing();
 
-        // Liste des sessions (laisse de la place pour le bouton en bas)
         if (!_sessionsLoading)
         {
             var activeSessions = _sessionsList.Where(s => s.EndedAt == null).ToList();
             if (activeSessions.Count == 0)
             {
-                ImGui.TextDisabled("Aucune session RP sauvage pour le moment.");
-                ImGui.TextDisabled("Soyez le premier a en demarrer une !");
+                ImGui.TextDisabled(l.RpNoSession);
+                ImGui.TextDisabled(l.RpBeFirst);
             }
             else
             {
-                // Détection des sessions "proches" : même serveur et même zone
                 var currentWorld = Plugin.ObjectTable.LocalPlayer?.CurrentWorld.Value.Name.ToString();
                 var currentZone  = GetCurrentZoneName();
 
@@ -248,11 +232,10 @@ public class MainWindow : Window
                 if (!ImGui.BeginChild("##sessionsscroll", new Vector2(-1, -110), false))
                     goto DrawButton;
 
-                // ── Section "Dans votre zone" ──────────────────────────────────
                 if (nearby.Count > 0)
                 {
                     ImGui.TextColored(new Vector4(0.3f, 0.9f, 0.5f, 1f),
-                        $"✦  Dans votre zone ({currentZone})");
+                        string.Format(l.RpInYourZone, currentZone));
                     ImGui.Spacing();
                     foreach (var s in nearby)
                         DrawSessionEntry(s);
@@ -260,12 +243,11 @@ public class MainWindow : Window
                     if (others.Count > 0)
                     {
                         ImGui.Spacing();
-                        ImGui.TextDisabled("── Autres serveurs ──────────────────────────────────");
+                        ImGui.TextDisabled(l.RpOtherServers);
                         ImGui.Spacing();
                     }
                 }
 
-                // ── Autres sessions ────────────────────────────────────────────
                 foreach (var s in others)
                     DrawSessionEntry(s);
 
@@ -274,27 +256,27 @@ public class MainWindow : Window
         }
 
         DrawButton:
-        // Bouton bas de page
         ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
 
         if (Plugin.HasActiveSession)
         {
-            ImGui.TextColored(new Vector4(0.3f, 0.9f, 0.5f, 1), "Votre session est en cours.");
+            ImGui.TextColored(new Vector4(0.3f, 0.9f, 0.5f, 1), l.RpYourSessionActive);
             ImGui.SameLine();
-            if (ImGui.Button("Gerer ma session"))
+            if (ImGui.Button(l.RpManageSession))
                 Plugin.OpenMySession();
         }
         else
         {
-            if (ImGui.Button("Nouvelle session RP sauvage", new Vector2(-1, 0)))
+            if (ImGui.Button(l.RpNewSession, new Vector2(-1, 0)))
                 Plugin.OpenMySession();
         }
     }
 
     private void DrawSessionEntry(RpSessionDto s)
     {
+        var l = Plugin.L;
         ImGui.TextColored(new Vector4(0.78f, 0.64f, 0.35f, 1), s.Title);
         ImGui.SameLine(0, 8);
         ImGui.TextDisabled($"— {s.Location} ({s.Server})");
@@ -304,16 +286,16 @@ public class MainWindow : Window
             ImGui.TextDisabled($"  {s.Description}");
         if (s.TerritoryId.HasValue && s.MapId.HasValue && s.PosX.HasValue && s.PosZ.HasValue)
         {
-            var btnWidth = ImGui.CalcTextSize("Carte").X + ImGui.GetStyle().FramePadding.X * 2;
+            var btnWidth = ImGui.CalcTextSize(l.Map).X + ImGui.GetStyle().FramePadding.X * 2;
             var rightX   = ImGui.GetWindowWidth() - btnWidth - ImGui.GetStyle().WindowPadding.X;
             ImGui.TextDisabled($"  X {s.PosX.Value:F1}  Y {s.PosZ.Value:F1}");
             ImGui.SameLine(rightX);
-            if (ImGui.SmallButton($"Carte##map_{s.Id}"))
+            if (ImGui.SmallButton($"{l.Map}##map_{s.Id}"))
                 Plugin.Framework.RunOnFrameworkThread(() => OpenOnMap(s));
         }
         if (!Plugin.HasActiveSession && Plugin.MySessionIds.Contains(s.Id))
         {
-            if (ImGui.SmallButton($"Reprendre##claim_{s.Id}"))
+            if (ImGui.SmallButton($"{l.RpResume}##claim_{s.Id}"))
                 Plugin.ClaimSession(s);
         }
         ImGui.Separator();
@@ -323,37 +305,39 @@ public class MainWindow : Window
 
     private void DrawEventsTab()
     {
+        var l = Plugin.L;
+
         if (!_eventsLoading && _eventsLastFetch == DateTime.MinValue)
             FetchEvents();
 
         ImGui.Spacing();
-        if (ImGui.Button("Actualiser##events"))
+        if (ImGui.Button(l.Refresh + "##events"))
             FetchEvents();
         ImGui.SameLine();
-        if (ImGui.SmallButton("Voir en ligne##events"))
+        if (ImGui.SmallButton(l.ViewOnline + "##events"))
             OpenUrl(_config.BaseUrl + "/");
         ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
 
-        if (_eventsLoading) { ImGui.TextDisabled("Chargement..."); return; }
+        if (_eventsLoading) { ImGui.TextDisabled(l.Loading); return; }
 
         if (_eventsList.Count == 0)
         {
-            ImGui.TextDisabled("Aucun evenement dans les 14 prochains jours.");
+            ImGui.TextDisabled(l.EventsNoEvents);
             return;
         }
 
-        var nowCount   = DateTime.UtcNow;
+        var nowCount     = DateTime.UtcNow;
         var ongoingCount = _eventsList.Count(e => IsOngoing(e, nowCount));
         if (ongoingCount > 0)
         {
-            ImGui.TextColored(new Vector4(0.3f, 0.9f, 0.5f, 1), $"{ongoingCount} en cours");
+            ImGui.TextColored(new Vector4(0.3f, 0.9f, 0.5f, 1), string.Format(l.EventsOngoing, ongoingCount));
             ImGui.SameLine(0, 8);
-            ImGui.TextDisabled($"· {_eventsList.Count} evenement(s) au total");
+            ImGui.TextDisabled(string.Format(l.EventsTotal, _eventsList.Count));
         }
         else
-            ImGui.TextDisabled($"{_eventsList.Count} evenement(s)");
+            ImGui.TextDisabled(string.Format(l.EventsCount, _eventsList.Count));
         ImGui.Spacing();
 
         if (!ImGui.BeginChild("##eventsscroll", new Vector2(-1, -1), false)) return;
@@ -368,7 +352,7 @@ public class MainWindow : Window
             var ongoing = IsOngoing(ev, now);
             if (ongoing)
             {
-                ImGui.TextColored(new Vector4(0.3f, 0.9f, 0.5f, 1), "EN COURS");
+                ImGui.TextColored(new Vector4(0.3f, 0.9f, 0.5f, 1), l.Ongoing);
                 ImGui.SameLine(0, 8);
                 ImGui.TextColored(new Vector4(0.3f, 0.9f, 0.5f, 1), ev.Title);
             }
@@ -382,7 +366,7 @@ public class MainWindow : Window
                 if (!string.IsNullOrEmpty(ev.Establishment.Slug))
                 {
                     ImGui.SameLine();
-                    if (ImGui.SmallButton($"Ouvrir##{ev.Id}"))
+                    if (ImGui.SmallButton($"{l.Open}##{ev.Id}"))
                         OpenUrl(_config.BaseUrl + "/etablissements/" + ev.Establishment.Slug);
                 }
             }
@@ -400,7 +384,7 @@ public class MainWindow : Window
                 }
                 line.Add(startStr);
             }
-            if (ev.IsRecurring) line.Add("recurrent");
+            if (ev.IsRecurring) line.Add(l.Recurring);
             if (line.Count > 0)
                 ImGui.TextDisabled("  " + string.Join("  -  ", line));
             if (!string.IsNullOrEmpty(ev.Description))
@@ -436,28 +420,29 @@ public class MainWindow : Window
 
     private void DrawEstabTab()
     {
+        var l = Plugin.L;
         ImGui.Spacing();
         ImGui.SetNextItemWidth(-160);
         var enterPressed = ImGui.InputText("##estabsearch", ref _estabSearchInput, 100, ImGuiInputTextFlags.EnterReturnsTrue);
         ImGui.SameLine();
-        if (ImGui.Button("Rechercher") || enterPressed)
+        if (ImGui.Button(l.Search) || enterPressed)
             FetchEstablishments(_estabSearchInput.Trim());
         ImGui.SameLine();
-        if (ImGui.SmallButton("Voir en ligne##estab"))
+        if (ImGui.SmallButton(l.ViewOnline + "##estab"))
             OpenUrl(_config.BaseUrl + "/etablissements");
         ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
 
-        if (_estabLoading) { ImGui.TextDisabled("Chargement..."); return; }
+        if (_estabLoading) { ImGui.TextDisabled(l.Loading); return; }
 
         if (_estabList.Count == 0)
         {
-            ImGui.TextDisabled("Recherchez par nom, serveur ou quartier.");
+            ImGui.TextDisabled(l.EstabSearchHint);
             return;
         }
 
-        ImGui.TextDisabled($"{_estabList.Count} etablissement(s)");
+        ImGui.TextDisabled(string.Format(l.EstabCount, _estabList.Count));
         ImGui.Spacing();
 
         if (!ImGui.BeginChild("##estabscroll", new Vector2(-1, -1), false)) return;
@@ -467,14 +452,14 @@ public class MainWindow : Window
             if (!string.IsNullOrEmpty(e.Slug))
             {
                 ImGui.SameLine();
-                if (ImGui.SmallButton($"Ouvrir##{e.Id}"))
+                if (ImGui.SmallButton($"{l.Open}##{e.Id}"))
                     OpenUrl(_config.BaseUrl + "/etablissements/" + e.Slug);
             }
             var info = new List<string>();
             if (!string.IsNullOrEmpty(e.Server))   info.Add(e.Server);
             if (!string.IsNullOrEmpty(e.District)) info.Add(DistrictLabel(e.District));
-            if (e.Ward.HasValue)                   info.Add($"Quartier {e.Ward}");
-            if (e.Plot.HasValue)                   info.Add($"Parcelle {e.Plot}");
+            if (e.Ward.HasValue)                   info.Add(string.Format(l.HousingWard, e.Ward));
+            if (e.Plot.HasValue)                   info.Add(string.Format("{0} {1}", l.FieldPlot, e.Plot));
             if (info.Count > 0)
                 ImGui.TextDisabled("  " + string.Join("  -  ", info));
             ImGui.Separator();

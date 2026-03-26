@@ -36,6 +36,20 @@ public sealed class Plugin : IDalamudPlugin
     internal static Configuration Config { get; private set; } = null!;
     internal static ApiClient     Api    { get; private set; } = null!;
 
+    /// <summary>Retourne la localisation active (auto-détection ou choix manuel).</summary>
+    internal static Loc L
+    {
+        get
+        {
+            var lang = Config.Language;
+            if (lang == PluginLanguage.Auto)
+                lang = ClientState.ClientLanguage == Dalamud.Game.ClientLanguage.French
+                    ? PluginLanguage.French
+                    : PluginLanguage.English;
+            return lang == PluginLanguage.French ? Loc.Fr : Loc.En;
+        }
+    }
+
     private readonly WindowSystem     _windowSystem = new("EorzeaEvents");
     private static   MainWindow?      _mainWindow;
     private static   MySessionWindow? _sessionWindow;
@@ -109,13 +123,13 @@ public sealed class Plugin : IDalamudPlugin
 
         // DTR bar entries
         _dtrRp = DtrBar.Get("EorzeaEvents_RP");
-        _dtrRp.Tooltip = new SeStringBuilder().AddText("Sessions RP sauvage en cours\nCliquez pour ouvrir").Build();
+        _dtrRp.Tooltip = new SeStringBuilder().AddText(L.DtrRpTooltip).Build();
         _dtrRp.OnClick = _ => OpenMain();
         _dtrRp.Shown   = true;
         SetDtrRp(0);
 
         _dtrEvents = DtrBar.Get("EorzeaEvents_Ouv");
-        _dtrEvents.Tooltip = new SeStringBuilder().AddText("Evenements en cours\nCliquez pour ouvrir").Build();
+        _dtrEvents.Tooltip = new SeStringBuilder().AddText(L.DtrEventsTooltip).Build();
         _dtrEvents.OnClick = _ => OpenMain();
         _dtrEvents.Shown   = true;
         SetDtrEvents(0);
@@ -326,7 +340,7 @@ public sealed class Plugin : IDalamudPlugin
                 if (isNearby && Config.NotifyNearbyZone)
                 {
                     ToastGui.ShowQuest(
-                        $"Session RP dans votre zone !\n{session.Title}",
+                        string.Format(L.NotifNearbyRp, session.Title),
                         new Dalamud.Game.Gui.Toast.QuestToastOptions { PlaySound = true, DisplayCheckmark = false });
                 }
                 // Notifications globales (filtrées si "mon monde" est coché)
@@ -336,13 +350,13 @@ public sealed class Plugin : IDalamudPlugin
 
                     if (Config.NotifyRpLiveScreen)
                         ToastGui.ShowNormal(
-                            $"Nouvelle session RP !\n{session.Title} — {session.Location} ({session.Server})",
+                            string.Format(L.NotifNewRpScreen, session.Title, session.Location, session.Server),
                             new Dalamud.Game.Gui.Toast.ToastOptions { Speed = Dalamud.Game.Gui.Toast.ToastSpeed.Slow });
 
                     if (Config.NotifyRpLive)
                         NotificationMgr.AddNotification(new Notification
                         {
-                            Title           = "Nouvelle session RP Live",
+                            Title           = L.NotifNewRpTitle,
                             Content         = $"{session.Title} — {session.Location} ({session.Server})",
                             Type            = NotificationType.Info,
                             InitialDuration = TimeSpan.FromSeconds(6),
@@ -353,7 +367,7 @@ public sealed class Plugin : IDalamudPlugin
                             .AddUiForeground(32)
                             .AddText("[Eorzea Events] ")
                             .AddUiForegroundOff()
-                            .AddText($"Nouvelle session RP : {session.Title} — {session.Location} ({session.Server})")
+                            .AddText(string.Format(L.NotifNewRpChat, session.Title, session.Location, session.Server))
                             .Build());
                 }
             }
@@ -391,8 +405,8 @@ public sealed class Plugin : IDalamudPlugin
 
         NotificationMgr.AddNotification(new Notification
         {
-            Title           = "Token API expiré — Eorzea Events",
-            Content         = "Ton token API n'est plus valide. Génère-en un nouveau depuis ton tableau de bord.",
+            Title           = L.NotifTokenTitle,
+            Content         = L.NotifTokenContent,
             Type            = NotificationType.Warning,
             InitialDuration = TimeSpan.FromSeconds(12),
         });
@@ -401,7 +415,7 @@ public sealed class Plugin : IDalamudPlugin
             .AddUiForeground(17) // jaune
             .AddText("[Eorzea Events] ")
             .AddUiForegroundOff()
-            .AddText("Token API invalide ou expiré. Génère-en un nouveau depuis ton tableau de bord (/eorzea config).")
+            .AddText(L.NotifTokenContent)
             .Build());
 
         Log.Warning("[EorzeaEvents] Token API invalide — 401 reçu sur le heartbeat.");

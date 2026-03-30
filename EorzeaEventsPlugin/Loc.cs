@@ -15,8 +15,9 @@ internal sealed class Loc
     public required string ViewOnline { get; init; }
     public required string Open       { get; init; }
     public required string Ongoing    { get; init; }
-    public required string Recurring  { get; init; }
-    public required string Map        { get; init; }
+    public required string Recurring    { get; init; }
+    public required string Description  { get; init; }
+    public required string Map          { get; init; }
     public required string Save       { get; init; }
     public required string Cancel     { get; init; }
     public required string Search     { get; init; }
@@ -179,8 +180,9 @@ internal sealed class Loc
         ViewOnline = "Voir en ligne",
         Open       = "Ouvrir",
         Ongoing    = "EN COURS",
-        Recurring  = "récurrent",
-        Map        = "Carte",
+        Recurring    = "récurrent",
+        Description  = "Description",
+        Map          = "Carte",
         Save       = "Enregistrer",
         Cancel     = "Annuler",
         Search     = "Rechercher",
@@ -341,8 +343,9 @@ internal sealed class Loc
         ViewOnline = "View online",
         Open       = "Open",
         Ongoing    = "ONGOING",
-        Recurring  = "recurring",
-        Map        = "Map",
+        Recurring    = "recurring",
+        Description  = "Description",
+        Map          = "Map",
         Save       = "Save",
         Cancel     = "Cancel",
         Search     = "Search",

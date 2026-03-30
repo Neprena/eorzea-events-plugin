@@ -418,10 +418,35 @@ public class MainWindow : Window
             if (line.Count > 0)
                 ImGui.TextDisabled("  " + string.Join("  -  ", line));
             if (!string.IsNullOrEmpty(ev.Description))
-                ImGui.TextDisabled($"  {ev.Description}");
+            {
+                ImGui.SetNextItemOpen(false, ImGuiCond.Once);
+                if (ImGui.TreeNode($"  {l.Description}##{ev.Id}"))
+                {
+                    var clean = StripMarkdown(ev.Description);
+                    ImGui.PushTextWrapPos(0);
+                    ImGui.TextDisabled(clean);
+                    ImGui.PopTextWrapPos();
+                    ImGui.TreePop();
+                }
+            }
             ImGui.Separator();
         }
         ImGui.EndChild();
+    }
+
+    private static string StripMarkdown(string text)
+    {
+        // Supprimer les blocs ***texte***, **texte**, *texte*, ___texte___, __texte__, _texte_
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"\*{1,3}|_{1,3}", "");
+        // Supprimer les shortcodes emoji :nom:
+        text = System.Text.RegularExpressions.Regex.Replace(text, @":[\w+\-]+:", "");
+        // Supprimer les liens [texte](url)
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"\[([^\]]+)\]\([^\)]+\)", "$1");
+        // Supprimer les titres # ## ###
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"^#{1,6}\s*", "", System.Text.RegularExpressions.RegexOptions.Multiline);
+        // Nettoyer les lignes vides multiples
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"\n{3,}", "\n\n");
+        return text.Trim();
     }
 
     private static bool IsOngoing(EventDto ev, DateTime utcNow)

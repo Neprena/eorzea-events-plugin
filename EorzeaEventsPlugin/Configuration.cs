@@ -45,6 +45,12 @@ public class Configuration : IPluginConfiguration
     /// <summary>Notifier (toast) quand une nouvelle session RP démarre dans la zone courante du joueur.</summary>
     public bool NotifyNearbyZone { get; set; } = true;
 
+    /// <summary>Afficher l'entrée "RP" dans la barre de statut du serveur.</summary>
+    public bool ShowDtrRp { get; set; } = true;
+
+    /// <summary>Afficher l'entrée "Events" dans la barre de statut du serveur.</summary>
+    public bool ShowDtrEvents { get; set; } = true;
+
     /// <summary>Langue de l'interface du plugin (Auto = détection depuis le client FFXIV).</summary>
     public PluginLanguage Language { get; set; } = PluginLanguage.Auto;
 

@@ -1,7 +1,6 @@
 using Dalamud.Game.Command;
 using Dalamud.Game.Gui.Dtr;
 using Dalamud.Game.Text.SeStringHandling;
-using Dalamud.Game.Text.SeStringHandling.Payloads;
 using Dalamud.IoC;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
@@ -57,8 +56,8 @@ public sealed class Plugin : IDalamudPlugin
     private static   SetupWindow?     _setupWindow;
 
     // DTR bar
-    private IDtrBarEntry? _dtrRp;
-    private IDtrBarEntry? _dtrEvents;
+    private static IDtrBarEntry? _dtrRp;
+    private static IDtrBarEntry? _dtrEvents;
 
     // Notification + DTR polling
     private HashSet<string> _knownSessionIds  = [];
@@ -125,13 +124,13 @@ public sealed class Plugin : IDalamudPlugin
         _dtrRp = DtrBar.Get("EorzeaEvents_RP");
         _dtrRp.Tooltip = new SeStringBuilder().AddText(L.DtrRpTooltip).Build();
         _dtrRp.OnClick = _ => OpenMain();
-        _dtrRp.Shown   = true;
+        _dtrRp.Shown   = Config.ShowDtrRp;
         SetDtrRp(0);
 
         _dtrEvents = DtrBar.Get("EorzeaEvents_Ouv");
         _dtrEvents.Tooltip = new SeStringBuilder().AddText(L.DtrEventsTooltip).Build();
         _dtrEvents.OnClick = _ => OpenMain();
-        _dtrEvents.Shown   = true;
+        _dtrEvents.Shown   = Config.ShowDtrEvents;
         SetDtrEvents(0);
 
         if (string.IsNullOrWhiteSpace(Config.ApiToken))
@@ -185,6 +184,12 @@ public sealed class Plugin : IDalamudPlugin
         _sessionWindow.IsOpen = true;
     }
 
+    internal static void ApplyDtrVisibility()
+    {
+        if (_dtrRp     != null) _dtrRp.Shown     = Config.ShowDtrRp;
+        if (_dtrEvents != null) _dtrEvents.Shown = Config.ShowDtrEvents;
+    }
+
     internal static void RebuildApiClient()
     {
         Api.Dispose();
@@ -193,23 +198,18 @@ public sealed class Plugin : IDalamudPlugin
 
     // ─── DTR helpers ─────────────────────────────────────────────────────────────
 
-    // Couleurs UIForeground : 3 = vert vif, 17 = jaune, 0 = défaut
-    private const ushort ColorActive  = 43;  // vert
-    private const ushort ColorDefault = 0;
-
-    // Icones DTR — ajustez BitmapFontIcon selon vos préférences visuelles en jeu
-    private const BitmapFontIcon IconRp     = BitmapFontIcon.CrossWorld;
-    private const BitmapFontIcon IconEvents = BitmapFontIcon.Alarm;
+    // Couleurs UIGlow : 32 = bleu, 17 = jaune (glow autour du texte blanc)
+    private const ushort GlowActive = 32;  // bleu
+    private const ushort GlowIdle   = 17;  // jaune
 
     private void SetDtrRp(int count)
     {
         if (_dtrRp == null) return;
         var sb = new SeStringBuilder();
-        sb.AddIcon(IconRp);
-        sb.AddText(" · ");
-        if (count > 0) sb.AddUiForeground(ColorActive);
+        sb.AddText("RP: ");
+        sb.AddUiGlow(count > 0 ? GlowActive : GlowIdle);
         sb.AddText(count.ToString());
-        if (count > 0) sb.AddUiForegroundOff();
+        sb.AddUiGlowOff();
         _dtrRp.Text = sb.Build();
     }
 
@@ -217,11 +217,10 @@ public sealed class Plugin : IDalamudPlugin
     {
         if (_dtrEvents == null) return;
         var sb = new SeStringBuilder();
-        sb.AddIcon(IconEvents);
-        sb.AddText(" · ");
-        if (count > 0) sb.AddUiForeground(ColorActive);
+        sb.AddText("Events: ");
+        sb.AddUiGlow(count > 0 ? GlowActive : GlowIdle);
         sb.AddText(count.ToString());
-        if (count > 0) sb.AddUiForegroundOff();
+        sb.AddUiGlowOff();
         _dtrEvents.Text = sb.Build();
     }
 

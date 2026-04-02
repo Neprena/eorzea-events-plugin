@@ -15,6 +15,8 @@ public class ConfigWindow : Window
     private bool _alertOnZoneChange;
     private bool _alertOnRpTagRemoved;
     private bool _suggestSessionOnRpTag;
+    private bool _showDtrRp;
+    private bool _showDtrEvents;
     private int  _languageIndex;
 
     public ConfigWindow(Configuration config) : base("Eorzea Events — Configuration##config")
@@ -33,6 +35,8 @@ public class ConfigWindow : Window
         _alertOnZoneChange     = config.AlertOnZoneChange;
         _alertOnRpTagRemoved   = config.AlertOnRpTagRemoved;
         _suggestSessionOnRpTag = config.SuggestSessionOnRpTag;
+        _showDtrRp             = config.ShowDtrRp;
+        _showDtrEvents         = config.ShowDtrEvents;
         _languageIndex         = (int)config.Language;
     }
 
@@ -46,6 +50,8 @@ public class ConfigWindow : Window
         _alertOnZoneChange     = _config.AlertOnZoneChange;
         _alertOnRpTagRemoved   = _config.AlertOnRpTagRemoved;
         _suggestSessionOnRpTag = _config.SuggestSessionOnRpTag;
+        _showDtrRp             = _config.ShowDtrRp;
+        _showDtrEvents         = _config.ShowDtrEvents;
         _languageIndex         = (int)_config.Language;
     }
 
@@ -139,6 +145,16 @@ public class ConfigWindow : Window
         ImGui.Separator();
         ImGui.Spacing();
 
+        // Barre de statut du serveur (DTR)
+        ImGui.TextColored(new Vector4(0.78f, 0.64f, 0.35f, 1), l.CfgDtrHeader);
+        ImGui.Spacing();
+        ImGui.Checkbox(l.CfgDtrRp     + "##dtrRp",     ref _showDtrRp);
+        ImGui.Checkbox(l.CfgDtrEvents + "##dtrEvents", ref _showDtrEvents);
+
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
+
         // Langue
         ImGui.TextColored(new Vector4(0.78f, 0.64f, 0.35f, 1), l.CfgLangHeader);
         ImGui.Spacing();
@@ -160,9 +176,12 @@ public class ConfigWindow : Window
             _config.SuggestSessionOnRpTag = _suggestSessionOnRpTag;
             _config.AlertOnZoneChange     = _alertOnZoneChange;
             _config.AlertOnRpTagRemoved   = _alertOnRpTagRemoved;
+            _config.ShowDtrRp             = _showDtrRp;
+            _config.ShowDtrEvents         = _showDtrEvents;
             _config.Language              = (PluginLanguage)_languageIndex;
             _config.Save();
             Plugin.RebuildApiClient();
+            Plugin.ApplyDtrVisibility();
             IsOpen = false;
         }
         ImGui.SameLine();
@@ -176,6 +195,8 @@ public class ConfigWindow : Window
             _suggestSessionOnRpTag = _config.SuggestSessionOnRpTag;
             _alertOnZoneChange     = _config.AlertOnZoneChange;
             _alertOnRpTagRemoved   = _config.AlertOnRpTagRemoved;
+            _showDtrRp             = _config.ShowDtrRp;
+            _showDtrEvents         = _config.ShowDtrEvents;
             _languageIndex         = (int)_config.Language;
             IsOpen = false;
         }

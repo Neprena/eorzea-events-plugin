@@ -146,6 +146,9 @@ internal sealed class Loc
     public required string CfgLangAuto          { get; init; }
     public required string CfgLangFr            { get; init; }
     public required string CfgLangEn            { get; init; }
+    public required string CfgDtrHeader         { get; init; }
+    public required string CfgDtrRp             { get; init; }
+    public required string CfgDtrEvents         { get; init; }
     public required string CfgTest              { get; init; }
 
     // ── Token invalid / blocked screens ──────────────────────────────────────
@@ -312,6 +315,9 @@ internal sealed class Loc
         CfgLangAuto         = "Automatique (langue du jeu)",
         CfgLangFr           = "Français",
         CfgLangEn           = "English",
+        CfgDtrHeader        = "Barre de statut du serveur",
+        CfgDtrRp            = "Afficher le compteur de sessions RP (RP: N)",
+        CfgDtrEvents        = "Afficher le compteur d'événements (Events: N)",
         CfgTest             = "Tester",
 
         TokenInvalidLine1 = "Token API invalide ou expiré.",
@@ -475,6 +481,9 @@ internal sealed class Loc
         CfgLangAuto         = "Auto (game language)",
         CfgLangFr           = "Francais",
         CfgLangEn           = "English",
+        CfgDtrHeader        = "Server info bar",
+        CfgDtrRp            = "Show RP session counter (RP: N)",
+        CfgDtrEvents        = "Show event counter (Events: N)",
         CfgTest             = "Test",
 
         TokenInvalidLine1 = "API token invalid or expired.",

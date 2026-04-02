@@ -253,7 +253,8 @@ public sealed class Plugin : IDalamudPlugin
             _lastHeartbeat = now;
             Task.Run(async () =>
             {
-                await Api.HeartbeatAsync();
+                var v = PluginInterface.Manifest.AssemblyVersion;
+                await Api.HeartbeatAsync($"{v.Major}.{v.Minor}.{v.Build}");
                 CheckTokenValidity();
             });
         }

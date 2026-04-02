@@ -248,11 +248,12 @@ public class ApiClient : IDisposable
         catch { return []; }
     }
 
-    public async Task HeartbeatAsync(CancellationToken ct = default)
+    public async Task HeartbeatAsync(string? version = null, CancellationToken ct = default)
     {
         try
         {
-            var res = await _http.PostAsync("api/plugin/heartbeat", null, ct);
+            var body = new { version };
+            var res  = await _http.PostAsJsonAsync("api/plugin/heartbeat", body, JsonOptions, ct);
             HandleAuthResponse(res.StatusCode);
         }
         catch { /* silencieux */ }

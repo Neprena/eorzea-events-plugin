@@ -312,6 +312,13 @@ public class MainWindow : Window
         ImGui.TextDisabled($"— {s.Location} ({s.Server})");
         if (!string.IsNullOrEmpty(s.CharacterName))
             ImGui.TextDisabled($"  {s.CharacterName}");
+        if (s.Ward.HasValue)
+        {
+            var housingInfo = s.Plot.HasValue
+                ? string.Format(l.HousingWardPlot, s.Ward, s.Plot)
+                : string.Format(l.HousingWard, s.Ward);
+            ImGui.TextDisabled($"  {housingInfo}");
+        }
         if (!string.IsNullOrEmpty(s.Description))
             ImGui.TextDisabled($"  {s.Description}");
         if (s.TerritoryId.HasValue && s.MapId.HasValue && s.PosX.HasValue && s.PosZ.HasValue)

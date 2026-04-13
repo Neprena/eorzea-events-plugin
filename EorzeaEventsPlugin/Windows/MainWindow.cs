@@ -43,7 +43,7 @@ public class MainWindow : Window
     {
         SizeConstraints = new WindowSizeConstraints
         {
-            MinimumSize = new Vector2(440, 460),
+            MinimumSize = new Vector2(520, 500),
             MaximumSize = new Vector2(700, 800),
         };
         _config = config;
@@ -225,9 +225,9 @@ public class MainWindow : Window
                 ? l.RpNoSession
                 : string.Format(l.RpSessionsActive, activeCount));
             ImGui.SameLine();
-            if (ImGui.SmallButton(l.Refresh + "##sessions")) FetchSessions();
+            if (ImGui.Button(l.Refresh + "##sessions", UiSizes.SmallButton)) FetchSessions();
             ImGui.SameLine();
-            if (ImGui.SmallButton(l.ViewOnline + "##sessions"))
+            if (ImGui.Button(l.ViewOnline + "##sessions", UiSizes.SmallButton))
                 OpenUrl(_config.BaseUrl + "/rp-live");
         }
 
@@ -294,7 +294,7 @@ public class MainWindow : Window
         {
             ImGui.TextColored(new Vector4(0.3f, 0.9f, 0.5f, 1), l.RpYourSessionActive);
             ImGui.SameLine();
-            if (ImGui.Button(l.RpManageSession))
+            if (ImGui.Button(l.RpManageSession, UiSizes.PrimaryButton))
                 Plugin.OpenMySession();
         }
         else
@@ -323,16 +323,16 @@ public class MainWindow : Window
             ImGui.TextDisabled($"  {s.Description}");
         if (s.TerritoryId.HasValue && s.MapId.HasValue && s.PosX.HasValue && s.PosZ.HasValue)
         {
-            var btnWidth = ImGui.CalcTextSize(l.Map).X + ImGui.GetStyle().FramePadding.X * 2;
+            var btnWidth = UiSizes.SmallButton.X;
             var rightX   = ImGui.GetWindowWidth() - btnWidth - ImGui.GetStyle().WindowPadding.X;
             ImGui.TextDisabled($"  X {s.PosX.Value:F1}  Y {s.PosZ.Value:F1}");
             ImGui.SameLine(rightX);
-            if (ImGui.SmallButton($"{l.Map}##map_{s.Id}"))
+            if (ImGui.Button($"{l.Map}##map_{s.Id}", UiSizes.SmallButton))
                 Plugin.Framework.RunOnFrameworkThread(() => OpenOnMap(s));
         }
         if (!Plugin.HasActiveSession && Plugin.MySessionIds.Contains(s.Id))
         {
-            if (ImGui.SmallButton($"{l.RpResume}##claim_{s.Id}"))
+            if (ImGui.Button($"{l.RpResume}##claim_{s.Id}", UiSizes.SmallButton))
                 Plugin.ClaimSession(s);
         }
         ImGui.Separator();
@@ -348,97 +348,124 @@ public class MainWindow : Window
             FetchEvents();
 
         ImGui.Spacing();
-        if (ImGui.Button(l.Refresh + "##events"))
+        if (ImGui.Button(l.Refresh + "##events", UiSizes.SmallButton))
             FetchEvents();
         ImGui.SameLine();
-        if (ImGui.SmallButton(l.ViewOnline + "##events"))
+        if (ImGui.Button(l.ViewOnline + "##events", UiSizes.WideButton))
             OpenUrl(_config.BaseUrl + "/");
         ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
+        ImGui.TextDisabled(l.EventsHideHint);
+        ImGui.Spacing();
 
         if (_eventsLoading) { ImGui.TextDisabled(l.Loading); return; }
 
-        if (_eventsList.Count == 0)
+        var visibleEvents = GetVisibleEvents();
+
+        if (visibleEvents.Count == 0)
         {
             ImGui.TextDisabled(l.EventsNoEvents);
+            DrawHiddenItemsSummary();
             return;
         }
 
         var nowCount     = DateTime.UtcNow;
-        var ongoingCount = _eventsList.Count(e => IsOngoing(e, nowCount));
+        var ongoingCount = visibleEvents.Count(e => IsOngoing(e, nowCount));
         if (ongoingCount > 0)
         {
             ImGui.TextColored(new Vector4(0.3f, 0.9f, 0.5f, 1), string.Format(l.EventsOngoing, ongoingCount));
             ImGui.SameLine(0, 8);
-            ImGui.TextDisabled(string.Format(l.EventsTotal, _eventsList.Count));
+            ImGui.TextDisabled(string.Format(l.EventsTotal, visibleEvents.Count));
         }
         else
-            ImGui.TextDisabled(string.Format(l.EventsCount, _eventsList.Count));
+            ImGui.TextDisabled(string.Format(l.EventsCount, visibleEvents.Count));
         ImGui.Spacing();
 
-        if (!ImGui.BeginChild("##eventsscroll", new Vector2(-1, -1), false)) return;
-        var now    = DateTime.UtcNow;
-        var sorted = _eventsList
-            .OrderByDescending(e => IsOngoing(e, now))
-            .ThenBy(e => e.StartDate)
+        var now = DateTime.UtcNow;
+        var soonLimit = now.AddHours(24);
+        var ongoingEvents = visibleEvents.Where(e => IsOngoing(e, now)).OrderBy(e => e.StartDate).ToList();
+        var upcomingEvents = visibleEvents
+            .Where(e => !IsOngoing(e, now) && GetStartDate(e) is DateTime start && start <= soonLimit)
+            .OrderBy(e => e.StartDate)
             .ToList();
+        var laterEvents = visibleEvents.Except(ongoingEvents).Except(upcomingEvents).OrderBy(e => e.StartDate).ToList();
 
-        foreach (var ev in sorted)
+        DrawEventGroup(l.Ongoing, ongoingEvents, new Vector4(0.3f, 0.9f, 0.5f, 1f));
+        DrawEventGroup("À venir", upcomingEvents, new Vector4(0.5f, 0.8f, 1f, 1f));
+        DrawEventGroup("Plus tard", laterEvents, new Vector4(0.9f, 0.7f, 0.3f, 1f));
+
+        DrawHiddenItemsSummary();
+    }
+
+    private void DrawEventGroup(string title, List<EventDto> events, Vector4 color)
+    {
+        if (events.Count == 0)
+            return;
+
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
+        ImGui.TextColored(color, title);
+        ImGui.SameLine(0, 8);
+        ImGui.TextDisabled($"({events.Count})");
+        ImGui.Spacing();
+
+        foreach (var ev in events)
         {
-            var ongoing = IsOngoing(ev, now);
-            if (ongoing)
-            {
-                ImGui.TextColored(new Vector4(0.3f, 0.9f, 0.5f, 1), l.Ongoing);
-                ImGui.SameLine(0, 8);
-                ImGui.TextColored(new Vector4(0.3f, 0.9f, 0.5f, 1), ev.Title);
-            }
-            else
-                ImGui.TextColored(new Vector4(0.5f, 0.8f, 1f, 1), ev.Title);
-
-            if (ev.Establishment != null)
-            {
-                ImGui.SameLine(0, 8);
-                ImGui.TextDisabled($"@ {ev.Establishment.Name}");
-                if (!string.IsNullOrEmpty(ev.Establishment.Slug))
-                {
-                    ImGui.SameLine();
-                    if (ImGui.SmallButton($"{l.Open}##{ev.Id}"))
-                        OpenUrl(_config.BaseUrl + "/etablissements/" + ev.Establishment.Slug);
-                }
-            }
-
-            var line = new List<string>();
-            if (DateTime.TryParse(ev.StartDate, out var start))
-            {
-                var startStr = start.ToLocalTime().ToString("ddd dd MMM, HH:mm");
-                if (!string.IsNullOrEmpty(ev.EndDate) && DateTime.TryParse(ev.EndDate, out var end))
-                {
-                    var endLocal = end.ToLocalTime();
-                    startStr += endLocal.Date == start.ToLocalTime().Date
-                        ? " → " + endLocal.ToString("HH:mm")
-                        : " → " + endLocal.ToString("ddd dd MMM, HH:mm");
-                }
-                line.Add(startStr);
-            }
-            if (ev.IsRecurring) line.Add(l.Recurring);
-            if (line.Count > 0)
-                ImGui.TextDisabled("  " + string.Join("  -  ", line));
-            if (!string.IsNullOrEmpty(ev.Description))
-            {
-                ImGui.SetNextItemOpen(false, ImGuiCond.Once);
-                if (ImGui.TreeNode($"  {l.Description}##{ev.Id}"))
-                {
-                    var clean = StripMarkdown(ev.Description);
-                    ImGui.PushTextWrapPos(0);
-                    ImGui.TextDisabled(clean);
-                    ImGui.PopTextWrapPos();
-                    ImGui.TreePop();
-                }
-            }
+            DrawEventEntry(ev, color);
             ImGui.Separator();
         }
-        ImGui.EndChild();
+
+        ImGui.Spacing();
+    }
+
+    private void DrawEventEntry(EventDto ev, Vector4 titleColor)
+    {
+        var l = Plugin.L;
+
+        ImGui.TextColored(titleColor, ev.Title);
+
+        if (ev.Establishment != null)
+        {
+            ImGui.SameLine(0, 8);
+            ImGui.TextDisabled($"@ {ev.Establishment.Name}");
+            if (!string.IsNullOrEmpty(ev.Establishment.Slug))
+            {
+                ImGui.SameLine();
+                if (ImGui.Button($"{l.MoreInfo}##{ev.Id}", UiSizes.SmallButton))
+                    OpenUrl(_config.BaseUrl + "/etablissements/" + ev.Establishment.Slug);
+            }
+        }
+
+        var line = new List<string>();
+        if (DateTime.TryParse(ev.StartDate, out var start))
+        {
+            var startStr = start.ToLocalTime().ToString("ddd dd MMM, HH:mm");
+            if (!string.IsNullOrEmpty(ev.EndDate) && DateTime.TryParse(ev.EndDate, out var end))
+            {
+                var endLocal = end.ToLocalTime();
+                startStr += endLocal.Date == start.ToLocalTime().Date
+                    ? " → " + endLocal.ToString("HH:mm")
+                    : " → " + endLocal.ToString("ddd dd MMM, HH:mm");
+            }
+            line.Add(startStr);
+        }
+        if (ev.IsRecurring) line.Add(l.Recurring);
+        if (line.Count > 0)
+            ImGui.TextDisabled("  " + string.Join("  -  ", line));
+        if (!string.IsNullOrEmpty(ev.Description))
+        {
+            ImGui.SetNextItemOpen(false, ImGuiCond.Once);
+            if (ImGui.TreeNode($"  {l.Description}##{ev.Id}"))
+            {
+                var clean = StripMarkdown(ev.Description);
+                ImGui.PushTextWrapPos(0);
+                ImGui.TextDisabled(clean);
+                ImGui.PopTextWrapPos();
+                ImGui.TreePop();
+            }
+        }
     }
 
     private static string StripMarkdown(string text)
@@ -467,6 +494,22 @@ public class MainWindow : Window
         return utcNow <= end;
     }
 
+    private static bool IsExpired(EventDto ev, DateTime utcNow)
+    {
+        if (string.IsNullOrEmpty(ev.EndDate))
+            return false;
+        if (!DateTime.TryParse(ev.EndDate, null, System.Globalization.DateTimeStyles.RoundtripKind, out var end))
+            return false;
+        return end < utcNow;
+    }
+
+    private static DateTime? GetStartDate(EventDto ev)
+    {
+        if (!DateTime.TryParse(ev.StartDate, null, System.Globalization.DateTimeStyles.RoundtripKind, out var start))
+            return null;
+        return start;
+    }
+
     private void FetchEvents()
     {
         _eventsLoading = true;
@@ -484,13 +527,13 @@ public class MainWindow : Window
     {
         var l = Plugin.L;
         ImGui.Spacing();
-        ImGui.SetNextItemWidth(-160);
+        ImGui.SetNextItemWidth(-(UiSizes.SmallButton.X + UiSizes.WideButton.X + 12f));
         var enterPressed = ImGui.InputText("##estabsearch", ref _estabSearchInput, 100, ImGuiInputTextFlags.EnterReturnsTrue);
         ImGui.SameLine();
-        if (ImGui.Button(l.Search) || enterPressed)
+        if (ImGui.Button(l.Search, UiSizes.SmallButton) || enterPressed)
             FetchEstablishments(_estabSearchInput.Trim());
         ImGui.SameLine();
-        if (ImGui.SmallButton(l.ViewOnline + "##estab"))
+        if (ImGui.Button(l.ViewOnline + "##estab", UiSizes.WideButton))
             OpenUrl(_config.BaseUrl + "/etablissements");
         ImGui.Spacing();
         ImGui.Separator();
@@ -498,24 +541,33 @@ public class MainWindow : Window
 
         if (_estabLoading) { ImGui.TextDisabled(l.Loading); return; }
 
-        if (_estabList.Count == 0)
+        var visibleEstabs = GetVisibleEstablishments();
+
+        if (visibleEstabs.Count == 0)
         {
-            ImGui.TextDisabled(l.EstabSearchHint);
+            ImGui.TextDisabled(_config.HiddenEstablishmentIds.Count > 0 ? l.EstabNoResults : l.EstabSearchHint);
+            DrawHiddenEstablishmentsSection();
             return;
         }
 
-        ImGui.TextDisabled(string.Format(l.EstabCount, _estabList.Count));
+        ImGui.TextDisabled(string.Format(l.EstabCount, visibleEstabs.Count));
         ImGui.Spacing();
 
         if (!ImGui.BeginChild("##estabscroll", new Vector2(-1, -1), false)) return;
-        foreach (var e in _estabList)
+        foreach (var e in visibleEstabs)
         {
             ImGui.TextColored(new Vector4(0.9f, 0.7f, 0.3f, 1), e.Name);
             if (!string.IsNullOrEmpty(e.Slug))
             {
                 ImGui.SameLine();
-                if (ImGui.SmallButton($"{l.Open}##{e.Id}"))
+                if (ImGui.Button($"{l.Open}##{e.Id}", UiSizes.SmallButton))
                     OpenUrl(_config.BaseUrl + "/etablissements/" + e.Slug);
+            }
+            ImGui.SameLine();
+            if (ImGui.Button($"{l.Hide}##hide_est_{e.Id}", UiSizes.SmallButton))
+            {
+                HideEstablishment(e.Id);
+                continue;
             }
             var info = new List<string>();
             if (!string.IsNullOrEmpty(e.Server))   info.Add(e.Server);
@@ -526,7 +578,129 @@ public class MainWindow : Window
                 ImGui.TextDisabled("  " + string.Join("  -  ", info));
             ImGui.Separator();
         }
+        DrawHiddenEstablishmentsSection();
         ImGui.EndChild();
+    }
+
+    private List<EventDto> GetVisibleEvents()
+    {
+        var now = DateTime.UtcNow;
+        return _eventsList
+            .Where(e => !e.IsOfficial)
+            .Where(e => !IsExpired(e, now))
+            .Where(e => !_config.HiddenEventIds.Contains(e.Id))
+            .Where(e => string.IsNullOrEmpty(e.Establishment?.Id) || !_config.HiddenEstablishmentIds.Contains(e.Establishment.Id))
+            .ToList();
+    }
+
+    private List<EstablishmentDto> GetVisibleEstablishments()
+    {
+        return _estabList
+            .Where(e => !_config.HiddenEstablishmentIds.Contains(e.Id))
+            .ToList();
+    }
+
+    private void HideEvent(string eventId)
+    {
+        if (_config.HiddenEventIds.Contains(eventId))
+            return;
+        _config.HiddenEventIds.Add(eventId);
+        _config.Save();
+    }
+
+    private void HideEstablishment(string establishmentId)
+    {
+        if (_config.HiddenEstablishmentIds.Contains(establishmentId))
+            return;
+        _config.HiddenEstablishmentIds.Add(establishmentId);
+        _config.Save();
+    }
+
+    private void ShowEvent(string eventId)
+    {
+        if (_config.HiddenEventIds.Remove(eventId))
+            _config.Save();
+    }
+
+    private void ShowEstablishment(string establishmentId)
+    {
+        if (_config.HiddenEstablishmentIds.Remove(establishmentId))
+            _config.Save();
+    }
+
+    private void DrawHiddenItemsSummary()
+    {
+        var hiddenEvents = _eventsList.Where(e => _config.HiddenEventIds.Contains(e.Id)).OrderBy(e => e.StartDate).ToList();
+        var hiddenEstabs = GetKnownHiddenEstablishments();
+
+        if (hiddenEvents.Count == 0 && hiddenEstabs.Count == 0)
+            return;
+
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
+        ImGui.TextDisabled($"{Plugin.L.Hide}: {hiddenEvents.Count} events, {hiddenEstabs.Count} lieux");
+
+        foreach (var ev in hiddenEvents)
+        {
+            ImGui.TextDisabled($"  {ev.Title}");
+            ImGui.SameLine();
+            if (ImGui.Button($"{Plugin.L.Show}##show_event_{ev.Id}", UiSizes.SmallButton))
+                ShowEvent(ev.Id);
+        }
+
+        foreach (var est in hiddenEstabs)
+        {
+            ImGui.TextDisabled($"  {est.Name}");
+            ImGui.SameLine();
+            if (ImGui.Button($"{Plugin.L.Show}##show_est_from_events_{est.Id}", UiSizes.SmallButton))
+                ShowEstablishment(est.Id);
+        }
+    }
+
+    private void DrawHiddenEstablishmentsSection()
+    {
+        var hiddenEstabs = GetKnownHiddenEstablishments();
+        if (hiddenEstabs.Count == 0)
+            return;
+
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
+        ImGui.TextDisabled($"{Plugin.L.Hide}: {hiddenEstabs.Count} lieu(x)");
+        foreach (var est in hiddenEstabs)
+        {
+            ImGui.TextDisabled($"  {est.Name}");
+            ImGui.SameLine();
+            if (ImGui.Button($"{Plugin.L.Show}##show_est_{est.Id}", UiSizes.SmallButton))
+                ShowEstablishment(est.Id);
+        }
+    }
+
+    private List<EstablishmentSummaryDto> GetKnownHiddenEstablishments()
+    {
+        var known = new Dictionary<string, EstablishmentSummaryDto>();
+
+        foreach (var est in _estabList)
+            known[est.Id] = new EstablishmentSummaryDto { Id = est.Id, Name = est.Name, Slug = est.Slug };
+
+        foreach (var ev in _eventsList)
+        {
+            if (!string.IsNullOrEmpty(ev.Establishment?.Id))
+                known[ev.Establishment.Id] = new EstablishmentSummaryDto
+                {
+                    Id = ev.Establishment.Id,
+                    Name = ev.Establishment.Name,
+                    Slug = ev.Establishment.Slug,
+                };
+        }
+
+        return _config.HiddenEstablishmentIds
+            .Select(id => known.TryGetValue(id, out var est)
+                ? est
+                : new EstablishmentSummaryDto { Id = id, Name = id })
+            .OrderBy(e => e.Name)
+            .ToList();
     }
 
     private void FetchEstablishments(string search)

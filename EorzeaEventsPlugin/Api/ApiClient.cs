@@ -32,9 +32,14 @@ public class RpSessionDto
 
 public class EstablishmentSummaryDto
 {
-    [JsonPropertyName("id")]   public string  Id   { get; set; } = string.Empty;
-    [JsonPropertyName("name")] public string  Name { get; set; } = string.Empty;
-    [JsonPropertyName("slug")] public string? Slug { get; set; }
+    [JsonPropertyName("id")]          public string  Id          { get; set; } = string.Empty;
+    [JsonPropertyName("name")]        public string  Name        { get; set; } = string.Empty;
+    [JsonPropertyName("slug")]        public string? Slug        { get; set; }
+    [JsonPropertyName("server")]      public string? Server      { get; set; }
+    [JsonPropertyName("district")]    public string? District    { get; set; }
+    [JsonPropertyName("ward")]        public int?    Ward        { get; set; }
+    [JsonPropertyName("plot")]        public int?    Plot        { get; set; }
+    [JsonPropertyName("housingType")] public string? HousingType { get; set; }
 }
 
 public class EventDto
@@ -45,6 +50,7 @@ public class EventDto
     [JsonPropertyName("startDate")]     public string                  StartDate     { get; set; } = string.Empty;
     [JsonPropertyName("endDate")]       public string?                 EndDate       { get; set; }
     [JsonPropertyName("isRecurring")]   public bool                    IsRecurring   { get; set; }
+    [JsonPropertyName("isOfficial")]    public bool                    IsOfficial    { get; set; }
     [JsonPropertyName("establishment")] public EstablishmentSummaryDto? Establishment { get; set; }
 }
 
@@ -170,7 +176,9 @@ public class ApiClient : IDisposable
 
     public async Task<List<EventDto>> GetUpcomingEventsAsync(int days = 14, CancellationToken ct = default)
     {
-        var from = Uri.EscapeDataString(DateTime.UtcNow.ToString("o"));
+        // Start a bit earlier so currently-running events that began before "now"
+        // are still included in the returned set.
+        var from = Uri.EscapeDataString(DateTime.UtcNow.AddDays(-1).ToString("o"));
         var to   = Uri.EscapeDataString(DateTime.UtcNow.AddDays(days).ToString("o"));
         var res  = await _publicHttp.GetFromJsonAsync<List<EventDto>>(
             $"api/events?from={from}&to={to}", JsonOptions, ct);

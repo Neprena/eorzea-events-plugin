@@ -67,6 +67,8 @@ public sealed class Plugin : IDalamudPlugin
     // Events DTR polling (moins fréquent)
     private DateTime _lastEventsCheck = DateTime.MinValue;
     private const int EventsPollIntervalSeconds = 5;
+    private HashSet<string> _knownOngoingEventKeys = [];
+    private bool _eventsNotifInitialized = false;
 
     // Heartbeat plugin (toutes les 60 s, seulement si token configuré)
     private DateTime _lastHeartbeat = DateTime.MinValue;
@@ -98,6 +100,12 @@ public sealed class Plugin : IDalamudPlugin
     public Plugin()
     {
         Config = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
+        if (Config.Version < 2)
+        {
+            Config.NotifyEventStartChat = true;
+            Config.Version = 2;
+            Config.Save();
+        }
         Api    = new ApiClient(Config.BaseUrl, Config.ApiToken);
 
         _mainWindow    = new MainWindow(Config);
@@ -382,20 +390,146 @@ public sealed class Plugin : IDalamudPlugin
         try
         {
             var events = await Api.GetUpcomingEventsAsync(1);
-            var now    = DateTime.UtcNow;
-            var count  = events.Count(e =>
+            var now = DateTime.UtcNow;
+            var visibleEvents = events.Where(e => IsVisibleEventForNotifications(e, now)).ToList();
+            var ongoingEvents = visibleEvents.Where(e => IsOngoingEvent(e, now)).ToList();
+            var ongoingKeys = ongoingEvents.Select(GetEventOccurrenceKey).ToHashSet();
+
+            SetDtrEvents(ongoingEvents.Count);
+
+            if (!_eventsNotifInitialized)
             {
-                if (!DateTime.TryParse(e.StartDate, null, System.Globalization.DateTimeStyles.RoundtripKind, out var start))
-                    return false;
-                if (now < start) return false;
-                if (string.IsNullOrEmpty(e.EndDate)) return false;
-                if (!DateTime.TryParse(e.EndDate, null, System.Globalization.DateTimeStyles.RoundtripKind, out var end))
-                    return false;
-                return now <= end;
-            });
-            SetDtrEvents(count);
+                _knownOngoingEventKeys = ongoingKeys;
+                _eventsNotifInitialized = true;
+                return;
+            }
+
+            if (Config.NotifyEventStartDalamud || Config.NotifyEventStartChat)
+            {
+                foreach (var ev in ongoingEvents)
+                {
+                    var key = GetEventOccurrenceKey(ev);
+                    if (_knownOngoingEventKeys.Contains(key)) continue;
+                    NotifyEventStarted(ev);
+                }
+            }
+
+            _knownOngoingEventKeys = ongoingKeys;
         }
         catch { /* silencieux */ }
+    }
+
+    private static bool IsVisibleEventForNotifications(EventDto ev, DateTime utcNow)
+    {
+        if (ev.IsOfficial) return false;
+        if (Config.HiddenEventIds.Contains(ev.Id)) return false;
+        if (!string.IsNullOrEmpty(ev.Establishment?.Id) && Config.HiddenEstablishmentIds.Contains(ev.Establishment.Id))
+            return false;
+        return !IsExpiredEvent(ev, utcNow);
+    }
+
+    private static bool IsOngoingEvent(EventDto ev, DateTime utcNow)
+    {
+        if (!DateTime.TryParse(ev.StartDate, null, System.Globalization.DateTimeStyles.RoundtripKind, out var start))
+            return false;
+        if (utcNow < start) return false;
+        if (string.IsNullOrEmpty(ev.EndDate)) return false;
+        if (!DateTime.TryParse(ev.EndDate, null, System.Globalization.DateTimeStyles.RoundtripKind, out var end))
+            return false;
+        return utcNow <= end;
+    }
+
+    private static bool IsExpiredEvent(EventDto ev, DateTime utcNow)
+    {
+        if (string.IsNullOrEmpty(ev.EndDate))
+            return false;
+        if (!DateTime.TryParse(ev.EndDate, null, System.Globalization.DateTimeStyles.RoundtripKind, out var end))
+            return false;
+        return end < utcNow;
+    }
+
+    private static string GetEventOccurrenceKey(EventDto ev)
+        => $"{ev.Id}:{ev.StartDate}";
+
+    private static string GetEventChatContent(EventDto ev)
+    {
+        var venueName = !string.IsNullOrWhiteSpace(ev.Establishment?.Name)
+            ? ev.Establishment.Name
+            : ev.Title;
+
+        var parts = new List<string> { $"{venueName} — {ev.Title}" };
+
+        if (DateTime.TryParse(ev.StartDate, null, System.Globalization.DateTimeStyles.RoundtripKind, out var start))
+        {
+            var timeRange = start.ToLocalTime().ToString("HH:mm");
+            if (!string.IsNullOrWhiteSpace(ev.EndDate)
+                && DateTime.TryParse(ev.EndDate, null, System.Globalization.DateTimeStyles.RoundtripKind, out var end))
+            {
+                timeRange += $" → {end.ToLocalTime():HH:mm}";
+            }
+            parts.Add(timeRange);
+        }
+
+        if (!string.IsNullOrWhiteSpace(ev.Establishment?.Server))
+            parts.Add(ev.Establishment.Server);
+
+        var address = GetEventAddress(ev);
+        if (!string.IsNullOrWhiteSpace(address))
+            parts.Add(address);
+
+        return string.Format(L.NotifEventStartChat, string.Join(" | ", parts));
+    }
+
+    private static string GetEventScreenContent(EventDto ev)
+    {
+        var venueName = !string.IsNullOrWhiteSpace(ev.Establishment?.Name)
+            ? ev.Establishment.Name
+            : ev.Title;
+        return string.Format(L.NotifEventStartScreen, ev.Title, venueName);
+    }
+
+    private static string? GetEventAddress(EventDto ev)
+    {
+        if (ev.Establishment == null)
+            return null;
+
+        var parts = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(ev.Establishment.District))
+        {
+            var district = L.DistrictLabels.TryGetValue(ev.Establishment.District, out var label)
+                ? label
+                : ev.Establishment.District;
+            parts.Add(district);
+        }
+
+        if (ev.Establishment.Ward.HasValue)
+            parts.Add(string.Format(L.HousingWard, ev.Establishment.Ward.Value));
+
+        if (ev.Establishment.Plot.HasValue)
+            parts.Add($"{L.FieldPlot} {ev.Establishment.Plot.Value}");
+
+        return parts.Count > 0 ? string.Join(", ", parts) : null;
+    }
+
+    private static void NotifyEventStarted(EventDto ev)
+    {
+        if (Config.NotifyEventStartDalamud)
+        {
+            ToastGui.ShowNormal(
+                GetEventScreenContent(ev),
+                new Dalamud.Game.Gui.Toast.ToastOptions { Speed = Dalamud.Game.Gui.Toast.ToastSpeed.Slow });
+        }
+
+        if (Config.NotifyEventStartChat)
+        {
+            ChatGui.Print(new SeStringBuilder()
+                .AddUiForeground(32)
+                .AddText("[Eorzea Events] ")
+                .AddUiForegroundOff()
+                .AddText(GetEventChatContent(ev))
+                .Build());
+        }
     }
 
     private void CheckTokenValidity()

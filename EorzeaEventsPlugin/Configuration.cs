@@ -7,7 +7,7 @@ public enum PluginLanguage { Auto, French, English }
 [Serializable]
 public class Configuration : IPluginConfiguration
 {
-    public int Version { get; set; } = 1;
+    public int Version { get; set; } = 2;
 
     /// <summary>Token API généré depuis le dashboard Eorzea Events.</summary>
     public string ApiToken { get; set; } = string.Empty;
@@ -45,6 +45,12 @@ public class Configuration : IPluginConfiguration
     /// <summary>Notifier (toast) quand une nouvelle session RP démarre dans la zone courante du joueur.</summary>
     public bool NotifyNearbyZone { get; set; } = true;
 
+    /// <summary>Notifier quand un événement communautaire démarre via notification Dalamud.</summary>
+    public bool NotifyEventStartDalamud { get; set; } = true;
+
+    /// <summary>Notifier quand un événement communautaire démarre via message chat.</summary>
+    public bool NotifyEventStartChat { get; set; } = true;
+
     /// <summary>Afficher l'entrée "RP" dans la barre de statut du serveur.</summary>
     public bool ShowDtrRp { get; set; } = true;
 
@@ -53,6 +59,12 @@ public class Configuration : IPluginConfiguration
 
     /// <summary>Langue de l'interface du plugin (Auto = détection depuis le client FFXIV).</summary>
     public PluginLanguage Language { get; set; } = PluginLanguage.Auto;
+
+    /// <summary>IDs d'événements masqués localement.</summary>
+    public List<string> HiddenEventIds { get; set; } = [];
+
+    /// <summary>IDs d'établissements masqués localement.</summary>
+    public List<string> HiddenEstablishmentIds { get; set; } = [];
 
     public void Save() => Plugin.PluginInterface.SavePluginConfig(this);
 }

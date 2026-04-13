@@ -337,7 +337,7 @@ public class MySessionWindow : Window
             ImGui.Spacing();
             ImGui.TextWrapped(tokenMissing ? l.MySessionTokenMissingDesc : l.MySessionTokenInvalidDesc);
             ImGui.Spacing();
-            if (ImGui.Button(tokenMissing ? l.BtnConfigureNow : l.TokenReconfigure))
+            if (ImGui.Button(tokenMissing ? l.BtnConfigureNow : l.TokenReconfigure, UiSizes.PrimaryButton))
                 Plugin.OpenSetup(tokenInvalid: !tokenMissing);
             return;
         }
@@ -380,7 +380,7 @@ public class MySessionWindow : Window
             ImGui.TextColored(new Vector4(0.3f, 0.9f, 0.5f, 1f), l.AlertRpTagActivTitle);
             ImGui.TextWrapped(l.AlertRpTagActivDesc);
             ImGui.Spacing();
-            if (ImGui.SmallButton(l.Ignore + "##rptag_active")) { _pendingRpTagActivePrompt = false; IsOpen = false; }
+            if (ImGui.Button(l.Ignore + "##rptag_active", UiSizes.SmallButton)) { _pendingRpTagActivePrompt = false; IsOpen = false; }
             ImGui.Unindent(8f);
             ImGui.Spacing();
             var p1 = ImGui.GetCursorScreenPos();
@@ -426,7 +426,7 @@ public class MySessionWindow : Window
         ImGui.SetNextItemWidth(-80);
         ImGui.InputText("##charname", ref _characterName, 60);
         ImGui.SameLine();
-        if (ImGui.Button(l.Auto))
+        if (ImGui.Button(l.Auto, UiSizes.SmallButton))
             _characterName = GetCharacterName();
 
         ImGui.Spacing();
@@ -473,9 +473,9 @@ public class MySessionWindow : Window
             ImGui.TextColored(new Vector4(1f, 0.75f, 0.1f, 1f), l.AlertZoneChangedTitle);
             ImGui.TextWrapped(l.AlertZoneChangedDesc);
             ImGui.Spacing();
-            if (ImGui.SmallButton(l.BtnUpdatePos + "##zone")) { _pendingZonePrompt = false; RefreshPosition(); }
+            if (ImGui.Button(l.BtnUpdatePos + "##zone", UiSizes.WideButton)) { _pendingZonePrompt = false; RefreshPosition(); }
             ImGui.SameLine();
-            if (ImGui.SmallButton(l.Ignore + "##zone"))       { _pendingZonePrompt = false; IsOpen = false; }
+            if (ImGui.Button(l.Ignore + "##zone", UiSizes.SmallButton))       { _pendingZonePrompt = false; IsOpen = false; }
             ImGui.Unindent(8f);
             ImGui.Spacing();
             var p1 = ImGui.GetCursorScreenPos();
@@ -499,9 +499,9 @@ public class MySessionWindow : Window
             ImGui.TextColored(new Vector4(0.75f, 0.5f, 1f, 1f), l.AlertRpTagRemovedTitle);
             ImGui.TextWrapped(l.AlertRpTagRemovedDesc);
             ImGui.Spacing();
-            if (ImGui.SmallButton(l.BtnEnd + "##rptag"))    { _pendingRpTagPrompt = false; EndSession(); }
+            if (ImGui.Button(l.BtnEnd + "##rptag", UiSizes.MediumButton))    { _pendingRpTagPrompt = false; EndSession(); }
             ImGui.SameLine();
-            if (ImGui.SmallButton(l.Ignore + "##rptag"))      _pendingRpTagPrompt = false;
+            if (ImGui.Button(l.Ignore + "##rptag", UiSizes.SmallButton))      _pendingRpTagPrompt = false;
             ImGui.Unindent(8f);
             ImGui.Spacing();
             var p1 = ImGui.GetCursorScreenPos();
@@ -538,20 +538,20 @@ public class MySessionWindow : Window
 
             if (!_busy)
             {
-                if (ImGui.Button(l.BtnModify, new Vector2(100, 0)))
+                if (ImGui.Button(l.BtnModify, UiSizes.SmallButton))
                 {
                     _editTitle = _activeSession.Title;
                     _editDesc  = string.Empty;
                     _editing   = true;
                 }
                 ImGui.SameLine();
-                if (ImGui.Button(l.BtnUpdatePos, new Vector2(160, 0)))
+                if (ImGui.Button(l.BtnUpdatePos, UiSizes.WideButton))
                     RefreshPosition();
                 ImGui.SameLine();
-                if (ImGui.Button(l.BtnExtend, new Vector2(130, 0)))
+                if (ImGui.Button(l.BtnExtend, UiSizes.MediumButton))
                     ExtendSession(1);
                 ImGui.SameLine();
-                if (ImGui.Button(l.ViewOnline, new Vector2(100, 0)))
+                if (ImGui.Button(l.ViewOnline, UiSizes.SmallButton))
                     OpenUrl(_config.BaseUrl + "/rp-live");
 
                 ImGui.Spacing();
@@ -581,11 +581,11 @@ public class MySessionWindow : Window
 
             var canSave = !_busy && !string.IsNullOrWhiteSpace(_editTitle);
             if (!canSave) ImGui.BeginDisabled();
-            if (ImGui.Button(l.Save, new Vector2(120, 0)))
+            if (ImGui.Button(l.Save, UiSizes.MediumButton))
                 UpdateSession();
             if (!canSave) ImGui.EndDisabled();
             ImGui.SameLine();
-            if (ImGui.Button(l.Cancel, new Vector2(80, 0)))
+            if (ImGui.Button(l.Cancel, UiSizes.SmallButton))
                 _editing = false;
         }
     }

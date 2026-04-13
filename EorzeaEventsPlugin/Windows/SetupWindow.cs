@@ -86,7 +86,7 @@ public class SetupWindow : Window
         ImGui.Separator();
         ImGui.Spacing();
 
-        if (ImGui.Button(l.SetupStart, new Vector2(120, 0)))
+        if (ImGui.Button(l.SetupStart, UiSizes.MediumButton))
             _step = 1;
     }
 
@@ -111,7 +111,7 @@ public class SetupWindow : Window
         ImGui.TextWrapped(l.SetupStepDesc);
         ImGui.Spacing();
 
-        if (ImGui.Button(l.SetupOpenDashboard))
+        if (ImGui.Button(l.SetupOpenDashboard, UiSizes.PrimaryButton))
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
                 _config.BaseUrl.TrimEnd('/') + "/dashboard") { UseShellExecute = true });
 
@@ -123,7 +123,7 @@ public class SetupWindow : Window
         else
             ImGui.InputText("##token", ref _tokenBuf, 256);
         ImGui.SameLine();
-        if (ImGui.Button(_tokenMasked ? l.Show : l.Hide))
+        if (ImGui.Button(_tokenMasked ? l.Show : l.Hide, UiSizes.SmallButton))
             _tokenMasked = !_tokenMasked;
 
         if (!string.IsNullOrEmpty(_error))
@@ -138,7 +138,7 @@ public class SetupWindow : Window
 
         var canSave = !string.IsNullOrWhiteSpace(_tokenBuf);
         if (!canSave) ImGui.BeginDisabled();
-        if (ImGui.Button(l.Save, new Vector2(120, 0)))
+        if (ImGui.Button(l.Save, UiSizes.MediumButton))
         {
             var trimmed = _tokenBuf.Trim();
             if (!trimmed.StartsWith("ee_"))
@@ -157,7 +157,7 @@ public class SetupWindow : Window
         }
         if (!canSave) ImGui.EndDisabled();
         ImGui.SameLine();
-        if (ImGui.Button(l.SetupSkip, new Vector2(80, 0)))
+        if (ImGui.Button(l.SetupSkip, UiSizes.SmallButton))
         {
             IsOpen = false;
             Plugin.OpenMain();
@@ -178,7 +178,7 @@ public class SetupWindow : Window
         ImGui.Separator();
         ImGui.Spacing();
 
-        if (ImGui.Button(l.SetupOpenPlugin, new Vector2(160, 0)))
+        if (ImGui.Button(l.SetupOpenPlugin, UiSizes.WideButton))
         {
             IsOpen = false;
             Plugin.OpenMain();

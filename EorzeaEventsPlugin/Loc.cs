@@ -138,6 +138,10 @@ internal sealed class Loc
     public required string CfgNotifMyWorld      { get; init; }
     public required string CfgNotifNearby       { get; init; }
     public required string CfgNotifNearbyHint   { get; init; }
+    public required string CfgEventNotifHeader  { get; init; }
+    public required string CfgEventNotifScreen  { get; init; }
+    public required string CfgEventNotifChat    { get; init; }
+    public required string CfgEventNotifHint    { get; init; }
     public required string CfgSessionHeader     { get; init; }
     public required string CfgSuggestOnTag      { get; init; }
     public required string CfgAlertZone         { get; init; }
@@ -165,9 +169,13 @@ internal sealed class Loc
     public required string NotifNearbyRp        { get; init; }   // {0} = title
     public required string NotifNewRpScreen     { get; init; }   // {0}=title {1}=loc {2}=server
     public required string NotifNewRpChat       { get; init; }   // {0}=title {1}=loc {2}=server
+    public required string NotifEventStartScreen { get; init; }  // {0}=title {1}=establishment
+    public required string NotifEventStartChat  { get; init; }   // {0}=details
     public required string DtrRpTooltip         { get; init; }
     public required string DtrEventsTooltip     { get; init; }
     public required string PlayersOnline        { get; init; }   // {0} = count
+    public required string MoreInfo             { get; init; }
+    public required string EventsHideHint       { get; init; }
 
     // ── Static instances ──────────────────────────────────────────────────────
 
@@ -182,6 +190,7 @@ internal sealed class Loc
         Refresh    = "Actualiser",
         ViewOnline = "Voir en ligne",
         Open       = "Ouvrir",
+        MoreInfo   = "+ d'infos",
         Ongoing    = "EN COURS",
         Recurring    = "récurrent",
         Description  = "Description",
@@ -209,6 +218,7 @@ internal sealed class Loc
         EventsCount    = "{0} événement(s)",
         EventsOngoing  = "{0} en cours",
         EventsTotal    = "· {0} événement(s) au total",
+        EventsHideHint = "Pour ne plus voir un lieu ni recevoir ses notifications, masque-le depuis l'onglet Lieux.",
 
         EstabSearchHint = "Recherchez par nom, serveur ou quartier.",
         EstabNoResults  = "Aucun résultat.",
@@ -307,6 +317,10 @@ internal sealed class Loc
         CfgNotifMyWorld     = "Ignorer les sessions sur d'autres serveurs",
         CfgNotifNearby      = "Alerte prioritaire si la session est dans ma zone actuelle",
         CfgNotifNearbyHint  = "   Même serveur et même zone",
+        CfgEventNotifHeader = "Quand un événement démarre",
+        CfgEventNotifScreen  = "Afficher une alerte au centre de l'écran",
+        CfgEventNotifChat   = "Écrire aussi un message dans le chat",
+        CfgEventNotifHint   = "   Seulement pour les événements communautaires visibles",
         CfgSessionHeader    = "Quand j'ai une session RP en cours",
         CfgSuggestOnTag     = "Me proposer de démarrer une session quand j'active le tag RP",
         CfgAlertZone        = "Me prévenir si je change de zone ou effectue un TP",
@@ -332,6 +346,8 @@ internal sealed class Loc
         NotifNearbyRp     = "RP ouvert dans votre zone !\n{0}",
         NotifNewRpScreen  = "Nouveau RP ouvert !\n{0} — {1} ({2})",
         NotifNewRpChat    = "Nouveau RP ouvert : {0} — {1} ({2})",
+        NotifEventStartScreen = "Événement en cours !\n{0} — {1}",
+        NotifEventStartChat  = "Événement en cours : {0}",
         DtrRpTooltip      = "Sessions RP ouvertes en cours\nCliquez pour ouvrir",
         DtrEventsTooltip  = "Événements en cours\nCliquez pour ouvrir",
         PlayersOnline     = "🟢 {0} joueur(s) en ligne",
@@ -348,6 +364,7 @@ internal sealed class Loc
         Refresh    = "Refresh",
         ViewOnline = "View online",
         Open       = "Open",
+        MoreInfo   = "More info",
         Ongoing    = "ONGOING",
         Recurring    = "recurring",
         Description  = "Description",
@@ -375,6 +392,7 @@ internal sealed class Loc
         EventsCount    = "{0} event(s)",
         EventsOngoing  = "{0} ongoing",
         EventsTotal    = "· {0} event(s) total",
+        EventsHideHint = "To stop seeing a venue and its event notifications, hide it from the Venues tab.",
 
         EstabSearchHint = "Search by name, server or ward.",
         EstabNoResults  = "No results found.",
@@ -473,6 +491,10 @@ internal sealed class Loc
         CfgNotifMyWorld     = "Ignore sessions on other servers",
         CfgNotifNearby      = "Priority alert if the session is in my current zone",
         CfgNotifNearbyHint  = "   Same server and same zone",
+        CfgEventNotifHeader = "When an event starts",
+        CfgEventNotifScreen  = "Show an alert in the middle of the screen",
+        CfgEventNotifChat   = "Also print a chat message",
+        CfgEventNotifHint   = "   Only for visible community events",
         CfgSessionHeader    = "While I have an active RP session",
         CfgSuggestOnTag     = "Suggest starting a session when I enable the RP tag",
         CfgAlertZone        = "Warn me if I change zone or teleport",
@@ -498,6 +520,8 @@ internal sealed class Loc
         NotifNearbyRp     = "Open RP in your zone!\n{0}",
         NotifNewRpScreen  = "New open RP!\n{0} — {1} ({2})",
         NotifNewRpChat    = "New open RP: {0} — {1} ({2})",
+        NotifEventStartScreen = "Event is live!\n{0} — {1}",
+        NotifEventStartChat  = "Event is live: {0}",
         DtrRpTooltip      = "Active open RP sessions\nClick to open",
         DtrEventsTooltip  = "Ongoing events\nClick to open",
         PlayersOnline     = "🟢 {0} player(s) online",

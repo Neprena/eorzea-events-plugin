@@ -35,10 +35,12 @@ internal sealed class LocationDebugSnapshot
     public int? Plot { get; init; }
     public int? Room { get; init; }
     public uint? OriginalHouseTerritoryTypeId { get; init; }
+    public bool? Wing { get; init; }
     public bool HasHousingContext => HasHousingManager && RawWard.HasValue && RawWard.Value >= 0;
     public bool HasPlot => Plot.HasValue;
     public bool HasRoom => Room.HasValue;
     public string HousingGuess { get; init; } = "unknown";
+    public string HousingSummary { get; init; } = "—";
 
     public static unsafe LocationDebugSnapshot Collect()
     {
@@ -95,7 +97,9 @@ internal sealed class LocationDebugSnapshot
             Plot = rawPlot is >= 0 ? rawPlot + 1 : null,
             Room = rawRoom is > 0 ? rawRoom : null,
             OriginalHouseTerritoryTypeId = originalHouseTerritoryTypeId,
+            Wing = ResolveWing(mapId),
             HousingGuess = InferHousingGuess(rawPlot, rawRoom),
+            HousingSummary = FormatHousingSummary(rawWard is >= 0 ? rawWard + 1 : null, rawPlot is >= 0 ? rawPlot + 1 : null, rawRoom is > 0 ? rawRoom : null, ResolveWing(mapId)),
         };
     }
 
@@ -104,6 +108,24 @@ internal sealed class LocationDebugSnapshot
         if (rawRoom is > 0) return "room_or_apartment";
         if (rawPlot is >= 0) return "house_plot";
         return "unknown";
+    }
+
+    private static bool? ResolveWing(uint mapId)
+        => mapId switch
+        {
+            72 or 82 or 83 or 364 or 679 => false,
+            192 or 193 or 194 or 365 or 680 => true,
+            _ => null,
+        };
+
+    private static string FormatHousingSummary(int? ward, int? plot, int? room, bool? wing)
+    {
+        if (!ward.HasValue) return "—";
+        if (room.HasValue)
+            return wing == true ? $"Ward {ward} annex · Room {room}" : $"Ward {ward} · Room {room}";
+        if (plot.HasValue)
+            return wing == true ? $"Ward {ward} annex · Plot {plot}" : $"Ward {ward} · Plot {plot}";
+        return wing == true ? $"Ward {ward} annex" : $"Ward {ward}";
     }
 
     public string ToDebugDump()
@@ -131,10 +153,12 @@ internal sealed class LocationDebugSnapshot
         AppendLine(sb, "plot", Plot);
         AppendLine(sb, "room", Room);
         AppendLine(sb, "originalHouseTerritoryTypeId", OriginalHouseTerritoryTypeId);
+        AppendLine(sb, "wing", Wing);
         AppendLine(sb, "hasHousingContext", HasHousingContext);
         AppendLine(sb, "hasPlot", HasPlot);
         AppendLine(sb, "hasRoom", HasRoom);
         AppendLine(sb, "housingGuess", HousingGuess);
+        AppendLine(sb, "housingSummary", HousingSummary);
         return sb.ToString();
     }
 

@@ -25,6 +25,8 @@ public class RpSessionDto
     [JsonPropertyName("posZ")]          public float?  PosZ          { get; set; }
     [JsonPropertyName("ward")]          public int?    Ward          { get; set; }
     [JsonPropertyName("plot")]          public int?    Plot          { get; set; }
+    [JsonPropertyName("room")]          public int?    Room          { get; set; }
+    [JsonPropertyName("wing")]          public bool?   Wing          { get; set; }
     [JsonPropertyName("endedAt")]       public string? EndedAt       { get; set; }
     [JsonPropertyName("territoryId")]   public uint?   TerritoryId   { get; set; }
     [JsonPropertyName("mapId")]         public uint?   MapId         { get; set; }
@@ -97,6 +99,7 @@ public class CreateSessionRequest
     [JsonPropertyName("posZ")]          public float?  PosZ          { get; set; }
     [JsonPropertyName("ward")]          public int?    Ward          { get; set; }
     [JsonPropertyName("plot")]          public int?    Plot          { get; set; }
+    [JsonPropertyName("room")]          public int?    Room          { get; set; }
     [JsonPropertyName("duration")]      public int     Duration      { get; set; } = 2;
     [JsonPropertyName("territoryId")]   public uint?   TerritoryId   { get; set; }
     [JsonPropertyName("mapId")]         public uint?   MapId         { get; set; }
@@ -113,6 +116,7 @@ public class UpdateSessionRequest
     [JsonPropertyName("posZ")]          public float?  PosZ          { get; set; }
     [JsonPropertyName("ward")]          public int?    Ward          { get; set; }
     [JsonPropertyName("plot")]          public int?    Plot          { get; set; }
+    [JsonPropertyName("room")]          public int?    Room          { get; set; }
     [JsonPropertyName("duration")]      public int?    Duration      { get; set; }
     [JsonPropertyName("territoryId")]   public uint?   TerritoryId   { get; set; }
     [JsonPropertyName("mapId")]         public uint?   MapId         { get; set; }

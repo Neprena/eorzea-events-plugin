@@ -133,7 +133,8 @@ public class MySessionWindow : Window
             PosX          = mapCoords?.Item1,
             PosZ          = mapCoords?.Item2,
             Ward          = housing?.Ward,
-            Plot          = housing?.Plot ?? housing?.Room,
+            Plot          = housing?.Plot,
+            Room          = housing?.Room,
             Duration      = _duration,
             TerritoryId   = terId,
             MapId         = mapId,
@@ -226,7 +227,8 @@ public class MySessionWindow : Window
             PosX          = mapCoords?.Item1,
             PosZ          = mapCoords?.Item2,
             Ward          = housing?.Ward,
-            Plot          = housing?.Plot ?? housing?.Room,
+            Plot          = housing?.Plot,
+            Room          = housing?.Room,
             Location      = zone,
             Server        = world,
             CharacterName = string.IsNullOrEmpty(charName) ? null : charName,
@@ -523,9 +525,11 @@ public class MySessionWindow : Window
                 ImGui.Text($"{l.FieldCharName}: {_activeSession.CharacterName}");
             if (_activeSession.Ward.HasValue)
             {
-                var housing = _activeSession.Plot.HasValue
-                    ? string.Format(l.HousingWardPlot, _activeSession.Ward, _activeSession.Plot)
-                    : string.Format(l.HousingWard, _activeSession.Ward);
+                var housing = _activeSession.Room.HasValue
+                    ? string.Format(l.HousingWardRoom, _activeSession.Ward, _activeSession.Room)
+                    : _activeSession.Plot.HasValue
+                        ? string.Format(l.HousingWardPlot, _activeSession.Ward, _activeSession.Plot)
+                        : string.Format(l.HousingWard, _activeSession.Ward);
                 ImGui.TextDisabled($"{l.FieldHousing}: {housing}");
             }
             var livePos = GetCurrentPosition();

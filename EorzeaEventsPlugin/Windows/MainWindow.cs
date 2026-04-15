@@ -326,9 +326,11 @@ public class MainWindow : Window
             ImGui.TextDisabled($"  {s.CharacterName}");
         if (s.Ward.HasValue)
         {
-            var housingInfo = s.Plot.HasValue
-                ? string.Format(l.HousingWardPlot, s.Ward, s.Plot)
-                : string.Format(l.HousingWard, s.Ward);
+            var housingInfo = s.Room.HasValue
+                ? string.Format(l.HousingWardRoom, s.Ward, s.Room)
+                : s.Plot.HasValue
+                    ? string.Format(l.HousingWardPlot, s.Ward, s.Plot)
+                    : string.Format(l.HousingWard, s.Ward);
             ImGui.TextDisabled($"  {housingInfo}");
         }
         if (!string.IsNullOrEmpty(s.Description))
@@ -814,10 +816,12 @@ public class MainWindow : Window
 
         DrawDebugSection(l.DebugSectionDerived, new (string, string)[]
         {
+            ("Wing", FormatNullable(snapshot.Wing)),
             ("HasHousingContext", snapshot.HasHousingContext.ToString()),
             ("HasPlot", snapshot.HasPlot.ToString()),
             ("HasRoom", snapshot.HasRoom.ToString()),
             ("HousingGuess", snapshot.HousingGuess),
+            ("HousingSummary", snapshot.HousingSummary),
         });
 
         ImGui.EndChild();

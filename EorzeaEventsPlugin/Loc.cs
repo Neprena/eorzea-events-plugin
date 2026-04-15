@@ -77,6 +77,7 @@ internal sealed class Loc
     public required string FieldRoom              { get; init; }
     public required string FieldPosition          { get; init; }
     public required string FieldHousing           { get; init; }
+    public required string HousingAnnex           { get; init; }
     public required string HousingWardPlot        { get; init; }   // {0}=ward {1}=plot
     public required string HousingWardRoom        { get; init; }   // {0}=ward {1}=room
     public required string HousingWard            { get; init; }   // {0}=ward
@@ -268,6 +269,7 @@ internal sealed class Loc
         FieldRoom             = "Appartement",
         FieldPosition         = "Position",
         FieldHousing          = "Logement",
+        HousingAnnex          = "annexe",
         HousingWardPlot       = "Quartier {0}  —  Parcelle {1}",
         HousingWardRoom       = "Quartier {0}  —  Appartement {1}",
         HousingWard           = "Quartier {0}",
@@ -452,6 +454,7 @@ internal sealed class Loc
         FieldRoom             = "Room",
         FieldPosition         = "Position",
         FieldHousing          = "Housing",
+        HousingAnnex          = "annex",
         HousingWardPlot       = "Ward {0}  —  Plot {1}",
         HousingWardRoom       = "Ward {0}  —  Room {1}",
         HousingWard           = "Ward {0}",

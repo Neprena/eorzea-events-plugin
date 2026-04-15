@@ -97,9 +97,9 @@ internal sealed class LocationDebugSnapshot
             Plot = rawPlot is >= 0 ? rawPlot + 1 : null,
             Room = rawRoom is > 0 ? rawRoom : null,
             OriginalHouseTerritoryTypeId = originalHouseTerritoryTypeId,
-            Wing = ResolveWing(mapId),
+            Wing = ResolveWing(mapId, rawPlot),
             HousingGuess = InferHousingGuess(rawPlot, rawRoom),
-            HousingSummary = FormatHousingSummary(rawWard is >= 0 ? rawWard + 1 : null, rawPlot is >= 0 ? rawPlot + 1 : null, rawRoom is > 0 ? rawRoom : null, ResolveWing(mapId)),
+            HousingSummary = FormatHousingSummary(rawWard is >= 0 ? rawWard + 1 : null, rawPlot is >= 0 ? rawPlot + 1 : null, rawRoom is > 0 ? rawRoom : null, ResolveWing(mapId, rawPlot)),
         };
     }
 
@@ -110,13 +110,18 @@ internal sealed class LocationDebugSnapshot
         return "unknown";
     }
 
-    private static bool? ResolveWing(uint mapId)
-        => mapId switch
+    private static bool? ResolveWing(uint mapId, int? rawPlot)
+    {
+        if (rawPlot == -127) return true;
+        if (rawPlot == -128) return false;
+
+        return mapId switch
         {
             72 or 82 or 83 or 364 or 679 => false,
             192 or 193 or 194 or 365 or 680 => true,
             _ => null,
         };
+    }
 
     private static string FormatHousingSummary(int? ward, int? plot, int? room, bool? wing)
     {

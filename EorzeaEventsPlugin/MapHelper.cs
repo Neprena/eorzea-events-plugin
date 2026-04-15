@@ -1,15 +1,14 @@
+using Dalamud.Utility;
 using Lumina.Excel.Sheets;
+using System.Numerics;
 
 namespace EorzeaEventsPlugin;
 
 internal static class MapHelper
 {
     /// <summary>Convertit une coordonnée monde FFXIV en coordonnée carte (fourchette 1–42).</summary>
-    public static float WorldToMapCoord(float worldCoord, uint sizeFactor, short offset)
-    {
-        var scale = sizeFactor / 100f;
-        return 41f / scale * ((worldCoord + 1024f + offset) / 2048f) + 1f;
-    }
+    public static float WorldToMapCoord(float worldCoord, uint sizeFactor, int offset)
+        => MapUtil.ConvertWorldCoordXZToMapCoord(worldCoord, sizeFactor, offset);
 
     /// <summary>
     /// Retourne les coordonnées carte (X, Y) à partir de coordonnées monde,
@@ -19,10 +18,8 @@ internal static class MapHelper
     {
         var mapRow = Plugin.DataManager.GetExcelSheet<Map>()?.GetRowOrDefault(mapId);
         if (mapRow == null) return null;
-        return (
-            WorldToMapCoord(worldX, mapRow.Value.SizeFactor, mapRow.Value.OffsetX),
-            WorldToMapCoord(worldZ, mapRow.Value.SizeFactor, mapRow.Value.OffsetY)
-        );
+        var coords = MapUtil.WorldToMap(new Vector2(worldX, worldZ), mapRow.Value);
+        return (coords.X, coords.Y);
     }
 
     /// <summary>
@@ -35,5 +32,18 @@ internal static class MapHelper
         var mapId = Plugin.ClientState.MapId;
         if (mapId == 0) return null;
         return WorldToMapCoords(worldX, worldZ, mapId);
+    }
+
+    /// <summary>
+    /// Retourne les coordonnées carte actuellement affichées pour le joueur local
+    /// en s'appuyant directement sur l'helper officiel de Dalamud.
+    /// </summary>
+    public static (float x, float y)? GetLocalPlayerMapCoords()
+    {
+        var player = Plugin.ObjectTable.LocalPlayer;
+        if (player == null) return null;
+
+        var coords = MapUtil.GetMapCoordinates(player, correctZOffset: false);
+        return (coords.X, coords.Y);
     }
 }

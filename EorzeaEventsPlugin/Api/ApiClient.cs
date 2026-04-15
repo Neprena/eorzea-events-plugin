@@ -11,6 +11,9 @@ public class PluginVersionInfoDto
 {
     [JsonPropertyName("minimum")]        public string Minimum        { get; set; } = "0.0.0";
     [JsonPropertyName("testingMinimum")] public string TestingMinimum { get; set; } = "0.0.0";
+    [JsonPropertyName("emergencyBlock")] public bool   EmergencyBlock { get; set; }
+    [JsonPropertyName("message")]        public string? Message       { get; set; }
+    [JsonPropertyName("updateUrl")]      public string? UpdateUrl     { get; set; }
 }
 
 public class RpSessionDto

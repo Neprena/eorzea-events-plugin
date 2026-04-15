@@ -219,6 +219,15 @@ public class MainWindow : Window
         var hintSize = ImGui.CalcTextSize(l.BlockedHint);
         ImGui.SetCursorPosX((windowSize.X - hintSize.X) * 0.5f);
         ImGui.TextColored(new Vector4(0.6f, 0.6f, 0.6f, 1f), l.BlockedHint);
+
+        if (!string.IsNullOrWhiteSpace(Plugin.BlockedUpdateUrl))
+        {
+            ImGui.Dummy(new Vector2(0, 14));
+            var btnWidth = 220f;
+            ImGui.SetCursorPosX((windowSize.X - btnWidth) * 0.5f);
+            if (ImGui.Button(l.BlockedOpenPluginPage, new Vector2(btnWidth, 0)))
+                OpenUrl(Plugin.BlockedUpdateUrl);
+        }
     }
 
     private void DrawRpSauvageTab()

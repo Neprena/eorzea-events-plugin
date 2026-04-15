@@ -82,7 +82,7 @@ public class MySessionWindow : Window
     private static void OpenUrl(string url) =>
         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
 
-    private unsafe record HousingInfo(int Ward, int? Plot, int? Room);
+    private unsafe record HousingInfo(int Ward, int? Plot, int? Room, int? RawPlot);
 
     private static unsafe HousingInfo? GetCurrentHousing()
     {
@@ -95,7 +95,8 @@ public class MySessionWindow : Window
         return new HousingInfo(
             Ward: ward + 1,
             Plot: plot >= 0 ? plot + 1 : null,
-            Room: room > 0  ? room     : null
+            Room: room > 0  ? room     : null,
+            RawPlot: plot
         );
     }
 
@@ -135,6 +136,7 @@ public class MySessionWindow : Window
             Ward          = housing?.Ward,
             Plot          = housing?.Plot,
             Room          = housing?.Room,
+            RawPlot       = housing?.RawPlot,
             Duration      = _duration,
             TerritoryId   = terId,
             MapId         = mapId,
@@ -229,6 +231,7 @@ public class MySessionWindow : Window
             Ward          = housing?.Ward,
             Plot          = housing?.Plot,
             Room          = housing?.Room,
+            RawPlot       = housing?.RawPlot,
             Location      = zone,
             Server        = world,
             CharacterName = string.IsNullOrEmpty(charName) ? null : charName,

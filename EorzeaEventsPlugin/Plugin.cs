@@ -14,6 +14,13 @@ namespace EorzeaEventsPlugin;
 
 public sealed class Plugin : IDalamudPlugin
 {
+    private enum PluginGateMode
+    {
+        None,
+        UpdateRequired,
+        EmergencyBlock,
+    }
+
     public string Name => "Eorzea Events";
     private const string CommandMain = "/eorzea";
 
@@ -93,6 +100,10 @@ public sealed class Plugin : IDalamudPlugin
     // Version gate — bloque le plugin si la version est trop ancienne
     internal static bool   IsBlocked      { get; private set; } = false;
     internal static string BlockedMessage { get; private set; } = string.Empty;
+    internal static string BlockedUpdateUrl { get; private set; } = string.Empty;
+    private static PluginGateMode _gateMode = PluginGateMode.None;
+    private DateTime _lastVersionCheck = DateTime.MinValue;
+    private const int VersionCheckIntervalSeconds = 300;
 
     // Token invalide — notification envoyée une seule fois jusqu'au prochain renouvellement
     private bool _tokenInvalidNotified = false;
@@ -170,11 +181,32 @@ public sealed class Plugin : IDalamudPlugin
             OpenMain();
     }
 
-    internal static void OpenConfig()     { if (_configWindow  != null) _configWindow.IsOpen  = true; }
+    internal static void OpenConfig()
+    {
+        if (IsBlocked)
+        {
+            OpenMain();
+            return;
+        }
+        if (_configWindow != null) _configWindow.IsOpen = true;
+    }
     internal static void OpenMain()       { if (_mainWindow    != null) _mainWindow.IsOpen    = true; }
-    internal static void OpenMySession()  { if (_sessionWindow != null) _sessionWindow.IsOpen = true; }
+    internal static void OpenMySession()
+    {
+        if (IsBlocked)
+        {
+            OpenMain();
+            return;
+        }
+        if (_sessionWindow != null) _sessionWindow.IsOpen = true;
+    }
     internal static void OpenSetup(bool tokenInvalid = false)
     {
+        if (IsBlocked)
+        {
+            OpenMain();
+            return;
+        }
         // Fermer toutes les autres fenêtres avant de rouvrir l'assistant
         if (_mainWindow    != null) _mainWindow.IsOpen    = false;
         if (_sessionWindow != null) _sessionWindow.IsOpen = false;
@@ -237,6 +269,18 @@ public sealed class Plugin : IDalamudPlugin
     private void OnFrameworkUpdate(IFramework fw)
     {
         var now = DateTime.UtcNow;
+
+        if ((now - _lastVersionCheck).TotalSeconds >= VersionCheckIntervalSeconds)
+        {
+            _lastVersionCheck = now;
+            Task.Run(async () => await CheckMinimumVersionAsync());
+        }
+
+        if (IsBlocked)
+        {
+            _sessionWindow?.PollSessionStatus();
+            return;
+        }
 
         // Sessions RP (5s)
         if ((Config.NotifyRpLive || Config.NotifyRpLiveChat) && (now - _lastNotifCheck).TotalSeconds >= 5)
@@ -565,17 +609,44 @@ public sealed class Plugin : IDalamudPlugin
             if (info == null) return;
 
             var current     = PluginInterface.Manifest.AssemblyVersion;
-            var minimumStr  = PluginInterface.IsTesting ? info.TestingMinimum : info.Minimum;
-            if (!Version.TryParse(minimumStr, out var minimum)) return;
-            if (current >= minimum) return;
+            var currentLabel = $"{current.Major}.{current.Minor}.{current.Build}";
+            var minimumStr   = PluginInterface.IsTesting ? info.TestingMinimum : info.Minimum;
+            var updateUrl    = string.IsNullOrWhiteSpace(info.UpdateUrl)
+                ? Config.BaseUrl.TrimEnd('/') + "/plugin"
+                : info.UpdateUrl.Trim();
 
-            IsBlocked      = true;
-            BlockedMessage = $"Le plugin nécessite une mise à jour.\n\n" +
-                             $"Version installée : {current.Major}.{current.Minor}.{current.Build}\n" +
-                             $"Version minimale  : {minimum.Major}.{minimum.Minor}.{minimum.Build}\n\n" +
-                             $"Ouvre le gestionnaire de plugins pour mettre à jour Eorzea Events.";
+            if (info.EmergencyBlock)
+            {
+                ApplyBlockedState(
+                    PluginGateMode.EmergencyBlock,
+                    info.Message,
+                    updateUrl,
+                    $"[EorzeaEvents] Plugin bloqué via kill-switch serveur — version {currentLabel}");
+                return;
+            }
 
-            Log.Warning($"[EorzeaEvents] Plugin bloqué — version {current} < minimum {minimum}");
+            if (!Version.TryParse(minimumStr, out var minimum))
+            {
+                ClearBlockedState();
+                return;
+            }
+
+            if (current < minimum)
+            {
+                var defaultMessage =
+                    $"Le plugin nécessite une mise à jour.\n\n" +
+                    $"Version installée : {currentLabel}\n" +
+                    $"Version minimale  : {minimum.Major}.{minimum.Minor}.{minimum.Build}\n\n" +
+                    $"Ouvre le gestionnaire de plugins pour mettre à jour Eorzea Events.";
+                ApplyBlockedState(
+                    PluginGateMode.UpdateRequired,
+                    string.IsNullOrWhiteSpace(info.Message) ? defaultMessage : info.Message,
+                    updateUrl,
+                    $"[EorzeaEvents] Plugin bloqué — version {current} < minimum {minimum}");
+                return;
+            }
+
+            ClearBlockedState();
         }
         catch (Exception ex)
         {
@@ -635,5 +706,30 @@ public sealed class Plugin : IDalamudPlugin
         _dtrRp?.Remove();
         _dtrEvents?.Remove();
         Api.Dispose();
+    }
+
+    private static void ApplyBlockedState(PluginGateMode mode, string? message, string updateUrl, string logMessage)
+    {
+        _gateMode = mode;
+        IsBlocked = true;
+        BlockedMessage = string.IsNullOrWhiteSpace(message)
+            ? "Le plugin est temporairement bloqué."
+            : message.Trim();
+        BlockedUpdateUrl = updateUrl;
+
+        if (_sessionWindow != null) _sessionWindow.IsOpen = false;
+        if (_configWindow != null) _configWindow.IsOpen = false;
+        if (_setupWindow != null) _setupWindow.IsOpen = false;
+        if (_mainWindow != null) _mainWindow.IsOpen = true;
+
+        Log.Warning(logMessage);
+    }
+
+    private static void ClearBlockedState()
+    {
+        _gateMode = PluginGateMode.None;
+        IsBlocked = false;
+        BlockedMessage = string.Empty;
+        BlockedUpdateUrl = string.Empty;
     }
 }

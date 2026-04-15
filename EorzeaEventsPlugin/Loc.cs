@@ -174,6 +174,7 @@ internal sealed class Loc
     public required string TokenInvalidLine3    { get; init; }
     public required string TokenReconfigure     { get; init; }
     public required string BlockedHint          { get; init; }
+    public required string BlockedOpenPluginPage { get; init; }
 
     // ── Notifications (toast / chat) ──────────────────────────────────────────
     public required string NotifTokenTitle      { get; init; }
@@ -363,6 +364,7 @@ internal sealed class Loc
         TokenInvalidLine3 = "à utiliser Eorzea Events.",
         TokenReconfigure  = "Reconfigurer le token",
         BlockedHint       = "Tape /xlplugins en jeu pour ouvrir le gestionnaire de plugins.",
+        BlockedOpenPluginPage = "Ouvrir la page du plugin",
 
         NotifTokenTitle   = "Token API expiré — Eorzea Events",
         NotifTokenContent = "Ton token API n'est plus valide. Génère-en un nouveau depuis ton tableau de bord.",
@@ -548,6 +550,7 @@ internal sealed class Loc
         TokenInvalidLine3 = "using Eorzea Events.",
         TokenReconfigure  = "Reconfigure token",
         BlockedHint       = "Type /xlplugins in-game to open the plugin manager.",
+        BlockedOpenPluginPage = "Open plugin page",
 
         NotifTokenTitle   = "API token expired — Eorzea Events",
         NotifTokenContent = "Your API token is no longer valid. Generate a new one from your dashboard.",

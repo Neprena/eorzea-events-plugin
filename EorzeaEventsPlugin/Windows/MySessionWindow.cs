@@ -100,6 +100,31 @@ public class MySessionWindow : Window
         );
     }
 
+    private static bool? ResolveWing(uint mapId, int? rawPlot)
+    {
+        if (rawPlot == -127) return true;
+        if (rawPlot == -128) return false;
+
+        return mapId switch
+        {
+            72 or 82 or 83 or 364 or 679 => false,
+            192 or 193 or 194 or 365 or 680 => true,
+            _ => null,
+        };
+    }
+
+    private static string AppendAnnex(int ward, bool? wing)
+        => wing == true ? $"{ward} ({Plugin.L.HousingAnnex})" : ward.ToString();
+
+    private static string FormatHousingLabel(int ward, int? plot, int? room, bool? wing)
+    {
+        var wardLabel = AppendAnnex(ward, wing);
+        var l = Plugin.L;
+        if (room.HasValue) return string.Format(l.HousingWardRoom, wardLabel, room.Value);
+        if (plot.HasValue) return string.Format(l.HousingWardPlot, wardLabel, plot.Value);
+        return string.Format(l.HousingWard, wardLabel);
+    }
+
     // ─── API actions ──────────────────────────────────────────────────────────
 
     public void SetActiveSession(RpSessionDto? session)
@@ -402,14 +427,11 @@ public class MySessionWindow : Window
         var zone    = GetCurrentZone();
         var pos     = GetCurrentPosition();
         var housing = GetCurrentHousing();
+        var wing    = housing != null ? ResolveWing(Plugin.ClientState.MapId, housing.RawPlot) : null;
         ImGui.TextDisabled($"{l.FieldServer}: {world}   •   {l.FieldLocation}: {zone}");
         if (housing != null)
         {
-            var loc = housing.Plot.HasValue
-                ? string.Format(l.HousingWardPlot, housing.Ward, housing.Plot)
-                : housing.Room.HasValue
-                    ? string.Format(l.HousingWardRoom, housing.Ward, housing.Room)
-                    : string.Format(l.HousingWard, housing.Ward);
+            var loc = FormatHousingLabel(housing.Ward, housing.Plot, housing.Room, wing);
             ImGui.TextDisabled($"{l.FieldHousing}: {loc}");
         }
         if (pos.HasValue)
@@ -528,11 +550,11 @@ public class MySessionWindow : Window
                 ImGui.Text($"{l.FieldCharName}: {_activeSession.CharacterName}");
             if (_activeSession.Ward.HasValue)
             {
-                var housing = _activeSession.Room.HasValue
-                    ? string.Format(l.HousingWardRoom, _activeSession.Ward, _activeSession.Room)
-                    : _activeSession.Plot.HasValue
-                        ? string.Format(l.HousingWardPlot, _activeSession.Ward, _activeSession.Plot)
-                        : string.Format(l.HousingWard, _activeSession.Ward);
+                var housing = FormatHousingLabel(
+                    _activeSession.Ward.Value,
+                    _activeSession.Plot,
+                    _activeSession.Room,
+                    _activeSession.Wing);
                 ImGui.TextDisabled($"{l.FieldHousing}: {housing}");
             }
             var livePos = GetCurrentPosition();

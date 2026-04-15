@@ -7,6 +7,7 @@ using Dalamud.Game.Text.SeStringHandling.Payloads;
 using Lumina.Excel.Sheets;
 using System.Linq;
 using System.Numerics;
+using System.Globalization;
 
 namespace EorzeaEventsPlugin.Windows;
 
@@ -36,6 +37,10 @@ public class MainWindow : Window
 
     private int      _onlineCount      = 0;
     private DateTime _onlineLastFetch  = DateTime.MinValue;
+
+#if DEBUG
+    private string _debugStatus = string.Empty;
+#endif
 
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -107,6 +112,13 @@ public class MainWindow : Window
             DrawEstabTab();
             ImGui.EndTabItem();
         }
+#if DEBUG
+        if (ImGui.BeginTabItem(l.TabDebug))
+        {
+            DrawDebugTab();
+            ImGui.EndTabItem();
+        }
+#endif
 
         if (ImGui.TabItemButton(l.TabSettings, ImGuiTabItemFlags.Trailing | ImGuiTabItemFlags.NoTooltip))
             Plugin.OpenConfig();
@@ -732,4 +744,107 @@ public class MainWindow : Window
             finally { _sessionsLoading = false; }
         });
     }
+
+#if DEBUG
+    private void DrawDebugTab()
+    {
+        var l = Plugin.L;
+        var snapshot = LocationDebugSnapshot.Collect();
+
+        ImGui.Spacing();
+        if (ImGui.Button(l.DebugCopy, UiSizes.WideButton))
+        {
+            ImGui.SetClipboardText(snapshot.ToDebugDump());
+            _debugStatus = l.DebugCopied;
+        }
+        if (!string.IsNullOrEmpty(_debugStatus))
+        {
+            ImGui.SameLine();
+            ImGui.TextDisabled(_debugStatus);
+        }
+
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
+
+        if (!ImGui.BeginChild("##debugscroll", new Vector2(-1, -1), false))
+            return;
+
+        DrawDebugSection(l.DebugSectionPlayer, new (string, string)[]
+        {
+            ("Character", snapshot.CharacterName),
+            ("World", snapshot.WorldName),
+        });
+
+        DrawDebugSection(l.DebugSectionTerritory, new (string, string)[]
+        {
+            ("TerritoryId", snapshot.TerritoryId.ToString(CultureInfo.InvariantCulture)),
+            ("TerritoryName", snapshot.TerritoryName),
+            ("MapId", snapshot.MapId.ToString(CultureInfo.InvariantCulture)),
+            ("MapRowId", FormatNullable(snapshot.MapRowId)),
+            ("MapPlaceNameRowId", FormatNullable(snapshot.PlaceNameRowId)),
+            ("MapPlaceName", snapshot.PlaceName),
+            ("MapSizeFactor", FormatNullable(snapshot.SizeFactor)),
+            ("MapOffsetX", FormatNullable(snapshot.OffsetX)),
+            ("MapOffsetY", FormatNullable(snapshot.OffsetY)),
+            ("OriginalHouseTerritoryTypeId", FormatNullable(snapshot.OriginalHouseTerritoryTypeId)),
+        });
+
+        DrawDebugSection(l.DebugSectionWorldPos, new (string, string)[]
+        {
+            ("WorldPosition", FormatVector3(snapshot.WorldPosition)),
+        });
+
+        DrawDebugSection(l.DebugSectionMapPos, new (string, string)[]
+        {
+            ("MapUtil.GetMapCoordinates", FormatVector3(snapshot.DisplayMapPosition)),
+            ("FallbackMapHelper", FormatMap2(snapshot.FallbackMapPosition)),
+        });
+
+        DrawDebugSection(l.DebugSectionHousing, new (string, string)[]
+        {
+            ("HasHousingManager", snapshot.HasHousingManager.ToString()),
+            ("RawWard", FormatNullable(snapshot.RawWard)),
+            ("RawPlot", FormatNullable(snapshot.RawPlot)),
+            ("RawRoom", FormatNullable(snapshot.RawRoom)),
+            ("Ward", FormatNullable(snapshot.Ward)),
+            ("Plot", FormatNullable(snapshot.Plot)),
+            ("Room", FormatNullable(snapshot.Room)),
+        });
+
+        DrawDebugSection(l.DebugSectionDerived, new (string, string)[]
+        {
+            ("HasHousingContext", snapshot.HasHousingContext.ToString()),
+            ("HasPlot", snapshot.HasPlot.ToString()),
+            ("HasRoom", snapshot.HasRoom.ToString()),
+            ("HousingGuess", snapshot.HousingGuess),
+        });
+
+        ImGui.EndChild();
+    }
+
+    private void DrawDebugSection(string title, IReadOnlyList<(string key, string value)> rows)
+    {
+        if (!ImGui.CollapsingHeader(title, ImGuiTreeNodeFlags.DefaultOpen))
+            return;
+
+        foreach (var (key, value) in rows)
+            ImGui.TextDisabled($"{key}: {value}");
+
+        ImGui.Spacing();
+    }
+
+    private static string FormatNullable<T>(T? value) where T : struct
+        => value.HasValue ? Convert.ToString(value.Value, CultureInfo.InvariantCulture) ?? Plugin.L.DebugUnavailable : Plugin.L.DebugUnavailable;
+
+    private static string FormatVector3(Vector3? value)
+        => value.HasValue
+            ? string.Format(CultureInfo.InvariantCulture, "X={0:F2}, Y={1:F2}, Z={2:F2}", value.Value.X, value.Value.Y, value.Value.Z)
+            : Plugin.L.DebugUnavailable;
+
+    private static string FormatMap2((float x, float y)? value)
+        => value.HasValue
+            ? string.Format(CultureInfo.InvariantCulture, "X={0:F2}, Y={1:F2}", value.Value.x, value.Value.y)
+            : Plugin.L.DebugUnavailable;
+#endif
 }

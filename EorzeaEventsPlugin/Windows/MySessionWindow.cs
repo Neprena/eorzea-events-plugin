@@ -120,7 +120,8 @@ public class MySessionWindow : Window
         var pos      = GetCurrentPosition();
         var housing  = GetCurrentHousing();
         var (terId, mapId) = GetCurrentTerritoryMap();
-        var mapCoords = pos.HasValue ? MapHelper.WorldToCurrentMapCoords(pos.Value.x, pos.Value.z) : null;
+        var mapCoords = MapHelper.GetLocalPlayerMapCoords()
+                     ?? (pos.HasValue ? MapHelper.WorldToCurrentMapCoords(pos.Value.x, pos.Value.z) : null);
         Plugin.Log.Debug($"[StartSession] world=({pos?.x:F2},{pos?.z:F2}) mapId={mapId} → map=({mapCoords?.x:F2},{mapCoords?.y:F2})");
         var req = new CreateSessionRequest
         {
@@ -216,7 +217,8 @@ public class MySessionWindow : Window
         var world    = GetCurrentWorld();
         var charName = GetCharacterName();
         var (terId, mapId) = GetCurrentTerritoryMap();
-        var mapCoords = pos.HasValue ? MapHelper.WorldToCurrentMapCoords(pos.Value.x, pos.Value.z) : null;
+        var mapCoords = MapHelper.GetLocalPlayerMapCoords()
+                     ?? (pos.HasValue ? MapHelper.WorldToCurrentMapCoords(pos.Value.x, pos.Value.z) : null);
         Plugin.Log.Debug($"[RefreshPosition] world=({pos?.x:F2},{pos?.z:F2}) mapId={mapId} → map=({mapCoords?.x:F2},{mapCoords?.y:F2})");
         var id  = _activeSession.Id;
         var req = new UpdateSessionRequest
@@ -407,7 +409,8 @@ public class MySessionWindow : Window
         }
         if (pos.HasValue)
         {
-            var c = MapHelper.WorldToCurrentMapCoords(pos.Value.x, pos.Value.z);
+            var c = MapHelper.GetLocalPlayerMapCoords()
+                 ?? MapHelper.WorldToCurrentMapCoords(pos.Value.x, pos.Value.z);
             ImGui.TextDisabled(c.HasValue
                 ? $"{l.FieldPosition}: X {c.Value.x:F1}   Y {c.Value.y:F1}"
                 : $"{l.FieldPosition}: X {pos.Value.x:F1}   Y {pos.Value.z:F1}");
@@ -528,7 +531,8 @@ public class MySessionWindow : Window
             var livePos = GetCurrentPosition();
             if (livePos.HasValue)
             {
-                var coords = MapHelper.WorldToCurrentMapCoords(livePos.Value.x, livePos.Value.z);
+                var coords = MapHelper.GetLocalPlayerMapCoords()
+                          ?? MapHelper.WorldToCurrentMapCoords(livePos.Value.x, livePos.Value.z);
                 if (coords.HasValue)
                     ImGui.TextDisabled($"{l.FieldPosition}: X {coords.Value.x:F1}   Y {coords.Value.y:F1}");
             }

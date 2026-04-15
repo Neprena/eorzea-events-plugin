@@ -7,6 +7,7 @@ internal sealed class Loc
     public required string TabRp       { get; init; }
     public required string TabEvents   { get; init; }
     public required string TabEstabs   { get; init; }
+    public required string TabDebug    { get; init; }
     public required string TabSettings { get; init; }
 
     // ── Common ────────────────────────────────────────────────────────────────
@@ -49,6 +50,17 @@ internal sealed class Loc
     public required string EstabNoResults  { get; init; }
     public required string EstabCount      { get; init; }   // {0} établissement(s)
     public required Dictionary<string, string> DistrictLabels { get; init; }
+
+    // ── Debug tab ─────────────────────────────────────────────────────────────
+    public required string DebugCopy              { get; init; }
+    public required string DebugCopied            { get; init; }
+    public required string DebugUnavailable       { get; init; }
+    public required string DebugSectionPlayer     { get; init; }
+    public required string DebugSectionTerritory  { get; init; }
+    public required string DebugSectionWorldPos   { get; init; }
+    public required string DebugSectionMapPos     { get; init; }
+    public required string DebugSectionHousing    { get; init; }
+    public required string DebugSectionDerived    { get; init; }
 
     // ── My Session window ─────────────────────────────────────────────────────
     public required string MySessionTitle         { get; init; }
@@ -184,6 +196,7 @@ internal sealed class Loc
         TabRp       = "RP Ouvert",
         TabEvents   = "Événements",
         TabEstabs   = "Lieux",
+        TabDebug    = "Debug",
         TabSettings = "Paramètres",
 
         Loading    = "Chargement...",
@@ -231,6 +244,15 @@ internal sealed class Loc
             ["shirogane"]  = "Shirogane",
             ["empyree"]    = "Empyrée",
         },
+        DebugCopy             = "Copier le dump",
+        DebugCopied           = "Dump copié dans le presse-papiers.",
+        DebugUnavailable      = "Indisponible",
+        DebugSectionPlayer    = "Joueur",
+        DebugSectionTerritory = "Territoire / Carte",
+        DebugSectionWorldPos  = "Position monde",
+        DebugSectionMapPos    = "Coordonnées carte",
+        DebugSectionHousing   = "Housing",
+        DebugSectionDerived   = "Dérivés / Heuristiques",
 
         MySessionTitle        = "Ma session RP ouverte",
         SessionCreate         = "Nouvelle session RP ouverte",
@@ -358,6 +380,7 @@ internal sealed class Loc
         TabRp       = "Open RP",
         TabEvents   = "Events",
         TabEstabs   = "Venues",
+        TabDebug    = "Debug",
         TabSettings = "Settings",
 
         Loading    = "Loading...",
@@ -405,6 +428,15 @@ internal sealed class Loc
             ["shirogane"]  = "Shirogane",
             ["empyree"]    = "The Empyrean",
         },
+        DebugCopy             = "Copy dump",
+        DebugCopied           = "Dump copied to clipboard.",
+        DebugUnavailable      = "Unavailable",
+        DebugSectionPlayer    = "Player",
+        DebugSectionTerritory = "Territory / Map",
+        DebugSectionWorldPos  = "World Position",
+        DebugSectionMapPos    = "Map Coordinates",
+        DebugSectionHousing   = "Housing",
+        DebugSectionDerived   = "Derived / Guesses",
 
         MySessionTitle        = "My Open RP Session",
         SessionCreate         = "New open RP session",

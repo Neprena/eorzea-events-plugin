@@ -39,6 +39,9 @@ public class Configuration : IPluginConfiguration
     /// <summary>Proposer de terminer la session quand le tag RP est retiré.</summary>
     public bool AlertOnRpTagRemoved { get; set; } = true;
 
+    /// <summary>Proposer de prolonger ou d'arrêter la session quand elle est sur le point d'expirer.</summary>
+    public bool AlertOnSessionExpiring { get; set; } = true;
+
     /// <summary>Proposer de démarrer une session quand le tag RP est activé sans session en cours.</summary>
     public bool SuggestSessionOnRpTag { get; set; } = true;
 

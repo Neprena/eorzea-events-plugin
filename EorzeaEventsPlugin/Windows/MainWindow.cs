@@ -367,7 +367,7 @@ public class MainWindow : Window
     {
         var l = Plugin.L;
 
-        if (!_eventsLoading && _eventsLastFetch == DateTime.MinValue)
+        if (!_eventsLoading && (_eventsLastFetch == DateTime.MinValue || (DateTime.UtcNow - _eventsLastFetch).TotalMinutes > 5))
             FetchEvents();
 
         ImGui.Spacing();

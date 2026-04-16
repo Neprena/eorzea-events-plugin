@@ -118,6 +118,9 @@ internal sealed class Loc
     public required string AlertRpTagRemovedDesc      { get; init; }
     public required string AlertRpTagActivTitle       { get; init; }
     public required string AlertRpTagActivDesc        { get; init; }
+    public required string AlertExpiryTitle           { get; init; }
+    public required string AlertExpiryDesc            { get; init; }   // {0} = minutes
+    public required string BtnStop                    { get; init; }
 
     // ── Setup window ──────────────────────────────────────────────────────────
     public required string SetupWelcomeL1       { get; init; }
@@ -159,6 +162,7 @@ internal sealed class Loc
     public required string CfgSuggestOnTag      { get; init; }
     public required string CfgAlertZone         { get; init; }
     public required string CfgAlertTag          { get; init; }
+    public required string CfgAlertExpiry       { get; init; }
     public required string CfgLangHeader        { get; init; }
     public required string CfgLangAuto          { get; init; }
     public required string CfgLangFr            { get; init; }
@@ -311,6 +315,9 @@ internal sealed class Loc
         AlertRpTagRemovedDesc  = "Vous n'êtes plus en mode RP. Souhaitez-vous terminer la session ?",
         AlertRpTagActivTitle  = "✦  Tag RP activé !",
         AlertRpTagActivDesc   = "Vous êtes en mode RP. Souhaitez-vous annoncer une session RP ouverte ?",
+        AlertExpiryTitle      = "⏱  Session bientôt expirée",
+        AlertExpiryDesc       = "Votre session RP expire dans {0} minute(s). Souhaitez-vous la prolonger ?",
+        BtnStop               = "Arrêter",
 
         SetupWelcomeL1     = "Ce plugin fonctionne de pair avec le site",
         SetupWelcomeL2     = "Il vous permet de gérer vos sessions RP ouvertes directement depuis FFXIV, sans quitter le jeu.",
@@ -350,6 +357,7 @@ internal sealed class Loc
         CfgSuggestOnTag     = "Me proposer de démarrer une session quand j'active le tag RP",
         CfgAlertZone        = "Me prévenir si je change de zone ou effectue un TP",
         CfgAlertTag         = "Me prévenir si je retire le tag RP",
+        CfgAlertExpiry      = "Me prévenir quand ma session arrive à expiration (15 min avant)",
         CfgLangHeader       = "Langue du plugin",
         CfgLangAuto         = "Automatique (langue du jeu)",
         CfgLangFr           = "Français",
@@ -497,6 +505,9 @@ internal sealed class Loc
         AlertRpTagRemovedDesc  = "You're no longer in RP mode. Do you want to end the session?",
         AlertRpTagActivTitle  = "✦  RP tag activated!",
         AlertRpTagActivDesc   = "You're in RP mode. Do you want to announce an open RP session?",
+        AlertExpiryTitle      = "⏱  Session expiring soon",
+        AlertExpiryDesc       = "Your RP session expires in {0} minute(s). Do you want to extend it?",
+        BtnStop               = "Stop",
 
         SetupWelcomeL1     = "This plugin works alongside the website",
         SetupWelcomeL2     = "It lets you manage your open RP sessions directly from FFXIV, without leaving the game.",
@@ -536,6 +547,7 @@ internal sealed class Loc
         CfgSuggestOnTag     = "Suggest starting a session when I enable the RP tag",
         CfgAlertZone        = "Warn me if I change zone or teleport",
         CfgAlertTag         = "Warn me if I remove the RP tag",
+        CfgAlertExpiry      = "Warn me when my session is about to expire (15 min before)",
         CfgLangHeader       = "Plugin language",
         CfgLangAuto         = "Auto (game language)",
         CfgLangFr           = "Francais",

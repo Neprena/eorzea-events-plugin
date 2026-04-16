@@ -22,6 +22,7 @@ public class ConfigWindow : Window
     private bool _notifyEventStartChat;
     private bool _alertOnZoneChange;
     private bool _alertOnRpTagRemoved;
+    private bool _alertOnSessionExpiring;
     private bool _suggestSessionOnRpTag;
     private bool _showDtrRp;
     private bool _showDtrEvents;
@@ -42,9 +43,10 @@ public class ConfigWindow : Window
         _notifyNearbyZone    = config.NotifyNearbyZone;
         _notifyEventStartScreen  = config.NotifyEventStartDalamud;
         _notifyEventStartChat    = config.NotifyEventStartChat;
-        _alertOnZoneChange     = config.AlertOnZoneChange;
-        _alertOnRpTagRemoved   = config.AlertOnRpTagRemoved;
-        _suggestSessionOnRpTag = config.SuggestSessionOnRpTag;
+        _alertOnZoneChange      = config.AlertOnZoneChange;
+        _alertOnRpTagRemoved    = config.AlertOnRpTagRemoved;
+        _alertOnSessionExpiring = config.AlertOnSessionExpiring;
+        _suggestSessionOnRpTag  = config.SuggestSessionOnRpTag;
         _showDtrRp             = config.ShowDtrRp;
         _showDtrEvents         = config.ShowDtrEvents;
         _languageIndex         = (int)config.Language;
@@ -59,10 +61,11 @@ public class ConfigWindow : Window
         _notifyNearbyZone      = _config.NotifyNearbyZone;
         _notifyEventStartScreen  = _config.NotifyEventStartDalamud;
         _notifyEventStartChat    = _config.NotifyEventStartChat;
-        _alertOnZoneChange     = _config.AlertOnZoneChange;
-        _alertOnRpTagRemoved   = _config.AlertOnRpTagRemoved;
-        _suggestSessionOnRpTag = _config.SuggestSessionOnRpTag;
-        _showDtrRp             = _config.ShowDtrRp;
+        _alertOnZoneChange      = _config.AlertOnZoneChange;
+        _alertOnRpTagRemoved    = _config.AlertOnRpTagRemoved;
+        _alertOnSessionExpiring = _config.AlertOnSessionExpiring;
+        _suggestSessionOnRpTag  = _config.SuggestSessionOnRpTag;
+        _showDtrRp              = _config.ShowDtrRp;
         _showDtrEvents         = _config.ShowDtrEvents;
         _languageIndex         = (int)_config.Language;
     }
@@ -95,9 +98,10 @@ public class ConfigWindow : Window
             _config.NotifyNearbyZone      = _notifyNearbyZone;
             _config.NotifyEventStartDalamud = _notifyEventStartScreen;
             _config.NotifyEventStartChat    = _notifyEventStartChat;
-            _config.SuggestSessionOnRpTag = _suggestSessionOnRpTag;
-            _config.AlertOnZoneChange     = _alertOnZoneChange;
-            _config.AlertOnRpTagRemoved   = _alertOnRpTagRemoved;
+            _config.SuggestSessionOnRpTag   = _suggestSessionOnRpTag;
+            _config.AlertOnZoneChange       = _alertOnZoneChange;
+            _config.AlertOnRpTagRemoved     = _alertOnRpTagRemoved;
+            _config.AlertOnSessionExpiring  = _alertOnSessionExpiring;
             _config.ShowDtrRp             = _showDtrRp;
             _config.ShowDtrEvents         = _showDtrEvents;
             _config.Language              = (PluginLanguage)_languageIndex;
@@ -116,10 +120,11 @@ public class ConfigWindow : Window
             _notifyNearbyZone      = _config.NotifyNearbyZone;
             _notifyEventStartScreen  = _config.NotifyEventStartDalamud;
             _notifyEventStartChat    = _config.NotifyEventStartChat;
-            _suggestSessionOnRpTag = _config.SuggestSessionOnRpTag;
-            _alertOnZoneChange     = _config.AlertOnZoneChange;
-            _alertOnRpTagRemoved   = _config.AlertOnRpTagRemoved;
-            _showDtrRp             = _config.ShowDtrRp;
+            _suggestSessionOnRpTag  = _config.SuggestSessionOnRpTag;
+            _alertOnZoneChange      = _config.AlertOnZoneChange;
+            _alertOnRpTagRemoved    = _config.AlertOnRpTagRemoved;
+            _alertOnSessionExpiring = _config.AlertOnSessionExpiring;
+            _showDtrRp              = _config.ShowDtrRp;
             _showDtrEvents         = _config.ShowDtrEvents;
             _languageIndex         = (int)_config.Language;
             IsOpen = false;
@@ -239,6 +244,7 @@ public class ConfigWindow : Window
         ImGui.Checkbox(l.CfgSuggestOnTag, ref _suggestSessionOnRpTag);
         ImGui.Checkbox(l.CfgAlertZone, ref _alertOnZoneChange);
         ImGui.Checkbox(l.CfgAlertTag, ref _alertOnRpTagRemoved);
+        ImGui.Checkbox(l.CfgAlertExpiry, ref _alertOnSessionExpiring);
         ImGui.Unindent();
         ImGui.Spacing();
     }

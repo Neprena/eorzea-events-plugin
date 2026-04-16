@@ -32,6 +32,8 @@ public class MySessionWindow : Window
     private bool _pendingZonePrompt         = false;
     private bool _pendingRpTagPrompt        = false;
     private bool _pendingRpTagActivePrompt  = false;
+    private bool _pendingExpiryPrompt       = false;
+    private bool _expiryDismissed           = false;
 
     // Polling
     private DateTime _lastSessionCheck = DateTime.MinValue;
@@ -129,10 +131,12 @@ public class MySessionWindow : Window
 
     public void SetActiveSession(RpSessionDto? session)
     {
-        _activeSession           = session;
-        _pendingZonePrompt       = false;
-        _pendingRpTagPrompt      = false;
+        _activeSession            = session;
+        _pendingZonePrompt        = false;
+        _pendingRpTagPrompt       = false;
         _pendingRpTagActivePrompt = false;
+        _pendingExpiryPrompt      = false;
+        _expiryDismissed          = false;
     }
 
     public void OnZoneChanged()      => _pendingZonePrompt        = true;
@@ -296,7 +300,12 @@ public class MySessionWindow : Window
             try
             {
                 var updated = await Plugin.Api.UpdateSessionAsync(id, req);
-                if (updated != null) { _activeSession = updated; ShowSuccess(string.Format(l.StatusExtended, hours)); }
+                if (updated != null)
+                {
+                    _activeSession   = updated;
+                    _expiryDismissed = false;
+                    ShowSuccess(string.Format(l.StatusExtended, hours));
+                }
                 else ShowError(l.ErrExtend);
             }
             catch (Exception ex) { ShowError(ex.Message); }
@@ -333,6 +342,19 @@ public class MySessionWindow : Window
         if (_busy || _activeSession == null) return;
         if ((DateTime.UtcNow - _lastSessionCheck).TotalSeconds < PollIntervalSeconds) return;
         _lastSessionCheck = DateTime.UtcNow;
+
+        if (_config.AlertOnSessionExpiring && !_pendingExpiryPrompt && !_expiryDismissed
+            && _activeSession.ExpiresAt != null
+            && DateTime.TryParse(_activeSession.ExpiresAt, null, System.Globalization.DateTimeStyles.RoundtripKind, out var exp))
+        {
+            var remaining = exp - DateTime.UtcNow;
+            if (remaining.TotalMinutes is > 0 and <= 15)
+            {
+                _pendingExpiryPrompt = true;
+                IsOpen = true;
+            }
+        }
+
         var id = _activeSession.Id;
         Task.Run(async () =>
         {
@@ -341,9 +363,15 @@ public class MySessionWindow : Window
                 var session = await Plugin.Api.GetSessionAsync(id);
                 if (session == null || session.EndedAt != null)
                 {
-                    _activeSession = null;
-                    _config.ActiveSessionId = null;
+                    _activeSession            = null;
+                    _pendingExpiryPrompt      = false;
+                    _expiryDismissed          = false;
+                    _config.ActiveSessionId   = null;
                     _config.Save();
+                }
+                else
+                {
+                    _activeSession = session;
                 }
             }
             catch { /* silencieux */ }
@@ -538,6 +566,36 @@ public class MySessionWindow : Window
             dl.ChannelsSetCurrent(0);
             dl.AddRectFilled(p0, new Vector2(p0.X + avail, p1.Y), ImGui.GetColorU32(new Vector4(0.75f, 0.5f, 1f, 0.10f)), 4f);
             dl.AddRect(      p0, new Vector2(p0.X + avail, p1.Y), ImGui.GetColorU32(new Vector4(0.75f, 0.5f, 1f, 0.45f)), 4f);
+            dl.ChannelsMerge();
+            ImGui.Spacing();
+        }
+
+        // ── Alerte : session bientôt expirée ─────────────────────────────────
+        if (_pendingExpiryPrompt && _activeSession?.ExpiresAt != null
+            && DateTime.TryParse(_activeSession.ExpiresAt, null, System.Globalization.DateTimeStyles.RoundtripKind, out var expiresAt))
+        {
+            var minsLeft = Math.Max(1, (int)Math.Ceiling((expiresAt - DateTime.UtcNow).TotalMinutes));
+            var dl    = ImGui.GetWindowDrawList();
+            var avail = ImGui.GetContentRegionAvail().X;
+            var p0    = ImGui.GetCursorScreenPos();
+            dl.ChannelsSplit(2);
+            dl.ChannelsSetCurrent(1);
+            ImGui.Spacing();
+            ImGui.Indent(8f);
+            ImGui.TextColored(new Vector4(1f, 0.55f, 0.15f, 1f), l.AlertExpiryTitle);
+            ImGui.TextWrapped(string.Format(l.AlertExpiryDesc, minsLeft));
+            ImGui.Spacing();
+            if (ImGui.Button(l.BtnExtend + "##expiry", UiSizes.WideButton))  { _pendingExpiryPrompt = false; ExtendSession(1); }
+            ImGui.SameLine();
+            if (ImGui.Button(l.BtnStop + "##expiry_stop", UiSizes.MediumButton)) { _pendingExpiryPrompt = false; EndSession(); }
+            ImGui.SameLine();
+            if (ImGui.Button(l.Ignore + "##expiry", UiSizes.SmallButton))    { _pendingExpiryPrompt = false; _expiryDismissed = true; }
+            ImGui.Unindent(8f);
+            ImGui.Spacing();
+            var p1 = ImGui.GetCursorScreenPos();
+            dl.ChannelsSetCurrent(0);
+            dl.AddRectFilled(p0, new Vector2(p0.X + avail, p1.Y), ImGui.GetColorU32(new Vector4(1f, 0.55f, 0.15f, 0.10f)), 4f);
+            dl.AddRect(      p0, new Vector2(p0.X + avail, p1.Y), ImGui.GetColorU32(new Vector4(1f, 0.55f, 0.15f, 0.45f)), 4f);
             dl.ChannelsMerge();
             ImGui.Spacing();
         }

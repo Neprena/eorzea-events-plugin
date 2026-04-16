@@ -32,6 +32,7 @@ public class RpSessionDto
     [JsonPropertyName("rawPlot")]       public int?    RawPlot       { get; set; }
     [JsonPropertyName("wing")]          public bool?   Wing          { get; set; }
     [JsonPropertyName("endedAt")]       public string? EndedAt       { get; set; }
+    [JsonPropertyName("expiresAt")]     public string? ExpiresAt     { get; set; }
     [JsonPropertyName("territoryId")]   public uint?   TerritoryId   { get; set; }
     [JsonPropertyName("mapId")]         public uint?   MapId         { get; set; }
 }

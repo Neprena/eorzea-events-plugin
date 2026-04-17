@@ -18,6 +18,7 @@ public class ConfigWindow : Window
     private bool _notifyRpLiveChat;
     private bool _notifyMyWorld;
     private bool _notifyNearbyZone;
+    private bool _notifyRpLanguageFilter;
     private bool _notifyEventStartScreen;
     private bool _notifyEventStartChat;
     private bool _alertOnZoneChange;
@@ -40,7 +41,8 @@ public class ConfigWindow : Window
         _notifyRpLive        = config.NotifyRpLive;
         _notifyRpLiveChat    = config.NotifyRpLiveChat;
         _notifyMyWorld       = config.NotifyMyWorld;
-        _notifyNearbyZone    = config.NotifyNearbyZone;
+        _notifyNearbyZone         = config.NotifyNearbyZone;
+        _notifyRpLanguageFilter   = config.NotifyRpLanguageFilter;
         _notifyEventStartScreen  = config.NotifyEventStartDalamud;
         _notifyEventStartChat    = config.NotifyEventStartChat;
         _alertOnZoneChange      = config.AlertOnZoneChange;
@@ -58,7 +60,8 @@ public class ConfigWindow : Window
         _notifyRpLive          = _config.NotifyRpLive;
         _notifyRpLiveChat      = _config.NotifyRpLiveChat;
         _notifyMyWorld         = _config.NotifyMyWorld;
-        _notifyNearbyZone      = _config.NotifyNearbyZone;
+        _notifyNearbyZone         = _config.NotifyNearbyZone;
+        _notifyRpLanguageFilter   = _config.NotifyRpLanguageFilter;
         _notifyEventStartScreen  = _config.NotifyEventStartDalamud;
         _notifyEventStartChat    = _config.NotifyEventStartChat;
         _alertOnZoneChange      = _config.AlertOnZoneChange;
@@ -95,7 +98,8 @@ public class ConfigWindow : Window
             _config.NotifyRpLive          = _notifyRpLive;
             _config.NotifyRpLiveChat      = _notifyRpLiveChat;
             _config.NotifyMyWorld         = _notifyMyWorld;
-            _config.NotifyNearbyZone      = _notifyNearbyZone;
+            _config.NotifyNearbyZone          = _notifyNearbyZone;
+            _config.NotifyRpLanguageFilter    = _notifyRpLanguageFilter;
             _config.NotifyEventStartDalamud = _notifyEventStartScreen;
             _config.NotifyEventStartChat    = _notifyEventStartChat;
             _config.SuggestSessionOnRpTag   = _suggestSessionOnRpTag;
@@ -117,7 +121,8 @@ public class ConfigWindow : Window
             _notifyRpLive          = _config.NotifyRpLive;
             _notifyRpLiveChat      = _config.NotifyRpLiveChat;
             _notifyMyWorld         = _config.NotifyMyWorld;
-            _notifyNearbyZone      = _config.NotifyNearbyZone;
+            _notifyNearbyZone         = _config.NotifyNearbyZone;
+            _notifyRpLanguageFilter   = _config.NotifyRpLanguageFilter;
             _notifyEventStartScreen  = _config.NotifyEventStartDalamud;
             _notifyEventStartChat    = _config.NotifyEventStartChat;
             _suggestSessionOnRpTag  = _config.SuggestSessionOnRpTag;
@@ -193,6 +198,13 @@ public class ConfigWindow : Window
 
         if (_notifyRpLiveScreen || _notifyRpLive || _notifyRpLiveChat)
             ImGui.Checkbox(l.CfgNotifMyWorld, ref _notifyMyWorld);
+
+        if (_notifyRpLiveScreen || _notifyRpLive || _notifyRpLiveChat || _notifyNearbyZone)
+        {
+            ImGui.Checkbox(l.CfgNotifLanguageFilter + "##lang", ref _notifyRpLanguageFilter);
+            ImGui.TextDisabled(l.CfgNotifLanguageFilterHint);
+            ImGui.Spacing();
+        }
 
         ImGui.Checkbox(l.CfgNotifNearby + "##nearby", ref _notifyNearbyZone);
         ImGui.SameLine();

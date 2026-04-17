@@ -152,8 +152,10 @@ internal sealed class Loc
     public required string CfgNotifDalamudHint  { get; init; }
     public required string CfgNotifChat         { get; init; }
     public required string CfgNotifMyWorld      { get; init; }
-    public required string CfgNotifNearby       { get; init; }
-    public required string CfgNotifNearbyHint   { get; init; }
+    public required string CfgNotifNearby            { get; init; }
+    public required string CfgNotifNearbyHint        { get; init; }
+    public required string CfgNotifLanguageFilter     { get; init; }
+    public required string CfgNotifLanguageFilterHint { get; init; }
     public required string CfgEventNotifHeader  { get; init; }
     public required string CfgEventNotifScreen  { get; init; }
     public required string CfgEventNotifChat    { get; init; }
@@ -347,8 +349,10 @@ internal sealed class Loc
         CfgNotifDalamudHint = "   Petite carte dans le coin supérieur droit",
         CfgNotifChat        = "Écrire un message dans le chat",
         CfgNotifMyWorld     = "Ignorer les sessions sur d'autres serveurs",
-        CfgNotifNearby      = "Alerte prioritaire si la session est dans ma zone actuelle",
-        CfgNotifNearbyHint  = "   Même serveur et même zone",
+        CfgNotifNearby            = "Alerte prioritaire si la session est dans ma zone actuelle",
+        CfgNotifNearbyHint        = "   Même serveur et même zone",
+        CfgNotifLanguageFilter     = "Filtrer par langue",
+        CfgNotifLanguageFilterHint = "   N'affiche que les RP dans la langue de l'interface du plugin.",
         CfgEventNotifHeader = "Quand un événement démarre",
         CfgEventNotifScreen  = "Afficher une alerte au centre de l'écran",
         CfgEventNotifChat   = "Écrire aussi un message dans le chat",
@@ -537,8 +541,10 @@ internal sealed class Loc
         CfgNotifDalamudHint = "   Small card in the top-right corner",
         CfgNotifChat        = "Print a message in the chat",
         CfgNotifMyWorld     = "Ignore sessions on other servers",
-        CfgNotifNearby      = "Priority alert if the session is in my current zone",
-        CfgNotifNearbyHint  = "   Same server and same zone",
+        CfgNotifNearby            = "Priority alert if the session is in my current zone",
+        CfgNotifNearbyHint        = "   Same server and same zone",
+        CfgNotifLanguageFilter     = "Filter by language",
+        CfgNotifLanguageFilterHint = "   Only shows RPs in the plugin interface language.",
         CfgEventNotifHeader = "When an event starts",
         CfgEventNotifScreen  = "Show an alert in the middle of the screen",
         CfgEventNotifChat   = "Also print a chat message",

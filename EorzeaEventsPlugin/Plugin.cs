@@ -388,6 +388,17 @@ public sealed class Plugin : IDalamudPlugin
                 var isNearby = currentWorld != null && CurrentZone != null
                     && session.Server == currentWorld && session.Location == CurrentZone;
 
+                // Filtre langue (si activé, ignore les sessions dont la locale ne correspond pas)
+                if (Config.NotifyRpLanguageFilter)
+                {
+                    var sessionLang = session.Author?.Locale;
+                    if (sessionLang != null)
+                    {
+                        var pluginLang = L == Loc.Fr ? "fr" : "en";
+                        if (sessionLang != pluginLang) continue;
+                    }
+                }
+
                 // Alerte "dans votre zone" — ShowQuest pour le son + style doré
                 if (isNearby && Config.NotifyNearbyZone)
                 {

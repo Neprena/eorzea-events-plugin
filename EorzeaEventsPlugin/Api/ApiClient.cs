@@ -16,6 +16,11 @@ public class PluginVersionInfoDto
     [JsonPropertyName("updateUrl")]      public string? UpdateUrl     { get; set; }
 }
 
+public class RpSessionAuthorDto
+{
+    [JsonPropertyName("locale")] public string? Locale { get; set; }
+}
+
 public class RpSessionDto
 {
     [JsonPropertyName("id")]            public string  Id            { get; set; } = string.Empty;
@@ -35,6 +40,7 @@ public class RpSessionDto
     [JsonPropertyName("expiresAt")]     public string? ExpiresAt     { get; set; }
     [JsonPropertyName("territoryId")]   public uint?   TerritoryId   { get; set; }
     [JsonPropertyName("mapId")]         public uint?   MapId         { get; set; }
+    [JsonPropertyName("author")]        public RpSessionAuthorDto? Author { get; set; }
 }
 
 public class EstablishmentSummaryDto

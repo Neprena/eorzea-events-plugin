@@ -33,6 +33,9 @@ public class Configuration : IPluginConfiguration
     /// <summary>Limiter les notifications au monde courant du joueur.</summary>
     public bool NotifyMyWorld { get; set; } = true;
 
+    /// <summary>Limiter les notifications de RP sauvages à la langue du plugin.</summary>
+    public bool NotifyRpLanguageFilter { get; set; } = true;
+
     /// <summary>Proposer de mettre à jour l'emplacement après un changement de zone ou un TP.</summary>
     public bool AlertOnZoneChange { get; set; } = true;
 

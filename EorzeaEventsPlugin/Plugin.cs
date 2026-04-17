@@ -103,7 +103,7 @@ public sealed class Plugin : IDalamudPlugin
     internal static string BlockedUpdateUrl { get; private set; } = string.Empty;
     private static PluginGateMode _gateMode = PluginGateMode.None;
     private DateTime _lastVersionCheck = DateTime.MinValue;
-    private const int VersionCheckIntervalSeconds = 300;
+    private const int VersionCheckIntervalSeconds = 10;
 
     // Token invalide — notification envoyée une seule fois jusqu'au prochain renouvellement
     private bool _tokenInvalidNotified = false;
@@ -151,6 +151,19 @@ public sealed class Plugin : IDalamudPlugin
         _dtrEvents.OnClick = _ => OpenMain();
         _dtrEvents.Shown   = Config.ShowDtrEvents;
         SetDtrEvents(0);
+
+#if DEBUG
+        if (string.IsNullOrWhiteSpace(Config.ApiToken))
+        {
+            var devToken = Environment.GetEnvironmentVariable("EE_DEV_TOKEN");
+            if (!string.IsNullOrWhiteSpace(devToken))
+            {
+                Config.ApiToken = devToken.Trim();
+                Config.Save();
+                RebuildApiClient();
+            }
+        }
+#endif
 
         if (string.IsNullOrWhiteSpace(Config.ApiToken))
             OpenSetup();

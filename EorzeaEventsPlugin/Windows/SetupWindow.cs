@@ -29,7 +29,7 @@ public class SetupWindow : Window
         : base("Eorzea Events — Configuration##setup",
                ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoScrollbar)
     {
-        Size = new Vector2(480, 420);
+        Size = new Vector2(520, 460);
         SizeCondition = ImGuiCond.Always;
         _config = config;
 
@@ -55,8 +55,12 @@ public class SetupWindow : Window
         IDalamudTextureWrap? wrap = _banner.GetWrapOrDefault();
         if (wrap == null) return;
 
-        var w = ImGui.GetContentRegionAvail().X;
-        var h = Math.Min(w * (wrap.Height / (float)wrap.Width), 160f);
+        var availW  = ImGui.GetContentRegionAvail().X;
+        var aspect  = wrap.Width / (float)wrap.Height;
+        var h       = Math.Min(availW / aspect, 160f);
+        var w       = h * aspect;
+        var offsetX = (availW - w) / 2f;
+        if (offsetX > 0) ImGui.SetCursorPosX(ImGui.GetCursorPosX() + offsetX);
         ImGui.Image(wrap.Handle, new Vector2(w, h));
         ImGui.Spacing();
     }
@@ -86,8 +90,12 @@ public class SetupWindow : Window
         ImGui.Separator();
         ImGui.Spacing();
 
+        ImGui.PushStyleColor(ImGuiCol.Button,        UiColors.PrimaryNormal);
+        ImGui.PushStyleColor(ImGuiCol.ButtonHovered, UiColors.PrimaryHovered);
+        ImGui.PushStyleColor(ImGuiCol.ButtonActive,  UiColors.PrimaryActive);
         if (ImGui.Button(l.SetupStart, UiSizes.MediumButton))
             _step = 1;
+        ImGui.PopStyleColor(3);
     }
 
     private void DrawToken()
@@ -111,9 +119,13 @@ public class SetupWindow : Window
         ImGui.TextWrapped(l.SetupStepDesc);
         ImGui.Spacing();
 
+        ImGui.PushStyleColor(ImGuiCol.Button,        UiColors.PrimaryNormal);
+        ImGui.PushStyleColor(ImGuiCol.ButtonHovered, UiColors.PrimaryHovered);
+        ImGui.PushStyleColor(ImGuiCol.ButtonActive,  UiColors.PrimaryActive);
         if (ImGui.Button(l.SetupOpenDashboard, UiSizes.PrimaryButton))
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
                 _config.BaseUrl.TrimEnd('/') + "/dashboard") { UseShellExecute = true });
+        ImGui.PopStyleColor(3);
 
         ImGui.Spacing();
         ImGui.Text(l.SetupTokenLabel);

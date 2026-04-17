@@ -28,6 +28,9 @@ public class ConfigWindow : Window
     private bool _showDtrRp;
     private bool _showDtrEvents;
     private int  _languageIndex;
+#if DEBUG
+    private string _baseUrl = string.Empty;
+#endif
 
     public ConfigWindow(Configuration config) : base("Eorzea Events — Configuration##config")
     {
@@ -52,6 +55,9 @@ public class ConfigWindow : Window
         _showDtrRp             = config.ShowDtrRp;
         _showDtrEvents         = config.ShowDtrEvents;
         _languageIndex         = (int)config.Language;
+#if DEBUG
+        _baseUrl               = config.BaseUrl;
+#endif
     }
 
     public override void OnOpen()
@@ -71,6 +77,9 @@ public class ConfigWindow : Window
         _showDtrRp              = _config.ShowDtrRp;
         _showDtrEvents         = _config.ShowDtrEvents;
         _languageIndex         = (int)_config.Language;
+#if DEBUG
+        _baseUrl               = _config.BaseUrl;
+#endif
     }
 
     public override void Draw()
@@ -86,6 +95,9 @@ public class ConfigWindow : Window
             DrawSessionSection(l);
             DrawDtrSection(l);
             DrawLanguageSection(l);
+#if DEBUG
+            DrawDevSection();
+#endif
         }
         ImGui.EndChild();
 
@@ -109,6 +121,9 @@ public class ConfigWindow : Window
             _config.ShowDtrRp             = _showDtrRp;
             _config.ShowDtrEvents         = _showDtrEvents;
             _config.Language              = (PluginLanguage)_languageIndex;
+#if DEBUG
+            _config.BaseUrl               = _baseUrl.TrimEnd('/');
+#endif
             _config.Save();
             Plugin.RebuildApiClient();
             Plugin.ApplyDtrVisibility();
@@ -132,13 +147,16 @@ public class ConfigWindow : Window
             _showDtrRp              = _config.ShowDtrRp;
             _showDtrEvents         = _config.ShowDtrEvents;
             _languageIndex         = (int)_config.Language;
+#if DEBUG
+            _baseUrl               = _config.BaseUrl;
+#endif
             IsOpen = false;
         }
     }
 
     private void DrawTokenSection(Loc l)
     {
-        if (!ImGui.CollapsingHeader("API##token", ImGuiTreeNodeFlags.DefaultOpen))
+        if (!ImGui.CollapsingHeader("API##token", ImGuiTreeNodeFlags.None))
             return;
 
         ImGui.Indent();
@@ -158,7 +176,7 @@ public class ConfigWindow : Window
 
     private void DrawRpNotificationSection(Loc l)
     {
-        if (!ImGui.CollapsingHeader(l.CfgNotifHeader + "##rpnotif", ImGuiTreeNodeFlags.DefaultOpen))
+        if (!ImGui.CollapsingHeader(l.CfgNotifHeader + "##rpnotif", ImGuiTreeNodeFlags.None))
             return;
 
         ImGui.Indent();
@@ -220,7 +238,7 @@ public class ConfigWindow : Window
 
     private void DrawEventNotificationSection(Loc l)
     {
-        if (!ImGui.CollapsingHeader(l.CfgEventNotifHeader + "##eventnotif", ImGuiTreeNodeFlags.DefaultOpen))
+        if (!ImGui.CollapsingHeader(l.CfgEventNotifHeader + "##eventnotif", ImGuiTreeNodeFlags.None))
             return;
 
         ImGui.Indent();
@@ -249,7 +267,7 @@ public class ConfigWindow : Window
 
     private void DrawSessionSection(Loc l)
     {
-        if (!ImGui.CollapsingHeader(l.CfgSessionHeader + "##session", ImGuiTreeNodeFlags.DefaultOpen))
+        if (!ImGui.CollapsingHeader(l.CfgSessionHeader + "##session", ImGuiTreeNodeFlags.None))
             return;
 
         ImGui.Indent();
@@ -263,7 +281,7 @@ public class ConfigWindow : Window
 
     private void DrawDtrSection(Loc l)
     {
-        if (!ImGui.CollapsingHeader(l.CfgDtrHeader + "##dtr", ImGuiTreeNodeFlags.DefaultOpen))
+        if (!ImGui.CollapsingHeader(l.CfgDtrHeader + "##dtr", ImGuiTreeNodeFlags.None))
             return;
 
         ImGui.Indent();
@@ -275,7 +293,7 @@ public class ConfigWindow : Window
 
     private void DrawLanguageSection(Loc l)
     {
-        if (!ImGui.CollapsingHeader(l.CfgLangHeader + "##langsection", ImGuiTreeNodeFlags.DefaultOpen))
+        if (!ImGui.CollapsingHeader(l.CfgLangHeader + "##langsection", ImGuiTreeNodeFlags.None))
             return;
 
         ImGui.Indent();
@@ -285,4 +303,34 @@ public class ConfigWindow : Window
         ImGui.Unindent();
         ImGui.Spacing();
     }
+
+#if DEBUG
+    private void DrawDevSection()
+    {
+        ImGui.PushStyleColor(ImGuiCol.Header,        new Vector4(0.5f, 0.1f, 0.1f, 1f));
+        ImGui.PushStyleColor(ImGuiCol.HeaderHovered, new Vector4(0.6f, 0.15f, 0.15f, 1f));
+        ImGui.PushStyleColor(ImGuiCol.HeaderActive,  new Vector4(0.7f, 0.2f, 0.2f, 1f));
+        var open = ImGui.CollapsingHeader("⚙ Dev — API Server##dev", ImGuiTreeNodeFlags.None);
+        ImGui.PopStyleColor(3);
+        if (!open) return;
+
+        ImGui.Indent();
+        ImGui.TextColored(new Vector4(1f, 0.5f, 0.3f, 1f), "DEBUG BUILD ONLY");
+        ImGui.Spacing();
+
+        ImGui.Text("Base URL :");
+        ImGui.SetNextItemWidth(-1);
+        ImGui.InputText("##baseurl", ref _baseUrl, 256);
+        ImGui.Spacing();
+
+        if (ImGui.Button("Production##devprod", UiSizes.MediumButton))
+            _baseUrl = "https://eorzea.events";
+        ImGui.SameLine();
+        if (ImGui.Button("Local dev (3000)##devlocal", UiSizes.MediumButton))
+            _baseUrl = "http://localhost:3000";
+
+        ImGui.Unindent();
+        ImGui.Spacing();
+    }
+#endif
 }

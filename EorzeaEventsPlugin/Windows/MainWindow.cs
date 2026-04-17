@@ -99,7 +99,7 @@ public class MainWindow : Window
 
         if (ImGui.BeginTabItem(l.TabRp))
         {
-            DrawRpSauvageTab();
+            DrawOpenRpTab();
             ImGui.EndTabItem();
         }
         if (ImGui.BeginTabItem(l.TabEvents))
@@ -150,7 +150,7 @@ public class MainWindow : Window
         ImGui.Spacing();
     }
 
-    // ─── Tab: Session RP sauvage ──────────────────────────────────────────────
+    // ─── Tab: RP Ouvert ───────────────────────────────────────────────────────
 
     private string? GetCurrentZoneName()
     {
@@ -230,7 +230,7 @@ public class MainWindow : Window
         }
     }
 
-    private void DrawRpSauvageTab()
+    private void DrawOpenRpTab()
     {
         var l = Plugin.L;
         ImGui.Spacing();
@@ -242,9 +242,10 @@ public class MainWindow : Window
         else
         {
             var activeCount = _sessionsList.Count(s => s.EndedAt == null);
-            ImGui.TextDisabled(activeCount == 0
-                ? l.RpNoSession
-                : string.Format(l.RpSessionsActive, activeCount));
+            if (activeCount == 0)
+                ImGui.TextDisabled(l.RpNoSession);
+            else
+                ImGui.TextColored(new Vector4(1f, 1f, 1f, 0.9f), string.Format(l.RpSessionsActive, activeCount));
             ImGui.SameLine();
             if (ImGui.Button(l.Refresh + "##sessions", UiSizes.SmallButton)) FetchSessions();
             ImGui.SameLine();
@@ -315,13 +316,21 @@ public class MainWindow : Window
         {
             ImGui.TextColored(new Vector4(0.3f, 0.9f, 0.5f, 1), l.RpYourSessionActive);
             ImGui.SameLine();
+            ImGui.PushStyleColor(ImGuiCol.Button,        UiColors.PrimaryNormal);
+            ImGui.PushStyleColor(ImGuiCol.ButtonHovered, UiColors.PrimaryHovered);
+            ImGui.PushStyleColor(ImGuiCol.ButtonActive,  UiColors.PrimaryActive);
             if (ImGui.Button(l.RpManageSession, UiSizes.PrimaryButton))
                 Plugin.OpenMySession();
+            ImGui.PopStyleColor(3);
         }
         else
         {
+            ImGui.PushStyleColor(ImGuiCol.Button,        UiColors.PrimaryNormal);
+            ImGui.PushStyleColor(ImGuiCol.ButtonHovered, UiColors.PrimaryHovered);
+            ImGui.PushStyleColor(ImGuiCol.ButtonActive,  UiColors.PrimaryActive);
             if (ImGui.Button(l.RpNewSession, new Vector2(-1, 0)))
                 Plugin.OpenMySession();
+            ImGui.PopStyleColor(3);
         }
     }
 
@@ -330,9 +339,17 @@ public class MainWindow : Window
         var l = Plugin.L;
         ImGui.TextColored(new Vector4(0.78f, 0.64f, 0.35f, 1), s.Title);
         ImGui.SameLine(0, 8);
-        ImGui.TextDisabled($"— {s.Location} ({s.Server})");
+        using (Plugin.PluginInterface.UiBuilder.IconFontHandle.Push())
+            ImGui.TextDisabled("\uf3c5");
+        ImGui.SameLine(0, 4);
+        ImGui.TextDisabled($"{s.Location}  •  {s.Server}");
         if (!string.IsNullOrEmpty(s.CharacterName))
-            ImGui.TextDisabled($"  {s.CharacterName}");
+        {
+            using (Plugin.PluginInterface.UiBuilder.IconFontHandle.Push())
+                ImGui.TextDisabled("\uf007");
+            ImGui.SameLine(0, 4);
+            ImGui.TextDisabled(s.CharacterName);
+        }
         if (s.Ward.HasValue)
         {
             var housingInfo = s.Room.HasValue
@@ -340,7 +357,10 @@ public class MainWindow : Window
                 : s.Plot.HasValue
                     ? string.Format(l.HousingWardPlot, s.Ward, s.Plot)
                     : string.Format(l.HousingWard, s.Ward);
-            ImGui.TextDisabled($"  {housingInfo}");
+            using (Plugin.PluginInterface.UiBuilder.IconFontHandle.Push())
+                ImGui.TextDisabled("\uf015");
+            ImGui.SameLine(0, 4);
+            ImGui.TextDisabled(housingInfo);
         }
         if (!string.IsNullOrEmpty(s.Description))
             ImGui.TextDisabled($"  {s.Description}");
@@ -348,7 +368,10 @@ public class MainWindow : Window
         {
             var btnWidth = UiSizes.SmallButton.X;
             var rightX   = ImGui.GetWindowWidth() - btnWidth - ImGui.GetStyle().WindowPadding.X;
-            ImGui.TextDisabled($"  X {s.PosX.Value:F1}  Y {s.PosZ.Value:F1}");
+            using (Plugin.PluginInterface.UiBuilder.IconFontHandle.Push())
+                ImGui.TextDisabled("\uf05b");
+            ImGui.SameLine(0, 4);
+            ImGui.TextDisabled($"{s.PosX.Value:F1}  {s.PosZ.Value:F1}");
             ImGui.SameLine(rightX);
             if (ImGui.Button($"{l.Map}##map_{s.Id}", UiSizes.SmallButton))
                 Plugin.Framework.RunOnFrameworkThread(() => OpenOnMap(s));
@@ -447,6 +470,12 @@ public class MainWindow : Window
     {
         var l = Plugin.L;
 
+        if (ev.IsRecurring)
+        {
+            using (Plugin.PluginInterface.UiBuilder.IconFontHandle.Push())
+                ImGui.TextColored(titleColor, "\uf073");
+            ImGui.SameLine(0, 4);
+        }
         ImGui.TextColored(titleColor, ev.Title);
 
         if (ev.Establishment != null)

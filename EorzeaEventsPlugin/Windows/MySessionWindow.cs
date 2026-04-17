@@ -472,7 +472,7 @@ public class MySessionWindow : Window
         }
         ImGui.Spacing();
 
-        ImGui.Text(l.FieldTitle + " *");
+        ImGui.TextColored(new Vector4(0.78f, 0.64f, 0.35f, 1f), "✦ " + l.FieldTitle + " *");
         ImGui.SetNextItemWidth(-1);
         ImGui.InputText("##title", ref _title, 100);
 
@@ -488,7 +488,7 @@ public class MySessionWindow : Window
             _characterName = GetCharacterName();
 
         ImGui.Spacing();
-        ImGui.Text(l.FieldDesc + " (opt.)");
+        ImGui.TextDisabled(l.FieldDesc + " (opt.)");
         ImGui.SetNextItemWidth(-1);
         ImGui.InputTextMultiline("##desc", ref _description, 500, new Vector2(-1, 60));
 
@@ -503,8 +503,12 @@ public class MySessionWindow : Window
 
         var canStart = !_busy && !string.IsNullOrWhiteSpace(_title);
         if (!canStart) ImGui.BeginDisabled();
+        ImGui.PushStyleColor(ImGuiCol.Button,        UiColors.PrimaryNormal);
+        ImGui.PushStyleColor(ImGuiCol.ButtonHovered, UiColors.PrimaryHovered);
+        ImGui.PushStyleColor(ImGuiCol.ButtonActive,  UiColors.PrimaryActive);
         if (ImGui.Button(_busy ? l.StatusCreating : l.RpNewSession, new Vector2(-1, 0)))
             StartSession();
+        ImGui.PopStyleColor(3);
         if (!canStart) ImGui.EndDisabled();
     }
 
@@ -585,9 +589,17 @@ public class MySessionWindow : Window
             ImGui.TextColored(new Vector4(1f, 0.55f, 0.15f, 1f), l.AlertExpiryTitle);
             ImGui.TextWrapped(string.Format(l.AlertExpiryDesc, minsLeft));
             ImGui.Spacing();
+            ImGui.PushStyleColor(ImGuiCol.Button,        UiColors.SuccessNormal);
+            ImGui.PushStyleColor(ImGuiCol.ButtonHovered, UiColors.SuccessHovered);
+            ImGui.PushStyleColor(ImGuiCol.ButtonActive,  UiColors.SuccessActive);
             if (ImGui.Button(l.BtnExtend + "##expiry", UiSizes.WideButton))  { _pendingExpiryPrompt = false; ExtendSession(1); }
+            ImGui.PopStyleColor(3);
             ImGui.SameLine();
+            ImGui.PushStyleColor(ImGuiCol.Button,        UiColors.DangerNormal);
+            ImGui.PushStyleColor(ImGuiCol.ButtonHovered, UiColors.DangerHovered);
+            ImGui.PushStyleColor(ImGuiCol.ButtonActive,  UiColors.DangerActive);
             if (ImGui.Button(l.BtnStop + "##expiry_stop", UiSizes.MediumButton)) { _pendingExpiryPrompt = false; EndSession(); }
+            ImGui.PopStyleColor(3);
             ImGui.SameLine();
             if (ImGui.Button(l.Ignore + "##expiry", UiSizes.SmallButton))    { _pendingExpiryPrompt = false; _expiryDismissed = true; }
             ImGui.Unindent(8f);
@@ -602,10 +614,18 @@ public class MySessionWindow : Window
 
         if (!_editing)
         {
-            ImGui.Text($"{l.FieldTitle}: {_activeSession!.Title}");
-            ImGui.Text($"{l.FieldLocation}: {_activeSession.Location} ({_activeSession.Server})");
+            ImGui.TextDisabled(l.FieldTitle + ":"); ImGui.SameLine(0, 4); ImGui.Text(_activeSession!.Title);
+            using (Plugin.PluginInterface.UiBuilder.IconFontHandle.Push())
+                ImGui.TextDisabled("\uf3c5");
+            ImGui.SameLine(0, 4);
+            ImGui.TextDisabled(l.FieldLocation + ":"); ImGui.SameLine(0, 4); ImGui.Text($"{_activeSession.Location}  •  {_activeSession.Server}");
             if (!string.IsNullOrEmpty(_activeSession.CharacterName))
-                ImGui.Text($"{l.FieldCharName}: {_activeSession.CharacterName}");
+            {
+                using (Plugin.PluginInterface.UiBuilder.IconFontHandle.Push())
+                    ImGui.TextDisabled("\uf007");
+                ImGui.SameLine(0, 4);
+                ImGui.TextDisabled(l.FieldCharName + ":"); ImGui.SameLine(0, 4); ImGui.Text(_activeSession.CharacterName);
+            }
             if (_activeSession.Ward.HasValue)
             {
                 var housing = FormatHousingLabel(
@@ -613,7 +633,10 @@ public class MySessionWindow : Window
                     _activeSession.Plot,
                     _activeSession.Room,
                     _activeSession.Wing);
-                ImGui.TextDisabled($"{l.FieldHousing}: {housing}");
+                using (Plugin.PluginInterface.UiBuilder.IconFontHandle.Push())
+                    ImGui.TextDisabled("\uf015");
+                ImGui.SameLine(0, 4);
+                ImGui.TextDisabled(l.FieldHousing + ":"); ImGui.SameLine(0, 4); ImGui.TextDisabled(housing);
             }
             var livePos = GetCurrentPosition();
             if (livePos.HasValue)
@@ -639,16 +662,20 @@ public class MySessionWindow : Window
                 if (ImGui.Button(l.BtnUpdatePos, UiSizes.WideButton))
                     RefreshPosition();
                 ImGui.SameLine();
+                ImGui.PushStyleColor(ImGuiCol.Button,        UiColors.SuccessNormal);
+                ImGui.PushStyleColor(ImGuiCol.ButtonHovered, UiColors.SuccessHovered);
+                ImGui.PushStyleColor(ImGuiCol.ButtonActive,  UiColors.SuccessActive);
                 if (ImGui.Button(l.BtnExtend, UiSizes.MediumButton))
                     ExtendSession(1);
+                ImGui.PopStyleColor(3);
                 ImGui.SameLine();
                 if (ImGui.Button(l.ViewOnline, UiSizes.SmallButton))
                     OpenUrl(_config.BaseUrl + "/rp-live");
 
                 ImGui.Spacing();
-                ImGui.PushStyleColor(ImGuiCol.Button,        new Vector4(0.8f, 0.15f, 0.15f, 1));
-                ImGui.PushStyleColor(ImGuiCol.ButtonHovered, new Vector4(0.9f, 0.2f,  0.2f,  1));
-                ImGui.PushStyleColor(ImGuiCol.ButtonActive,  new Vector4(0.7f, 0.1f,  0.1f,  1));
+                ImGui.PushStyleColor(ImGuiCol.Button,        UiColors.DangerNormal);
+                ImGui.PushStyleColor(ImGuiCol.ButtonHovered, UiColors.DangerHovered);
+                ImGui.PushStyleColor(ImGuiCol.ButtonActive,  UiColors.DangerActive);
                 if (ImGui.Button(l.BtnEnd, new Vector2(-1, 0)))
                     EndSession();
                 ImGui.PopStyleColor(3);
@@ -657,12 +684,12 @@ public class MySessionWindow : Window
         }
         else
         {
-            ImGui.Text(l.FieldTitle + " *");
+            ImGui.TextColored(new Vector4(0.78f, 0.64f, 0.35f, 1f), "✦ " + l.FieldTitle + " *");
             ImGui.SetNextItemWidth(-1);
             ImGui.InputText("##edittitle", ref _editTitle, 100);
 
             ImGui.Spacing();
-            ImGui.Text(l.FieldDesc);
+            ImGui.TextDisabled(l.FieldDesc + " (opt.)");
             ImGui.SetNextItemWidth(-1);
             ImGui.InputTextMultiline("##editdesc", ref _editDesc, 500, new Vector2(-1, 55));
 

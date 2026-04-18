@@ -124,7 +124,7 @@ public class SetupWindow : Window
         ImGui.PushStyleColor(ImGuiCol.ButtonActive,  UiColors.PrimaryActive);
         if (ImGui.Button(l.SetupOpenDashboard, UiSizes.PrimaryButton))
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
-                _config.BaseUrl.TrimEnd('/') + "/dashboard") { UseShellExecute = true });
+                _config.BaseUrl.TrimEnd('/') + "/dashboard/profil#plugin-token") { UseShellExecute = true });
         ImGui.PopStyleColor(3);
 
         ImGui.Spacing();

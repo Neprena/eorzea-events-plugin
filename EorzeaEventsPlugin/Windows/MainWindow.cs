@@ -491,10 +491,10 @@ public class MainWindow : Window
         }
 
         var line = new List<string>();
-        if (DateTime.TryParse(ev.StartDate, out var start))
+        if (DateTime.TryParse(ev.StartDate, null, System.Globalization.DateTimeStyles.RoundtripKind, out var start))
         {
             var startStr = start.ToLocalTime().ToString("ddd dd MMM, HH:mm");
-            if (!string.IsNullOrEmpty(ev.EndDate) && DateTime.TryParse(ev.EndDate, out var end))
+            if (!string.IsNullOrEmpty(ev.EndDate) && DateTime.TryParse(ev.EndDate, null, System.Globalization.DateTimeStyles.RoundtripKind, out var end))
             {
                 var endLocal = end.ToLocalTime();
                 startStr += endLocal.Date == start.ToLocalTime().Date
@@ -548,10 +548,10 @@ public class MainWindow : Window
 
     private static bool IsExpired(EventDto ev, DateTime utcNow)
     {
-        if (string.IsNullOrEmpty(ev.EndDate))
+        if (!DateTime.TryParse(ev.StartDate, null, System.Globalization.DateTimeStyles.RoundtripKind, out var start))
             return false;
-        if (!DateTime.TryParse(ev.EndDate, null, System.Globalization.DateTimeStyles.RoundtripKind, out var end))
-            return false;
+        if (string.IsNullOrEmpty(ev.EndDate) || !DateTime.TryParse(ev.EndDate, null, System.Globalization.DateTimeStyles.RoundtripKind, out var end))
+            end = start.AddHours(3);
         return end < utcNow;
     }
 

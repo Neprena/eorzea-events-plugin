@@ -540,9 +540,9 @@ public class MainWindow : Window
         if (!DateTime.TryParse(ev.StartDate, null, System.Globalization.DateTimeStyles.RoundtripKind, out var start))
             return false;
         if (utcNow < start) return false;
-        if (string.IsNullOrEmpty(ev.EndDate)) return false;
-        if (!DateTime.TryParse(ev.EndDate, null, System.Globalization.DateTimeStyles.RoundtripKind, out var end))
-            return false;
+        DateTime end;
+        if (string.IsNullOrEmpty(ev.EndDate) || !DateTime.TryParse(ev.EndDate, null, System.Globalization.DateTimeStyles.RoundtripKind, out end))
+            end = start.AddHours(3);
         return utcNow <= end;
     }
 

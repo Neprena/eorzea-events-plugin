@@ -701,14 +701,14 @@ public sealed class Plugin : IDalamudPlugin
         });
     }
 
-    private static string? ResolveTerritoryName(ushort territoryId)
+    private static string? ResolveTerritoryName(uint territoryId)
     {
         var sheet = DataManager.GetExcelSheet<TerritoryType>();
         var row   = sheet?.GetRowOrDefault(territoryId);
         return row?.PlaceName.Value.Name.ToString();
     }
 
-    private void OnTerritoryChanged(ushort territory)
+    private void OnTerritoryChanged(uint territory)
     {
         CurrentZone = ResolveTerritoryName(territory);
 

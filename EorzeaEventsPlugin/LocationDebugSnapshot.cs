@@ -12,7 +12,7 @@ internal sealed class LocationDebugSnapshot
     public string CharacterName { get; init; } = "—";
     public string WorldName { get; init; } = "—";
 
-    public ushort TerritoryId { get; init; }
+    public uint TerritoryId { get; init; }
     public uint MapId { get; init; }
     public string TerritoryName { get; init; } = "—";
 

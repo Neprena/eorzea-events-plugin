@@ -708,7 +708,7 @@ public sealed class Plugin : IDalamudPlugin
         return row?.PlaceName.Value.Name.ToString();
     }
 
-    private void OnTerritoryChanged(uint territory)
+    private void OnTerritoryChanged(ushort territory)
     {
         CurrentZone = ResolveTerritoryName(territory);
 

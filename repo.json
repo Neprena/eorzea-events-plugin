@@ -12,7 +12,7 @@
       "rp",
       "roleplay"
     ],
-    "DalamudApiLevel": 14,
+    "DalamudApiLevel": 15,
     "IconUrl": "https://raw.githubusercontent.com/Neprena/eorzea-events-plugin/main/Plugin_Logo.png",
     "RepoUrl": "https://github.com/Neprena/eorzea-events-plugin",
     "DownloadLinkInstall": "https://github.com/Neprena/eorzea-events-plugin/releases/latest/download/EorzeaEventsPlugin.zip",

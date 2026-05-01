@@ -11,31 +11,26 @@ public class MySessionWindow : Window
 {
     private readonly Configuration _config;
 
-    // Formulaire création
     private string _title         = string.Empty;
     private string _description   = string.Empty;
     private string _characterName = string.Empty;
     private int    _duration      = 2;
 
-    // État session en cours
     private RpSessionDto? _activeSession;
     private bool          _busy          = false;
     private string        _statusMsg     = string.Empty;
     private bool          _statusIsError = false;
 
-    // Mode édition
     private bool   _editing   = false;
     private string _editTitle = string.Empty;
     private string _editDesc  = string.Empty;
 
-    // Alertes contextuelles
     private bool _pendingZonePrompt         = false;
     private bool _pendingRpTagPrompt        = false;
     private bool _pendingRpTagActivePrompt  = false;
     private bool _pendingExpiryPrompt       = false;
     private bool _expiryDismissed           = false;
 
-    // Polling
     private DateTime _lastSessionCheck = DateTime.MinValue;
     private const int PollIntervalSeconds = 5;
 
@@ -46,8 +41,8 @@ public class MySessionWindow : Window
     {
         SizeConstraints = new WindowSizeConstraints
         {
-            MinimumSize = new Vector2(420, 460),
-            MaximumSize = new Vector2(640, 700),
+            MinimumSize = new Vector2(600, 380),
+            MaximumSize = new Vector2(950, 700),
         };
         _config = config;
     }
@@ -66,11 +61,7 @@ public class MySessionWindow : Window
     }
 
     private (uint territoryId, uint mapId) GetCurrentTerritoryMap()
-    {
-        var territoryId = (uint)Plugin.ClientState.TerritoryType;
-        var mapId       = Plugin.ClientState.MapId;
-        return (territoryId, mapId);
-    }
+        => ((uint)Plugin.ClientState.TerritoryType, Plugin.ClientState.MapId);
 
     private string GetCharacterName()
         => Plugin.ObjectTable.LocalPlayer?.Name.ToString() ?? string.Empty;
@@ -94,19 +85,14 @@ public class MySessionWindow : Window
         if (ward < 0) return null;
         var plot = hm->GetCurrentPlot();
         var room = hm->GetCurrentRoom();
-        return new HousingInfo(
-            Ward: ward + 1,
-            Plot: plot >= 0 ? plot + 1 : null,
-            Room: room > 0  ? room     : null,
-            RawPlot: plot
-        );
+        return new HousingInfo(Ward: ward + 1, Plot: plot >= 0 ? plot + 1 : null,
+            Room: room > 0 ? room : null, RawPlot: plot);
     }
 
     private static bool? ResolveWing(uint mapId, int? rawPlot)
     {
         if (rawPlot == -127) return true;
         if (rawPlot == -128) return false;
-
         return mapId switch
         {
             72 or 82 or 83 or 364 or 679 => false,
@@ -120,11 +106,11 @@ public class MySessionWindow : Window
 
     private static string FormatHousingLabel(int ward, int? plot, int? room, bool? wing)
     {
-        var wardLabel = AppendAnnex(ward, wing);
+        var w = AppendAnnex(ward, wing);
         var l = Plugin.L;
-        if (room.HasValue) return string.Format(l.HousingWardRoom, wardLabel, room.Value);
-        if (plot.HasValue) return string.Format(l.HousingWardPlot, wardLabel, plot.Value);
-        return string.Format(l.HousingWard, wardLabel);
+        if (room.HasValue) return string.Format(l.HousingWardRoom, w, room.Value);
+        if (plot.HasValue) return string.Format(l.HousingWardPlot, w, plot.Value);
+        return string.Format(l.HousingWard, w);
     }
 
     // ─── API actions ──────────────────────────────────────────────────────────
@@ -152,7 +138,6 @@ public class MySessionWindow : Window
         var (terId, mapId) = GetCurrentTerritoryMap();
         var mapCoords = MapHelper.GetLocalPlayerMapCoords()
                      ?? (pos.HasValue ? MapHelper.WorldToCurrentMapCoords(pos.Value.x, pos.Value.z) : null);
-        Plugin.Log.Debug($"[StartSession] world=({pos?.x:F2},{pos?.z:F2}) mapId={mapId} → map=({mapCoords?.x:F2},{mapCoords?.y:F2})");
         var req = new CreateSessionRequest
         {
             Title         = _title.Trim(),
@@ -178,36 +163,31 @@ public class MySessionWindow : Window
             try
             {
                 var session = await Plugin.Api.CreateSessionAsync(req);
-                _activeSession            = session;
-                _pendingRpTagActivePrompt = false;
-                _config.ActiveSessionId   = session!.Id;
-                _config.Save();
+                _activeSession = session; _pendingRpTagActivePrompt = false;
+                _config.ActiveSessionId = session!.Id; _config.Save();
                 ShowSuccess(l.StatusStarted);
                 _title = _description = string.Empty;
             }
             catch (Exception ex)
             {
-                // 409 : une session est déjà active en base — on tente de la récupérer
                 if (ex.Message.Contains("déjà en cours", StringComparison.OrdinalIgnoreCase)
                     || ex.Message.Contains("already", StringComparison.OrdinalIgnoreCase))
                 {
                     try
                     {
-                        var ids      = await Plugin.Api.GetMySessionIdsAsync();
-                        var firstId  = ids.Count > 0 ? System.Linq.Enumerable.First(ids) : null;
+                        var ids     = await Plugin.Api.GetMySessionIdsAsync();
+                        var firstId = ids.Count > 0 ? System.Linq.Enumerable.First(ids) : null;
                         var existing = firstId != null ? await Plugin.Api.GetSessionAsync(firstId) : null;
                         if (existing != null)
                         {
-                            _activeSession            = existing;
-                            _pendingRpTagActivePrompt = false;
-                            _config.ActiveSessionId   = existing.Id;
-                            _config.Save();
+                            _activeSession = existing; _pendingRpTagActivePrompt = false;
+                            _config.ActiveSessionId = existing.Id; _config.Save();
                             ShowSuccess(l.StatusRecovered);
                             _title = _description = string.Empty;
                             return;
                         }
                     }
-                    catch { /* si la récupération échoue, on affiche l'erreur originale */ }
+                    catch { }
                 }
                 ShowError(ex.Message);
             }
@@ -243,29 +223,20 @@ public class MySessionWindow : Window
     {
         var l = Plugin.L;
         if (_activeSession == null) return;
-        var pos      = GetCurrentPosition();
-        var housing  = GetCurrentHousing();
-        var zone     = GetCurrentZone();
-        var world    = GetCurrentWorld();
-        var charName = GetCharacterName();
+        var pos     = GetCurrentPosition();
+        var housing = GetCurrentHousing();
         var (terId, mapId) = GetCurrentTerritoryMap();
         var mapCoords = MapHelper.GetLocalPlayerMapCoords()
                      ?? (pos.HasValue ? MapHelper.WorldToCurrentMapCoords(pos.Value.x, pos.Value.z) : null);
-        Plugin.Log.Debug($"[RefreshPosition] world=({pos?.x:F2},{pos?.z:F2}) mapId={mapId} → map=({mapCoords?.x:F2},{mapCoords?.y:F2})");
-        var id  = _activeSession.Id;
+        var charName = GetCharacterName();
+        var id = _activeSession.Id;
         var req = new UpdateSessionRequest
         {
-            PosX          = mapCoords?.Item1,
-            PosZ          = mapCoords?.Item2,
-            Ward          = housing?.Ward,
-            Plot          = housing?.Plot,
-            Room          = housing?.Room,
-            RawPlot       = housing?.RawPlot,
-            Location      = zone,
-            Server        = world,
+            PosX = mapCoords?.Item1, PosZ = mapCoords?.Item2,
+            Ward = housing?.Ward, Plot = housing?.Plot, Room = housing?.Room, RawPlot = housing?.RawPlot,
+            Location = GetCurrentZone(), Server = GetCurrentWorld(),
             CharacterName = string.IsNullOrEmpty(charName) ? null : charName,
-            TerritoryId   = terId,
-            MapId         = mapId,
+            TerritoryId = terId, MapId = mapId,
         };
         _busy = true; _statusMsg = string.Empty;
         Task.Run(async () =>
@@ -277,8 +248,7 @@ public class MySessionWindow : Window
                 {
                     _activeSession = updated;
                     var posMsg = (updated.PosX.HasValue && updated.PosZ.HasValue)
-                        ? $" (X {updated.PosX.Value:F1}  Y {updated.PosZ.Value:F1})"
-                        : string.Empty;
+                        ? $" (X {updated.PosX.Value:F1}  Y {updated.PosZ.Value:F1})" : string.Empty;
                     ShowSuccess(l.StatusPosUpdated + posMsg);
                 }
                 else ShowError(l.ErrUpdate);
@@ -292,20 +262,14 @@ public class MySessionWindow : Window
     {
         var l = Plugin.L;
         if (_activeSession == null) return;
-        var id  = _activeSession.Id;
-        var req = new UpdateSessionRequest { Duration = hours };
         _busy = true; _statusMsg = string.Empty;
+        var id = _activeSession.Id;
         Task.Run(async () =>
         {
             try
             {
-                var updated = await Plugin.Api.UpdateSessionAsync(id, req);
-                if (updated != null)
-                {
-                    _activeSession   = updated;
-                    _expiryDismissed = false;
-                    ShowSuccess(string.Format(l.StatusExtended, hours));
-                }
+                var updated = await Plugin.Api.UpdateSessionAsync(id, new UpdateSessionRequest { Duration = hours });
+                if (updated != null) { _activeSession = updated; _expiryDismissed = false; ShowSuccess(string.Format(l.StatusExtended, hours)); }
                 else ShowError(l.ErrExtend);
             }
             catch (Exception ex) { ShowError(ex.Message); }
@@ -324,12 +288,9 @@ public class MySessionWindow : Window
             try
             {
                 await Plugin.Api.EndSessionAsync(id);
-                _activeSession            = null;
-                _pendingZonePrompt        = false;
-                _pendingRpTagPrompt       = false;
-                _pendingRpTagActivePrompt = false;
-                _config.ActiveSessionId = null;
-                _config.Save();
+                _activeSession = null; _pendingZonePrompt = false;
+                _pendingRpTagPrompt = false; _pendingRpTagActivePrompt = false;
+                _config.ActiveSessionId = null; _config.Save();
                 ShowSuccess(l.StatusEnded);
             }
             catch (Exception ex) { ShowError(ex.Message); }
@@ -345,14 +306,11 @@ public class MySessionWindow : Window
 
         if (_config.AlertOnSessionExpiring && !_pendingExpiryPrompt && !_expiryDismissed
             && _activeSession.ExpiresAt != null
-            && DateTime.TryParse(_activeSession.ExpiresAt, null, System.Globalization.DateTimeStyles.RoundtripKind, out var exp))
+            && DateTime.TryParse(_activeSession.ExpiresAt, null, System.Globalization.DateTimeStyles.RoundtripKind, out var exp)
+            && (exp - DateTime.UtcNow).TotalMinutes is > 0 and <= 15)
         {
-            var remaining = exp - DateTime.UtcNow;
-            if (remaining.TotalMinutes is > 0 and <= 15)
-            {
-                _pendingExpiryPrompt = true;
-                IsOpen = true;
-            }
+            _pendingExpiryPrompt = true;
+            IsOpen = true;
         }
 
         var id = _activeSession.Id;
@@ -363,18 +321,12 @@ public class MySessionWindow : Window
                 var session = await Plugin.Api.GetSessionAsync(id);
                 if (session == null || session.EndedAt != null)
                 {
-                    _activeSession            = null;
-                    _pendingExpiryPrompt      = false;
-                    _expiryDismissed          = false;
-                    _config.ActiveSessionId   = null;
-                    _config.Save();
+                    _activeSession = null; _pendingExpiryPrompt = false;
+                    _expiryDismissed = false; _config.ActiveSessionId = null; _config.Save();
                 }
-                else
-                {
-                    _activeSession = session;
-                }
+                else _activeSession = session;
             }
-            catch { /* silencieux */ }
+            catch { }
         });
     }
 
@@ -397,246 +349,191 @@ public class MySessionWindow : Window
             ImGui.Spacing();
             ImGui.TextWrapped(tokenMissing ? l.MySessionTokenMissingDesc : l.MySessionTokenInvalidDesc);
             ImGui.Spacing();
-            if (ImGui.Button(tokenMissing ? l.BtnConfigureNow : l.TokenReconfigure, UiSizes.PrimaryButton))
+            if (UiPrimitives.ColorButton(tokenMissing ? l.BtnConfigureNow : l.TokenReconfigure, UiStyle.PrimaryButton,
+                UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive))
                 Plugin.OpenSetup(tokenInvalid: !tokenMissing);
             return;
         }
 
-        if (_activeSession != null)
-            DrawActiveSession();
-        else
-            DrawCreateForm();
+        if (_activeSession != null) DrawActiveSession();
+        else DrawCreateForm();
 
         if (!string.IsNullOrWhiteSpace(_statusMsg))
         {
             ImGui.Spacing();
-            var color = _statusIsError
-                ? new Vector4(1, 0.35f, 0.35f, 1)
-                : new Vector4(0.3f, 0.9f, 0.5f, 1);
-            ImGui.TextColored(color, _statusMsg);
+            ImGui.TextColored(_statusIsError ? new Vector4(1, 0.35f, 0.35f, 1) : UiStyle.StatusOpen, _statusMsg);
         }
     }
 
-    // ─── Formulaire création ──────────────────────────────────────────────────
+    // ─── Création : contexte (gauche 38%) | formulaire (droite 62%) ──────────
 
     private void DrawCreateForm()
     {
         var l = Plugin.L;
         ImGui.Spacing();
-        ImGui.TextColored(new Vector4(0.78f, 0.64f, 0.35f, 1), l.SessionCreate);
+        ImGui.TextColored(UiStyle.TextSection, l.SessionCreate.ToUpper());
         ImGui.Separator();
         ImGui.Spacing();
 
-        // ── Suggestion : tag RP activé ──────────────────────────────────────────
         if (_pendingRpTagActivePrompt)
-        {
-            var dl    = ImGui.GetWindowDrawList();
-            var avail = ImGui.GetContentRegionAvail().X;
-            var p0    = ImGui.GetCursorScreenPos();
-            dl.ChannelsSplit(2);
-            dl.ChannelsSetCurrent(1);
-            ImGui.Spacing();
-            ImGui.Indent(8f);
-            ImGui.TextColored(new Vector4(0.3f, 0.9f, 0.5f, 1f), l.AlertRpTagActivTitle);
-            ImGui.TextWrapped(l.AlertRpTagActivDesc);
-            ImGui.Spacing();
-            if (ImGui.Button(l.Ignore + "##rptag_active", UiSizes.SmallButton)) { _pendingRpTagActivePrompt = false; IsOpen = false; }
-            ImGui.Unindent(8f);
-            ImGui.Spacing();
-            var p1 = ImGui.GetCursorScreenPos();
-            dl.ChannelsSetCurrent(0);
-            dl.AddRectFilled(p0, new Vector2(p0.X + avail, p1.Y), ImGui.GetColorU32(new Vector4(0.3f, 0.9f, 0.5f, 0.10f)), 4f);
-            dl.AddRect(      p0, new Vector2(p0.X + avail, p1.Y), ImGui.GetColorU32(new Vector4(0.3f, 0.9f, 0.5f, 0.45f)), 4f);
-            dl.ChannelsMerge();
-            ImGui.Spacing();
-        }
+            UiPrimitives.DrawAlert(UiStyle.StatusOpen, l.AlertRpTagActivTitle, l.AlertRpTagActivDesc, () =>
+            {
+                if (ImGui.Button(l.Ignore + "##rptag_active", UiStyle.SmallButton))
+                    { _pendingRpTagActivePrompt = false; IsOpen = false; }
+            });
 
-        var world   = GetCurrentWorld();
-        var zone    = GetCurrentZone();
+        if (!ImGui.BeginTable("##createform", 2, ImGuiTableFlags.None)) return;
+        ImGui.TableSetupColumn("ctx",  ImGuiTableColumnFlags.WidthStretch, 0.38f);
+        ImGui.TableSetupColumn("form", ImGuiTableColumnFlags.WidthStretch, 0.62f);
+        ImGui.TableNextRow();
+
+        // Contexte détecté (gauche)
+        ImGui.TableSetColumnIndex(0);
         var pos     = GetCurrentPosition();
         var housing = GetCurrentHousing();
         var wing    = housing != null ? ResolveWing(Plugin.ClientState.MapId, housing.RawPlot) : null;
-        ImGui.TextDisabled($"{l.FieldServer}: {world}   •   {l.FieldLocation}: {zone}");
-        if (housing != null)
-        {
-            var loc = FormatHousingLabel(housing.Ward, housing.Plot, housing.Room, wing);
-            ImGui.TextDisabled($"{l.FieldHousing}: {loc}");
-        }
-        if (pos.HasValue)
-        {
-            var c = MapHelper.GetLocalPlayerMapCoords()
-                 ?? MapHelper.WorldToCurrentMapCoords(pos.Value.x, pos.Value.z);
-            ImGui.TextDisabled(c.HasValue
-                ? $"{l.FieldPosition}: X {c.Value.x:F1}   Y {c.Value.y:F1}"
-                : $"{l.FieldPosition}: X {pos.Value.x:F1}   Y {pos.Value.z:F1}");
-        }
-        ImGui.Spacing();
 
-        ImGui.TextColored(new Vector4(0.78f, 0.64f, 0.35f, 1f), "✦ " + l.FieldTitle + " *");
+        UiPrimitives.DrawCard(() =>
+        {
+            ImGui.TextColored(UiStyle.TextSection, l.FieldLocation.ToUpper());
+            ImGui.Spacing();
+            UiPrimitives.DrawIcon("");
+            ImGui.SameLine(0, 4);
+            ImGui.TextColored(UiStyle.TextMuted, GetCurrentZone());
+            ImGui.TextColored(UiStyle.TextSubtle, $"  {GetCurrentWorld()}");
+            if (housing != null)
+            {
+                UiPrimitives.DrawIcon("");
+                ImGui.SameLine(0, 4);
+                ImGui.TextColored(UiStyle.TextMuted, FormatHousingLabel(housing.Ward, housing.Plot, housing.Room, wing));
+            }
+            if (pos.HasValue)
+            {
+                var c = MapHelper.GetLocalPlayerMapCoords()
+                     ?? MapHelper.WorldToCurrentMapCoords(pos.Value.x, pos.Value.z);
+                UiPrimitives.DrawIcon("");
+                ImGui.SameLine(0, 4);
+                ImGui.TextColored(UiStyle.TextSubtle, c.HasValue
+                    ? $"X {c.Value.x:F1}   Y {c.Value.y:F1}"
+                    : $"X {pos.Value.x:F1}   Y {pos.Value.z:F1}");
+            }
+        });
+
+        // Formulaire (droite)
+        ImGui.TableSetColumnIndex(1);
+
+        ImGui.TextColored(UiStyle.TextTitle, "✦ " + l.FieldTitle + " *");
         ImGui.SetNextItemWidth(-1);
         ImGui.InputText("##title", ref _title, 100);
 
         ImGui.Spacing();
-        if (string.IsNullOrEmpty(_characterName))
-            _characterName = GetCharacterName();
-
-        ImGui.Text(l.FieldCharName);
-        ImGui.SetNextItemWidth(-80);
+        if (string.IsNullOrEmpty(_characterName)) _characterName = GetCharacterName();
+        ImGui.TextColored(UiStyle.TextMuted, l.FieldCharName);
+        ImGui.SetNextItemWidth(-(UiStyle.SmallButton.X + ImGui.GetStyle().ItemSpacing.X));
         ImGui.InputText("##charname", ref _characterName, 60);
         ImGui.SameLine();
-        if (ImGui.Button(l.Auto, UiSizes.SmallButton))
-            _characterName = GetCharacterName();
+        if (ImGui.Button(l.Auto, UiStyle.SmallButton)) _characterName = GetCharacterName();
 
         ImGui.Spacing();
-        ImGui.TextDisabled(l.FieldDesc + " (opt.)");
+        ImGui.TextColored(UiStyle.TextSubtle, l.FieldDesc + " (opt.)");
         ImGui.SetNextItemWidth(-1);
         ImGui.InputTextMultiline("##desc", ref _description, 500, new Vector2(-1, 60));
 
         ImGui.Spacing();
-        ImGui.Text(l.FieldDuration);
-        ImGui.SetNextItemWidth(120);
+        ImGui.TextColored(UiStyle.TextMuted, l.FieldDuration);
+        ImGui.SetNextItemWidth(-1);
         ImGui.SliderInt("##duration", ref _duration, 1, 8);
 
         ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
-
         var canStart = !_busy && !string.IsNullOrWhiteSpace(_title);
         if (!canStart) ImGui.BeginDisabled();
-        ImGui.PushStyleColor(ImGuiCol.Button,        UiColors.PrimaryNormal);
-        ImGui.PushStyleColor(ImGuiCol.ButtonHovered, UiColors.PrimaryHovered);
-        ImGui.PushStyleColor(ImGuiCol.ButtonActive,  UiColors.PrimaryActive);
-        if (ImGui.Button(_busy ? l.StatusCreating : l.RpNewSession, new Vector2(-1, 0)))
+        if (UiPrimitives.ColorButton(_busy ? l.StatusCreating : l.RpNewSession, new Vector2(-1, 0),
+            UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive))
             StartSession();
-        ImGui.PopStyleColor(3);
         if (!canStart) ImGui.EndDisabled();
+
+        ImGui.EndTable();
     }
 
-    // ─── Session active ───────────────────────────────────────────────────────
+    // ─── Session active : alertes + info (gauche 58%) | actions (droite 42%) ─
 
     private void DrawActiveSession()
     {
         var l = Plugin.L;
         ImGui.Spacing();
-        ImGui.TextColored(new Vector4(0.3f, 0.9f, 0.5f, 1), l.SessionActive);
+        ImGui.TextColored(UiStyle.StatusOpen, l.SessionActive.ToUpper());
         ImGui.Separator();
         ImGui.Spacing();
 
-        // ── Alerte : changement de zone/TP ──────────────────────────────────
         if (_pendingZonePrompt)
-        {
-            var dl    = ImGui.GetWindowDrawList();
-            var avail = ImGui.GetContentRegionAvail().X;
-            var p0    = ImGui.GetCursorScreenPos();
-            dl.ChannelsSplit(2);
-            dl.ChannelsSetCurrent(1);
-            ImGui.Spacing();
-            ImGui.Indent(8f);
-            ImGui.TextColored(new Vector4(1f, 0.75f, 0.1f, 1f), l.AlertZoneChangedTitle);
-            ImGui.TextWrapped(l.AlertZoneChangedDesc);
-            ImGui.Spacing();
-            if (ImGui.Button(l.BtnUpdatePos + "##zone", UiSizes.WideButton)) { _pendingZonePrompt = false; RefreshPosition(); }
-            ImGui.SameLine();
-            if (ImGui.Button(l.Ignore + "##zone", UiSizes.SmallButton))       { _pendingZonePrompt = false; IsOpen = false; }
-            ImGui.Unindent(8f);
-            ImGui.Spacing();
-            var p1 = ImGui.GetCursorScreenPos();
-            dl.ChannelsSetCurrent(0);
-            dl.AddRectFilled(p0, new Vector2(p0.X + avail, p1.Y), ImGui.GetColorU32(new Vector4(1f, 0.75f, 0.1f, 0.10f)), 4f);
-            dl.AddRect(      p0, new Vector2(p0.X + avail, p1.Y), ImGui.GetColorU32(new Vector4(1f, 0.75f, 0.1f, 0.45f)), 4f);
-            dl.ChannelsMerge();
-            ImGui.Spacing();
-        }
+            UiPrimitives.DrawAlert(new Vector4(1f, 0.75f, 0.1f, 1f), l.AlertZoneChangedTitle, l.AlertZoneChangedDesc, () =>
+            {
+                if (UiPrimitives.ColorButton(l.BtnUpdatePos + "##zone", UiStyle.WideButton,
+                    UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive))
+                    { _pendingZonePrompt = false; RefreshPosition(); }
+                ImGui.SameLine();
+                if (ImGui.Button(l.Ignore + "##zone", UiStyle.SmallButton))
+                    { _pendingZonePrompt = false; IsOpen = false; }
+            });
 
-        // ── Alerte : tag RP retiré ───────────────────────────────────────────
         if (_pendingRpTagPrompt)
-        {
-            var dl    = ImGui.GetWindowDrawList();
-            var avail = ImGui.GetContentRegionAvail().X;
-            var p0    = ImGui.GetCursorScreenPos();
-            dl.ChannelsSplit(2);
-            dl.ChannelsSetCurrent(1);
-            ImGui.Spacing();
-            ImGui.Indent(8f);
-            ImGui.TextColored(new Vector4(0.75f, 0.5f, 1f, 1f), l.AlertRpTagRemovedTitle);
-            ImGui.TextWrapped(l.AlertRpTagRemovedDesc);
-            ImGui.Spacing();
-            if (ImGui.Button(l.BtnEnd + "##rptag", UiSizes.MediumButton))    { _pendingRpTagPrompt = false; EndSession(); }
-            ImGui.SameLine();
-            if (ImGui.Button(l.Ignore + "##rptag", UiSizes.SmallButton))      _pendingRpTagPrompt = false;
-            ImGui.Unindent(8f);
-            ImGui.Spacing();
-            var p1 = ImGui.GetCursorScreenPos();
-            dl.ChannelsSetCurrent(0);
-            dl.AddRectFilled(p0, new Vector2(p0.X + avail, p1.Y), ImGui.GetColorU32(new Vector4(0.75f, 0.5f, 1f, 0.10f)), 4f);
-            dl.AddRect(      p0, new Vector2(p0.X + avail, p1.Y), ImGui.GetColorU32(new Vector4(0.75f, 0.5f, 1f, 0.45f)), 4f);
-            dl.ChannelsMerge();
-            ImGui.Spacing();
-        }
+            UiPrimitives.DrawAlert(new Vector4(0.75f, 0.5f, 1f, 1f), l.AlertRpTagRemovedTitle, l.AlertRpTagRemovedDesc, () =>
+            {
+                if (UiPrimitives.ColorButton(l.BtnEnd + "##rptag", UiStyle.MediumButton,
+                    UiStyle.DangerNormal, UiStyle.DangerHovered, UiStyle.DangerActive))
+                    { _pendingRpTagPrompt = false; EndSession(); }
+                ImGui.SameLine();
+                if (ImGui.Button(l.Ignore + "##rptag", UiStyle.SmallButton))
+                    _pendingRpTagPrompt = false;
+            });
 
-        // ── Alerte : session bientôt expirée ─────────────────────────────────
         if (_pendingExpiryPrompt && _activeSession?.ExpiresAt != null
             && DateTime.TryParse(_activeSession.ExpiresAt, null, System.Globalization.DateTimeStyles.RoundtripKind, out var expiresAt))
         {
-            var minsLeft = Math.Max(1, (int)Math.Ceiling((expiresAt - DateTime.UtcNow).TotalMinutes));
-            var dl    = ImGui.GetWindowDrawList();
-            var avail = ImGui.GetContentRegionAvail().X;
-            var p0    = ImGui.GetCursorScreenPos();
-            dl.ChannelsSplit(2);
-            dl.ChannelsSetCurrent(1);
-            ImGui.Spacing();
-            ImGui.Indent(8f);
-            ImGui.TextColored(new Vector4(1f, 0.55f, 0.15f, 1f), l.AlertExpiryTitle);
-            ImGui.TextWrapped(string.Format(l.AlertExpiryDesc, minsLeft));
-            ImGui.Spacing();
-            ImGui.PushStyleColor(ImGuiCol.Button,        UiColors.SuccessNormal);
-            ImGui.PushStyleColor(ImGuiCol.ButtonHovered, UiColors.SuccessHovered);
-            ImGui.PushStyleColor(ImGuiCol.ButtonActive,  UiColors.SuccessActive);
-            if (ImGui.Button(l.BtnExtend + "##expiry", UiSizes.WideButton))  { _pendingExpiryPrompt = false; ExtendSession(1); }
-            ImGui.PopStyleColor(3);
-            ImGui.SameLine();
-            ImGui.PushStyleColor(ImGuiCol.Button,        UiColors.DangerNormal);
-            ImGui.PushStyleColor(ImGuiCol.ButtonHovered, UiColors.DangerHovered);
-            ImGui.PushStyleColor(ImGuiCol.ButtonActive,  UiColors.DangerActive);
-            if (ImGui.Button(l.BtnStop + "##expiry_stop", UiSizes.MediumButton)) { _pendingExpiryPrompt = false; EndSession(); }
-            ImGui.PopStyleColor(3);
-            ImGui.SameLine();
-            if (ImGui.Button(l.Ignore + "##expiry", UiSizes.SmallButton))    { _pendingExpiryPrompt = false; _expiryDismissed = true; }
-            ImGui.Unindent(8f);
-            ImGui.Spacing();
-            var p1 = ImGui.GetCursorScreenPos();
-            dl.ChannelsSetCurrent(0);
-            dl.AddRectFilled(p0, new Vector2(p0.X + avail, p1.Y), ImGui.GetColorU32(new Vector4(1f, 0.55f, 0.15f, 0.10f)), 4f);
-            dl.AddRect(      p0, new Vector2(p0.X + avail, p1.Y), ImGui.GetColorU32(new Vector4(1f, 0.55f, 0.15f, 0.45f)), 4f);
-            dl.ChannelsMerge();
-            ImGui.Spacing();
+            var mins = Math.Max(1, (int)Math.Ceiling((expiresAt - DateTime.UtcNow).TotalMinutes));
+            UiPrimitives.DrawAlert(new Vector4(1f, 0.55f, 0.15f, 1f), l.AlertExpiryTitle, string.Format(l.AlertExpiryDesc, mins), () =>
+            {
+                if (UiPrimitives.ColorButton(l.BtnExtend + "##expiry", UiStyle.WideButton,
+                    UiStyle.SuccessNormal, UiStyle.SuccessHovered, UiStyle.SuccessActive))
+                    { _pendingExpiryPrompt = false; ExtendSession(1); }
+                ImGui.SameLine();
+                if (UiPrimitives.ColorButton(l.BtnStop + "##expiry_stop", UiStyle.MediumButton,
+                    UiStyle.DangerNormal, UiStyle.DangerHovered, UiStyle.DangerActive))
+                    { _pendingExpiryPrompt = false; EndSession(); }
+                ImGui.SameLine();
+                if (ImGui.Button(l.Ignore + "##expiry", UiStyle.SmallButton))
+                    { _pendingExpiryPrompt = false; _expiryDismissed = true; }
+            });
         }
 
-        if (!_editing)
+        if (_editing) { DrawEditForm(); return; }
+
+        if (!ImGui.BeginTable("##activesession", 2, ImGuiTableFlags.None)) return;
+        ImGui.TableSetupColumn("info",    ImGuiTableColumnFlags.WidthStretch, 0.58f);
+        ImGui.TableSetupColumn("actions", ImGuiTableColumnFlags.WidthStretch, 0.42f);
+        ImGui.TableNextRow();
+
+        // Info session (gauche)
+        ImGui.TableSetColumnIndex(0);
+        UiPrimitives.DrawCard(() =>
         {
-            ImGui.TextDisabled(l.FieldTitle + ":"); ImGui.SameLine(0, 4); ImGui.Text(_activeSession!.Title);
-            using (Plugin.PluginInterface.UiBuilder.IconFontHandle.Push())
-                ImGui.TextDisabled("\uf3c5");
+            ImGui.TextColored(UiStyle.TextTitle, _activeSession!.Title);
+            ImGui.Spacing();
+            UiPrimitives.DrawIcon("");
             ImGui.SameLine(0, 4);
-            ImGui.TextDisabled(l.FieldLocation + ":"); ImGui.SameLine(0, 4); ImGui.Text($"{_activeSession.Location}  •  {_activeSession.Server}");
+            ImGui.TextColored(UiStyle.TextMuted, $"{_activeSession.Location}  •  {_activeSession.Server}");
             if (!string.IsNullOrEmpty(_activeSession.CharacterName))
             {
-                using (Plugin.PluginInterface.UiBuilder.IconFontHandle.Push())
-                    ImGui.TextDisabled("\uf007");
+                UiPrimitives.DrawIcon("");
                 ImGui.SameLine(0, 4);
-                ImGui.TextDisabled(l.FieldCharName + ":"); ImGui.SameLine(0, 4); ImGui.Text(_activeSession.CharacterName);
+                ImGui.TextColored(UiStyle.TextMuted, _activeSession.CharacterName);
             }
             if (_activeSession.Ward.HasValue)
             {
-                var housing = FormatHousingLabel(
-                    _activeSession.Ward.Value,
-                    _activeSession.Plot,
-                    _activeSession.Room,
-                    _activeSession.Wing);
-                using (Plugin.PluginInterface.UiBuilder.IconFontHandle.Push())
-                    ImGui.TextDisabled("\uf015");
+                UiPrimitives.DrawIcon("");
                 ImGui.SameLine(0, 4);
-                ImGui.TextDisabled(l.FieldHousing + ":"); ImGui.SameLine(0, 4); ImGui.TextDisabled(housing);
+                ImGui.TextColored(UiStyle.TextMuted,
+                    FormatHousingLabel(_activeSession.Ward.Value, _activeSession.Plot, _activeSession.Room, _activeSession.Wing));
             }
             var livePos = GetCurrentPosition();
             if (livePos.HasValue)
@@ -644,67 +541,66 @@ public class MySessionWindow : Window
                 var coords = MapHelper.GetLocalPlayerMapCoords()
                           ?? MapHelper.WorldToCurrentMapCoords(livePos.Value.x, livePos.Value.z);
                 if (coords.HasValue)
-                    ImGui.TextDisabled($"{l.FieldPosition}: X {coords.Value.x:F1}   Y {coords.Value.y:F1}");
-            }
-            ImGui.Spacing();
-            ImGui.Separator();
-            ImGui.Spacing();
-
-            if (!_busy)
-            {
-                if (ImGui.Button(l.BtnModify, UiSizes.SmallButton))
                 {
-                    _editTitle = _activeSession.Title;
-                    _editDesc  = string.Empty;
-                    _editing   = true;
+                    UiPrimitives.DrawIcon("");
+                    ImGui.SameLine(0, 4);
+                    ImGui.TextColored(UiStyle.TextSubtle, $"X {coords.Value.x:F1}   Y {coords.Value.y:F1}");
                 }
-                ImGui.SameLine();
-                if (ImGui.Button(l.BtnUpdatePos, UiSizes.WideButton))
-                    RefreshPosition();
-                ImGui.SameLine();
-                ImGui.PushStyleColor(ImGuiCol.Button,        UiColors.SuccessNormal);
-                ImGui.PushStyleColor(ImGuiCol.ButtonHovered, UiColors.SuccessHovered);
-                ImGui.PushStyleColor(ImGuiCol.ButtonActive,  UiColors.SuccessActive);
-                if (ImGui.Button(l.BtnExtend, UiSizes.MediumButton))
-                    ExtendSession(1);
-                ImGui.PopStyleColor(3);
-                ImGui.SameLine();
-                if (ImGui.Button(l.ViewOnline, UiSizes.SmallButton))
-                    OpenUrl(_config.BaseUrl + "/rp-live");
-
-                ImGui.Spacing();
-                ImGui.PushStyleColor(ImGuiCol.Button,        UiColors.DangerNormal);
-                ImGui.PushStyleColor(ImGuiCol.ButtonHovered, UiColors.DangerHovered);
-                ImGui.PushStyleColor(ImGuiCol.ButtonActive,  UiColors.DangerActive);
-                if (ImGui.Button(l.BtnEnd, new Vector2(-1, 0)))
-                    EndSession();
-                ImGui.PopStyleColor(3);
             }
-            else ImGui.TextDisabled(l.Processing);
+        });
+
+        // Actions (droite)
+        ImGui.TableSetColumnIndex(1);
+        if (_busy)
+        {
+            ImGui.TextColored(UiStyle.TextSubtle, Plugin.L.Processing);
         }
         else
         {
-            ImGui.TextColored(new Vector4(0.78f, 0.64f, 0.35f, 1f), "✦ " + l.FieldTitle + " *");
-            ImGui.SetNextItemWidth(-1);
-            ImGui.InputText("##edittitle", ref _editTitle, 100);
-
+            if (ImGui.Button(l.BtnModify, new Vector2(-1, 0)))
+                { _editTitle = _activeSession!.Title; _editDesc = string.Empty; _editing = true; }
             ImGui.Spacing();
-            ImGui.TextDisabled(l.FieldDesc + " (opt.)");
-            ImGui.SetNextItemWidth(-1);
-            ImGui.InputTextMultiline("##editdesc", ref _editDesc, 500, new Vector2(-1, 55));
-
+            if (ImGui.Button(l.BtnUpdatePos, new Vector2(-1, 0))) RefreshPosition();
+            ImGui.Spacing();
+            if (UiPrimitives.ColorButton(l.BtnExtend, new Vector2(-1, 0),
+                UiStyle.SuccessNormal, UiStyle.SuccessHovered, UiStyle.SuccessActive))
+                ExtendSession(1);
+            ImGui.Spacing();
+            if (ImGui.Button(l.ViewOnline, new Vector2(-1, 0)))
+                OpenUrl(_config.BaseUrl + "/rp-live");
             ImGui.Spacing();
             ImGui.Separator();
             ImGui.Spacing();
+            if (UiPrimitives.ColorButton(l.BtnEnd, new Vector2(-1, 0),
+                UiStyle.DangerNormal, UiStyle.DangerHovered, UiStyle.DangerActive))
+                EndSession();
+        }
 
+        ImGui.EndTable();
+    }
+
+    private void DrawEditForm()
+    {
+        var l = Plugin.L;
+        ImGui.Spacing();
+        UiPrimitives.DrawCard(() =>
+        {
+            ImGui.TextColored(UiStyle.TextTitle, "✦ " + l.FieldTitle + " *");
+            ImGui.SetNextItemWidth(-1);
+            ImGui.InputText("##edittitle", ref _editTitle, 100);
+            ImGui.Spacing();
+            ImGui.TextColored(UiStyle.TextSubtle, l.FieldDesc + " (opt.)");
+            ImGui.SetNextItemWidth(-1);
+            ImGui.InputTextMultiline("##editdesc", ref _editDesc, 500, new Vector2(-1, 60));
+            ImGui.Spacing();
             var canSave = !_busy && !string.IsNullOrWhiteSpace(_editTitle);
             if (!canSave) ImGui.BeginDisabled();
-            if (ImGui.Button(l.Save, UiSizes.MediumButton))
+            if (UiPrimitives.ColorButton(l.Save, UiStyle.MediumButton,
+                UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive))
                 UpdateSession();
             if (!canSave) ImGui.EndDisabled();
             ImGui.SameLine();
-            if (ImGui.Button(l.Cancel, UiSizes.SmallButton))
-                _editing = false;
-        }
+            if (ImGui.Button(l.Cancel, UiStyle.SmallButton)) _editing = false;
+        });
     }
 }

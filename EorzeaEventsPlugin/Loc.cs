@@ -50,6 +50,13 @@ internal sealed class Loc
     public required string EstabSearchHint { get; init; }
     public required string EstabNoResults  { get; init; }
     public required string EstabCount      { get; init; }   // {0} établissement(s)
+    public required string EstabDetail     { get; init; }
+    public required string EstabOpenSite   { get; init; }
+    public required string EstabDiscord    { get; init; }
+    public required string EstabSyncshells { get; init; }
+    public required string EstabPassword   { get; init; }
+    public required string EstabReveal     { get; init; }
+    public required string EstabCopied     { get; init; }
     public required Dictionary<string, string> DistrictLabels { get; init; }
 
     // ── Debug tab ─────────────────────────────────────────────────────────────
@@ -246,6 +253,13 @@ internal sealed class Loc
         EstabSearchHint = "Recherchez par nom, serveur ou quartier.",
         EstabNoResults  = "Aucun résultat.",
         EstabCount      = "{0} lieu(x)",
+        EstabDetail     = "Fiche",
+        EstabOpenSite   = "Voir le site",
+        EstabDiscord    = "Discord",
+        EstabSyncshells = "Syncshells",
+        EstabPassword   = "MdP",
+        EstabReveal     = "Révéler",
+        EstabCopied     = "Copié !",
         DistrictLabels  = new()
         {
             ["brumee"]     = "Brumée",
@@ -439,6 +453,13 @@ internal sealed class Loc
         EstabSearchHint = "Search by name, server or ward.",
         EstabNoResults  = "No results found.",
         EstabCount      = "{0} venue(s)",
+        EstabDetail     = "Details",
+        EstabOpenSite   = "Visit website",
+        EstabDiscord    = "Discord",
+        EstabSyncshells = "Syncshells",
+        EstabPassword   = "Pwd",
+        EstabReveal     = "Reveal",
+        EstabCopied     = "Copied!",
         DistrictLabels  = new()
         {
             ["brumee"]     = "The Mist",

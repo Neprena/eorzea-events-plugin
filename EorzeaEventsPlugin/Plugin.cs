@@ -57,10 +57,11 @@ public sealed class Plugin : IDalamudPlugin
     }
 
     private readonly WindowSystem     _windowSystem = new("EorzeaEvents");
-    private static   MainWindow?      _mainWindow;
-    private static   MySessionWindow? _sessionWindow;
-    private static   ConfigWindow?    _configWindow;
-    private static   SetupWindow?     _setupWindow;
+    private static   MainWindow?        _mainWindow;
+    private static   MySessionWindow?   _sessionWindow;
+    private static   ConfigWindow?      _configWindow;
+    private static   SetupWindow?       _setupWindow;
+    private static   EstabDetailWindow? _estabDetailWindow;
 
     // DTR bar
     private static IDtrBarEntry? _dtrRp;
@@ -119,14 +120,16 @@ public sealed class Plugin : IDalamudPlugin
         }
         Api    = new ApiClient(Config.BaseUrl, Config.ApiToken);
 
-        _mainWindow    = new MainWindow(Config);
-        _sessionWindow = new MySessionWindow(Config);
-        _configWindow  = new ConfigWindow(Config);
-        _setupWindow   = new SetupWindow(Config);
+        _mainWindow        = new MainWindow(Config);
+        _sessionWindow     = new MySessionWindow(Config);
+        _configWindow      = new ConfigWindow(Config);
+        _setupWindow       = new SetupWindow(Config);
+        _estabDetailWindow = new EstabDetailWindow(Config);
         _windowSystem.AddWindow(_mainWindow);
         _windowSystem.AddWindow(_sessionWindow);
         _windowSystem.AddWindow(_configWindow);
         _windowSystem.AddWindow(_setupWindow);
+        _windowSystem.AddWindow(_estabDetailWindow);
 
         CommandManager.AddHandler(CommandMain, new CommandInfo(OnCommand)
         {
@@ -204,6 +207,10 @@ public sealed class Plugin : IDalamudPlugin
         if (_configWindow != null) _configWindow.IsOpen = true;
     }
     internal static void OpenMain()       { if (_mainWindow    != null) _mainWindow.IsOpen    = true; }
+    internal static void OpenEstabDetail(EorzeaEventsPlugin.Api.EstablishmentDto estab)
+        { _estabDetailWindow?.Open(estab); }
+    internal static void OpenEstabDetail(EorzeaEventsPlugin.Api.EstablishmentSummaryDto estab)
+        { _estabDetailWindow?.Open(estab); }
     internal static void OpenMySession()
     {
         if (IsBlocked)
@@ -708,7 +715,7 @@ public sealed class Plugin : IDalamudPlugin
         return row?.PlaceName.Value.Name.ToString();
     }
 
-    private void OnTerritoryChanged(ushort territory)
+    private void OnTerritoryChanged(uint territory)
     {
         CurrentZone = ResolveTerritoryName(territory);
 

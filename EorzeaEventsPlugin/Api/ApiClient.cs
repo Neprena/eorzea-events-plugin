@@ -48,6 +48,7 @@ public class EstablishmentSummaryDto
     [JsonPropertyName("id")]          public string  Id          { get; set; } = string.Empty;
     [JsonPropertyName("name")]        public string  Name        { get; set; } = string.Empty;
     [JsonPropertyName("slug")]        public string? Slug        { get; set; }
+    [JsonPropertyName("banner")]      public string? Banner      { get; set; }
     [JsonPropertyName("server")]      public string? Server      { get; set; }
     [JsonPropertyName("district")]    public string? District    { get; set; }
     [JsonPropertyName("ward")]        public int?    Ward        { get; set; }
@@ -74,8 +75,10 @@ public class OnlineCountDto
 
 public class SyncshellEntryDto
 {
-    [JsonPropertyName("type")] public string Type { get; set; } = string.Empty;
-    [JsonPropertyName("id")]   public string Id   { get; set; } = string.Empty;
+    [JsonPropertyName("type")]     public string  Type     { get; set; } = string.Empty;
+    [JsonPropertyName("name")]     public string? Name     { get; set; }
+    [JsonPropertyName("id")]       public string  Id       { get; set; } = string.Empty;
+    [JsonPropertyName("password")] public string? Password { get; set; }
 }
 
 public class EstablishmentDto
@@ -95,6 +98,7 @@ public class EstablishmentDto
     [JsonPropertyName("apartmentNumber")] public int?    ApartmentNumber { get; set; }
     [JsonPropertyName("syncshells")]      public string  Syncshells      { get; set; } = "[]";
     [JsonPropertyName("discordInvite")]   public string? DiscordInvite   { get; set; }
+    [JsonPropertyName("banner")]          public string? Banner          { get; set; }
 }
 
 // ─── Request bodies ───────────────────────────────────────────────────────────
@@ -209,6 +213,12 @@ public class ApiClient : IDisposable
             url += $"?search={Uri.EscapeDataString(search)}";
         var res = await _publicHttp.GetFromJsonAsync<List<EstablishmentDto>>(url, JsonOptions, ct);
         return res ?? [];
+    }
+
+    public async Task<EstablishmentDto?> GetEstablishmentByIdAsync(string id, CancellationToken ct = default)
+    {
+        try { return await _publicHttp.GetFromJsonAsync<EstablishmentDto>($"api/establishments/{Uri.EscapeDataString(id)}", JsonOptions, ct); }
+        catch { return null; }
     }
 
     // ─── Authenticated ────────────────────────────────────────────────────────

@@ -1,4 +1,6 @@
+using System.Net.Http;
 using System.Threading.Tasks;
+using Dalamud.Interface.Textures.TextureWraps;
 using Dalamud.Interface.Windowing;
 using EorzeaEventsPlugin.Api;
 using Dalamud.Bindings.ImGui;
@@ -29,9 +31,12 @@ public class MainWindow : Window
 
     // ─── Établissements ───────────────────────────────────────────────────────
 
-    private List<EstablishmentDto> _estabList        = [];
-    private bool                   _estabLoading     = false;
-    private string                 _estabSearchInput = string.Empty;
+    private List<EstablishmentDto>                              _estabList           = [];
+    private bool                                                _estabLoading        = false;
+    private bool                                                _estabInitialLoaded  = false;
+    private string                                              _estabSearchInput    = string.Empty;
+    private readonly Dictionary<string, Task<IDalamudTextureWrap?>> _estabBannerTasks = new();
+    private readonly HttpClient                                 _bannerHttp       = new();
 
     // ─── Online count ─────────────────────────────────────────────────────────
 
@@ -44,12 +49,13 @@ public class MainWindow : Window
 
     // ─────────────────────────────────────────────────────────────────────────
 
-    public MainWindow(Configuration config) : base("Eorzea Events##main")
+    public MainWindow(Configuration config)
+        : base("Eorzea Events##main", ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse)
     {
         SizeConstraints = new WindowSizeConstraints
         {
             MinimumSize = new Vector2(520, 500),
-            MaximumSize = new Vector2(700, 800),
+            MaximumSize = new Vector2(900, 900),
         };
         _config = config;
     }
@@ -62,7 +68,6 @@ public class MainWindow : Window
         if (s.TerritoryId is not { } terId || s.MapId is not { } mapId) return;
         if (s.PosX is not { } posX || s.PosZ is not { } posZ) return;
 
-        // posX/posZ sont déjà des coordonnées carte (1–42) — pas de conversion supplémentaire
         var seStr   = SeString.CreateMapLink(terId, mapId, posX, posZ);
         var payload = seStr.Payloads.OfType<MapLinkPayload>().FirstOrDefault();
         if (payload == null) return;
@@ -88,7 +93,6 @@ public class MainWindow : Window
             return;
         }
 
-        // Blocage token invalide
         if (Plugin.Api.HasToken && !Plugin.Api.IsTokenValid)
         {
             DrawTokenInvalidScreen();
@@ -130,7 +134,6 @@ public class MainWindow : Window
 
     private void DrawOnlineFooter()
     {
-        // Rafraîchissement toutes les 60s
         if ((DateTime.UtcNow - _onlineLastFetch).TotalSeconds > 60)
         {
             _onlineLastFetch = DateTime.UtcNow;
@@ -146,7 +149,7 @@ public class MainWindow : Window
         ImGui.Spacing();
         var text = string.Format(Plugin.L.PlayersOnline, _onlineCount);
         ImGui.SetCursorPosX(ImGui.GetWindowWidth() - ImGui.CalcTextSize(text).X - ImGui.GetStyle().WindowPadding.X);
-        ImGui.TextDisabled(text);
+        ImGui.TextColored(UiStyle.TextSubtle, text);
         ImGui.Spacing();
     }
 
@@ -184,7 +187,8 @@ public class MainWindow : Window
 
         var btnWidth = 200f;
         ImGui.SetCursorPosX((windowSize.X - btnWidth) * 0.5f);
-        if (ImGui.Button(l.TokenReconfigure, new Vector2(btnWidth, 0)))
+        if (UiPrimitives.ColorButton(l.TokenReconfigure, new Vector2(btnWidth, 0),
+            UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive))
             Plugin.OpenSetup(tokenInvalid: true);
     }
 
@@ -218,14 +222,15 @@ public class MainWindow : Window
 
         var hintSize = ImGui.CalcTextSize(l.BlockedHint);
         ImGui.SetCursorPosX((windowSize.X - hintSize.X) * 0.5f);
-        ImGui.TextColored(new Vector4(0.6f, 0.6f, 0.6f, 1f), l.BlockedHint);
+        ImGui.TextColored(UiStyle.TextSubtle, l.BlockedHint);
 
         if (!string.IsNullOrWhiteSpace(Plugin.BlockedUpdateUrl))
         {
             ImGui.Dummy(new Vector2(0, 14));
             var btnWidth = 220f;
             ImGui.SetCursorPosX((windowSize.X - btnWidth) * 0.5f);
-            if (ImGui.Button(l.BlockedOpenPluginPage, new Vector2(btnWidth, 0)))
+            if (UiPrimitives.ColorButton(l.BlockedOpenPluginPage, new Vector2(btnWidth, 0),
+                UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive))
                 OpenUrl(Plugin.BlockedUpdateUrl);
         }
     }
@@ -235,23 +240,33 @@ public class MainWindow : Window
         var l = Plugin.L;
         ImGui.Spacing();
 
-        if (_sessionsLoading)
+        // Header : compteur chip + label + boutons
+        if (!_sessionsLoading)
         {
-            ImGui.TextDisabled(l.Loading);
+            var activeCount = _sessionsList.Count(s => s.EndedAt == null);
+            if (activeCount > 0)
+            {
+                UiPrimitives.DrawChip(activeCount.ToString(), UiStyle.ChipBgOpen);
+                ImGui.SameLine(0, UiStyle.InlineSpacing);
+                ImGui.TextColored(UiStyle.TextSection, l.TabRp);
+                ImGui.SameLine(0, UiStyle.InlineSpacing);
+            }
+            else
+            {
+                ImGui.TextColored(UiStyle.TextSubtle, l.RpNoSession);
+                ImGui.SameLine(0, UiStyle.InlineSpacing);
+            }
         }
         else
         {
-            var activeCount = _sessionsList.Count(s => s.EndedAt == null);
-            if (activeCount == 0)
-                ImGui.TextDisabled(l.RpNoSession);
-            else
-                ImGui.TextColored(new Vector4(1f, 1f, 1f, 0.9f), string.Format(l.RpSessionsActive, activeCount));
-            ImGui.SameLine();
-            if (ImGui.Button(l.Refresh + "##sessions", UiSizes.SmallButton)) FetchSessions();
-            ImGui.SameLine();
-            if (ImGui.Button(l.ViewOnline + "##sessions", UiSizes.SmallButton))
-                OpenUrl(_config.BaseUrl + "/rp-live");
+            ImGui.TextColored(UiStyle.TextSubtle, l.Loading);
+            ImGui.SameLine(0, UiStyle.InlineSpacing);
         }
+
+        if (ImGui.Button(l.Refresh + "##sessions", UiStyle.SmallButton)) FetchSessions();
+        ImGui.SameLine(0, 4);
+        if (ImGui.Button(l.ViewOnline + "##sessions", UiStyle.SmallButton))
+            OpenUrl(_config.BaseUrl + "/rp-live");
 
         ImGui.Spacing();
         ImGui.Separator();
@@ -262,8 +277,8 @@ public class MainWindow : Window
             var activeSessions = _sessionsList.Where(s => s.EndedAt == null).ToList();
             if (activeSessions.Count == 0)
             {
-                ImGui.TextDisabled(l.RpNoSession);
-                ImGui.TextDisabled(l.RpBeFirst);
+                ImGui.TextColored(UiStyle.TextSubtle, l.RpNoSession);
+                ImGui.TextColored(UiStyle.TextSubtle, l.RpBeFirst);
             }
             else
             {
@@ -286,7 +301,7 @@ public class MainWindow : Window
 
                 if (nearby.Count > 0)
                 {
-                    ImGui.TextColored(new Vector4(0.3f, 0.9f, 0.5f, 1f),
+                    ImGui.TextColored(UiStyle.StatusOpen,
                         string.Format(l.RpInYourZone, currentZone));
                     ImGui.Spacing();
                     foreach (var s in nearby)
@@ -295,7 +310,7 @@ public class MainWindow : Window
                     if (others.Count > 0)
                     {
                         ImGui.Spacing();
-                        ImGui.TextDisabled(l.RpOtherServers);
+                        ImGui.TextColored(UiStyle.TextSubtle, l.RpOtherServers);
                         ImGui.Spacing();
                     }
                 }
@@ -314,74 +329,85 @@ public class MainWindow : Window
 
         if (Plugin.HasActiveSession)
         {
-            ImGui.TextColored(new Vector4(0.3f, 0.9f, 0.5f, 1), l.RpYourSessionActive);
+            ImGui.TextColored(UiStyle.StatusOpen, l.RpYourSessionActive);
             ImGui.SameLine();
-            ImGui.PushStyleColor(ImGuiCol.Button,        UiColors.PrimaryNormal);
-            ImGui.PushStyleColor(ImGuiCol.ButtonHovered, UiColors.PrimaryHovered);
-            ImGui.PushStyleColor(ImGuiCol.ButtonActive,  UiColors.PrimaryActive);
-            if (ImGui.Button(l.RpManageSession, UiSizes.PrimaryButton))
+            if (UiPrimitives.ColorButton(l.RpManageSession, UiStyle.PrimaryButton,
+                UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive))
                 Plugin.OpenMySession();
-            ImGui.PopStyleColor(3);
         }
         else
         {
-            ImGui.PushStyleColor(ImGuiCol.Button,        UiColors.PrimaryNormal);
-            ImGui.PushStyleColor(ImGuiCol.ButtonHovered, UiColors.PrimaryHovered);
-            ImGui.PushStyleColor(ImGuiCol.ButtonActive,  UiColors.PrimaryActive);
-            if (ImGui.Button(l.RpNewSession, new Vector2(-1, 0)))
+            if (UiPrimitives.ColorButton(l.RpNewSession, new Vector2(-1, 0),
+                UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive))
                 Plugin.OpenMySession();
-            ImGui.PopStyleColor(3);
         }
     }
 
     private void DrawSessionEntry(RpSessionDto s)
     {
         var l = Plugin.L;
-        ImGui.TextColored(new Vector4(0.78f, 0.64f, 0.35f, 1), s.Title);
-        ImGui.SameLine(0, 8);
-        using (Plugin.PluginInterface.UiBuilder.IconFontHandle.Push())
-            ImGui.TextDisabled("\uf3c5");
-        ImGui.SameLine(0, 4);
-        ImGui.TextDisabled($"{s.Location}  •  {s.Server}");
-        if (!string.IsNullOrEmpty(s.CharacterName))
+
+        UiPrimitives.DrawCard(() =>
         {
-            using (Plugin.PluginInterface.UiBuilder.IconFontHandle.Push())
-                ImGui.TextDisabled("\uf007");
+            // Titre (or chaud)
+            ImGui.TextColored(UiStyle.TextTitle, s.Title);
+
+            // Zone • Serveur + bouton carte aligné à droite
+            UiPrimitives.DrawIcon("");
             ImGui.SameLine(0, 4);
-            ImGui.TextDisabled(s.CharacterName);
-        }
-        if (s.Ward.HasValue)
-        {
-            var housingInfo = s.Room.HasValue
-                ? string.Format(l.HousingWardRoom, s.Ward, s.Room)
-                : s.Plot.HasValue
-                    ? string.Format(l.HousingWardPlot, s.Ward, s.Plot)
-                    : string.Format(l.HousingWard, s.Ward);
-            using (Plugin.PluginInterface.UiBuilder.IconFontHandle.Push())
-                ImGui.TextDisabled("\uf015");
-            ImGui.SameLine(0, 4);
-            ImGui.TextDisabled(housingInfo);
-        }
-        if (!string.IsNullOrEmpty(s.Description))
-            ImGui.TextDisabled($"  {s.Description}");
-        if (s.TerritoryId.HasValue && s.MapId.HasValue && s.PosX.HasValue && s.PosZ.HasValue)
-        {
-            var btnWidth = UiSizes.SmallButton.X;
-            var rightX   = ImGui.GetWindowWidth() - btnWidth - ImGui.GetStyle().WindowPadding.X;
-            using (Plugin.PluginInterface.UiBuilder.IconFontHandle.Push())
-                ImGui.TextDisabled("\uf05b");
-            ImGui.SameLine(0, 4);
-            ImGui.TextDisabled($"{s.PosX.Value:F1}  {s.PosZ.Value:F1}");
-            ImGui.SameLine(rightX);
-            if (ImGui.Button($"{l.Map}##map_{s.Id}", UiSizes.SmallButton))
-                Plugin.Framework.RunOnFrameworkThread(() => OpenOnMap(s));
-        }
-        if (!Plugin.HasActiveSession && Plugin.MySessionIds.Contains(s.Id))
-        {
-            if (ImGui.Button($"{l.RpResume}##claim_{s.Id}", UiSizes.SmallButton))
-                Plugin.ClaimSession(s);
-        }
-        ImGui.Separator();
+            ImGui.TextColored(UiStyle.TextMuted, $"{s.Location}  •  {s.Server}");
+            if (s.TerritoryId.HasValue && s.MapId.HasValue && s.PosX.HasValue && s.PosZ.HasValue)
+            {
+                var btnX = ImGui.GetWindowWidth()
+                    - ImGui.GetStyle().WindowPadding.X
+                    - UiStyle.CardPadH
+                    - UiStyle.SmallButton.X;
+                ImGui.SameLine(btnX);
+                if (UiPrimitives.ColorButton($"{l.Map}##map_{s.Id}", UiStyle.SmallButton,
+                    UiStyle.SecondaryNormal, UiStyle.SecondaryHovered, UiStyle.SecondaryActive))
+                    Plugin.Framework.RunOnFrameworkThread(() => OpenOnMap(s));
+            }
+
+            // Personnage
+            if (!string.IsNullOrEmpty(s.CharacterName))
+            {
+                UiPrimitives.DrawIcon("");
+                ImGui.SameLine(0, 4);
+                ImGui.TextColored(UiStyle.TextMuted, s.CharacterName);
+            }
+
+            // Housing
+            if (s.Ward.HasValue)
+            {
+                var housingInfo = s.Room.HasValue
+                    ? string.Format(l.HousingWardRoom, s.Ward, s.Room)
+                    : s.Plot.HasValue
+                        ? string.Format(l.HousingWardPlot, s.Ward, s.Plot)
+                        : string.Format(l.HousingWard, s.Ward);
+                UiPrimitives.DrawIcon("");
+                ImGui.SameLine(0, 4);
+                ImGui.TextColored(UiStyle.TextMuted, housingInfo);
+            }
+
+            // Description
+            if (!string.IsNullOrEmpty(s.Description))
+            {
+                ImGui.PushTextWrapPos(0);
+                ImGui.TextColored(UiStyle.TextSubtle, s.Description);
+                ImGui.PopTextWrapPos();
+            }
+
+            // Bouton "Reprendre" si session orpheline
+            if (!Plugin.HasActiveSession && Plugin.MySessionIds.Contains(s.Id))
+            {
+                ImGui.Spacing();
+                if (UiPrimitives.ColorButton($"{l.RpResume}##claim_{s.Id}", UiStyle.PrimaryButton,
+                    UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive))
+                    Plugin.ClaimSession(s);
+            }
+        });
+
+        ImGui.Dummy(new Vector2(0, UiStyle.CardSpacing));
     }
 
     // ─── Tab: Événements ──────────────────────────────────────────────────────
@@ -394,24 +420,24 @@ public class MainWindow : Window
             FetchEvents();
 
         ImGui.Spacing();
-        if (ImGui.Button(l.Refresh + "##events", UiSizes.SmallButton))
+        if (ImGui.Button(l.Refresh + "##events", UiStyle.SmallButton))
             FetchEvents();
         ImGui.SameLine();
-        if (ImGui.Button(l.ViewOnline + "##events", UiSizes.WideButton))
+        if (ImGui.Button(l.ViewOnline + "##events", UiStyle.WideButton))
             OpenUrl(_config.BaseUrl + "/");
         ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
-        ImGui.TextDisabled(l.EventsHideHint);
+        ImGui.TextColored(UiStyle.TextSubtle, l.EventsHideHint);
         ImGui.Spacing();
 
-        if (_eventsLoading) { ImGui.TextDisabled(l.Loading); return; }
+        if (_eventsLoading) { ImGui.TextColored(UiStyle.TextSubtle, l.Loading); return; }
 
         var visibleEvents = GetVisibleEvents();
 
         if (visibleEvents.Count == 0)
         {
-            ImGui.TextDisabled(l.EventsNoEvents);
+            ImGui.TextColored(UiStyle.TextSubtle, l.EventsNoEvents);
             DrawHiddenItemsSummary();
             return;
         }
@@ -420,31 +446,34 @@ public class MainWindow : Window
         var ongoingCount = visibleEvents.Count(e => IsOngoing(e, nowCount));
         if (ongoingCount > 0)
         {
-            ImGui.TextColored(new Vector4(0.3f, 0.9f, 0.5f, 1), string.Format(l.EventsOngoing, ongoingCount));
+            ImGui.TextColored(UiStyle.StatusOpen, string.Format(l.EventsOngoing, ongoingCount));
             ImGui.SameLine(0, 8);
-            ImGui.TextDisabled(string.Format(l.EventsTotal, visibleEvents.Count));
+            ImGui.TextColored(UiStyle.TextSubtle, string.Format(l.EventsTotal, visibleEvents.Count));
         }
         else
-            ImGui.TextDisabled(string.Format(l.EventsCount, visibleEvents.Count));
+            ImGui.TextColored(UiStyle.TextSubtle, string.Format(l.EventsCount, visibleEvents.Count));
         ImGui.Spacing();
 
-        var now = DateTime.UtcNow;
-        var soonLimit = now.AddHours(24);
-        var ongoingEvents = visibleEvents.Where(e => IsOngoing(e, now)).OrderBy(e => e.StartDate).ToList();
+        var now        = DateTime.UtcNow;
+        var soonLimit  = now.AddHours(24);
+        var ongoingEvents  = visibleEvents.Where(e => IsOngoing(e, now)).OrderBy(e => e.StartDate).ToList();
         var upcomingEvents = visibleEvents
             .Where(e => !IsOngoing(e, now) && GetStartDate(e) is DateTime start && start <= soonLimit)
             .OrderBy(e => e.StartDate)
             .ToList();
         var laterEvents = visibleEvents.Except(ongoingEvents).Except(upcomingEvents).OrderBy(e => e.StartDate).ToList();
 
-        DrawEventGroup(l.Ongoing, ongoingEvents, new Vector4(0.3f, 0.9f, 0.5f, 1f));
-        DrawEventGroup("À venir", upcomingEvents, new Vector4(0.5f, 0.8f, 1f, 1f));
-        DrawEventGroup("Plus tard", laterEvents, new Vector4(0.9f, 0.7f, 0.3f, 1f));
+        if (!ImGui.BeginChild("##eventsscroll", new Vector2(-1, -1), false)) return;
+
+        DrawEventGroup(l.Ongoing,   ongoingEvents,  UiStyle.StatusOpen,  UiStyle.ChipBgOpen);
+        DrawEventGroup("À venir",   upcomingEvents, UiStyle.StatusSoon,  UiStyle.ChipBgSoon);
+        DrawEventGroup("Plus tard", laterEvents,    UiStyle.StatusLater, UiStyle.ChipBgLater);
 
         DrawHiddenItemsSummary();
+        ImGui.EndChild();
     }
 
-    private void DrawEventGroup(string title, List<EventDto> events, Vector4 color)
+    private void DrawEventGroup(string title, List<EventDto> events, Vector4 headerColor, Vector4 chipBg)
     {
         if (events.Count == 0)
             return;
@@ -452,16 +481,14 @@ public class MainWindow : Window
         ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
-        ImGui.TextColored(color, title);
+
+        ImGui.TextColored(headerColor, title.ToUpper());
         ImGui.SameLine(0, 8);
-        ImGui.TextDisabled($"({events.Count})");
+        UiPrimitives.DrawChip(events.Count.ToString(), chipBg);
         ImGui.Spacing();
 
         foreach (var ev in events)
-        {
-            DrawEventEntry(ev, color);
-            ImGui.Separator();
-        }
+            DrawEventEntry(ev, headerColor);
 
         ImGui.Spacing();
     }
@@ -470,67 +497,84 @@ public class MainWindow : Window
     {
         var l = Plugin.L;
 
-        if (ev.IsRecurring)
+        UiPrimitives.DrawCard(() =>
         {
-            using (Plugin.PluginInterface.UiBuilder.IconFontHandle.Push())
-                ImGui.TextColored(titleColor, "\uf073");
-            ImGui.SameLine(0, 4);
-        }
-        ImGui.TextColored(titleColor, ev.Title);
+            // Icône récurrence + titre coloré selon groupe
+            if (ev.IsRecurring)
+            {
+                UiPrimitives.DrawIcon("", titleColor);
+                ImGui.SameLine(0, 4);
+            }
+            // Date au-dessus du titre
+            if (DateTime.TryParse(ev.StartDate, null, System.Globalization.DateTimeStyles.RoundtripKind, out var start))
+            {
+                var localStart = start.ToLocalTime();
+                var dayStr     = localStart.ToString("ddd dd MMM").ToUpper();
+                string timeStr;
 
-        if (ev.Establishment != null)
-        {
-            ImGui.SameLine(0, 8);
-            ImGui.TextDisabled($"@ {ev.Establishment.Name}");
-            if (!string.IsNullOrEmpty(ev.Establishment.Slug))
-            {
-                ImGui.SameLine();
-                if (ImGui.Button($"{l.MoreInfo}##{ev.Id}", UiSizes.SmallButton))
-                    OpenUrl(_config.BaseUrl + "/etablissements/" + ev.Establishment.Slug);
-            }
-        }
+                if (!string.IsNullOrEmpty(ev.EndDate) && DateTime.TryParse(ev.EndDate, null, System.Globalization.DateTimeStyles.RoundtripKind, out var end))
+                {
+                    var endLocal = end.ToLocalTime();
+                    timeStr = endLocal.Date == localStart.Date
+                        ? localStart.ToString("HH:mm") + "  →  " + endLocal.ToString("HH:mm")
+                        : localStart.ToString("HH:mm") + "  →  " + endLocal.ToString("ddd dd MMM HH:mm").ToUpper();
+                }
+                else
+                {
+                    timeStr = localStart.ToString("HH:mm");
+                }
 
-        var line = new List<string>();
-        if (DateTime.TryParse(ev.StartDate, null, System.Globalization.DateTimeStyles.RoundtripKind, out var start))
-        {
-            var startStr = start.ToLocalTime().ToString("ddd dd MMM, HH:mm");
-            if (!string.IsNullOrEmpty(ev.EndDate) && DateTime.TryParse(ev.EndDate, null, System.Globalization.DateTimeStyles.RoundtripKind, out var end))
-            {
-                var endLocal = end.ToLocalTime();
-                startStr += endLocal.Date == start.ToLocalTime().Date
-                    ? " → " + endLocal.ToString("HH:mm")
-                    : " → " + endLocal.ToString("ddd dd MMM, HH:mm");
+                UiPrimitives.DrawChip($"{dayStr}  {timeStr}", UiStyle.ChipBgAccent);
+                if (ev.IsRecurring)
+                {
+                    ImGui.SameLine(0, UiStyle.InlineSpacing);
+                    UiPrimitives.DrawChip(l.Recurring, UiStyle.ChipBgOpen);
+                }
+                ImGui.Spacing();
             }
-            line.Add(startStr);
-        }
-        if (ev.IsRecurring) line.Add(l.Recurring);
-        if (line.Count > 0)
-            ImGui.TextDisabled("  " + string.Join("  -  ", line));
-        if (!string.IsNullOrEmpty(ev.Description))
-        {
-            ImGui.SetNextItemOpen(false, ImGuiCond.Once);
-            if (ImGui.TreeNode($"  {l.Description}##{ev.Id}"))
+            else if (ev.IsRecurring)
             {
-                var clean = StripMarkdown(ev.Description);
-                ImGui.PushTextWrapPos(0);
-                ImGui.TextDisabled(clean);
-                ImGui.PopTextWrapPos();
-                ImGui.TreePop();
+                UiPrimitives.DrawChip(l.Recurring, UiStyle.ChipBgOpen);
+                ImGui.Spacing();
             }
-        }
+
+            ImGui.TextColored(titleColor, ev.Title);
+
+            // Établissement + bouton "Plus d'info"
+            if (ev.Establishment != null)
+            {
+                ImGui.TextColored(UiStyle.TextMuted, $"@ {ev.Establishment.Name}");
+                var btnX = ImGui.GetContentRegionMax().X - UiStyle.CardPadH - UiStyle.SmallButton.X;
+                ImGui.SameLine(btnX);
+                if (UiPrimitives.ColorButton($"{l.MoreInfo}##{ev.Id}", UiStyle.SmallButton,
+                    UiStyle.SecondaryNormal, UiStyle.SecondaryHovered, UiStyle.SecondaryActive))
+                    Plugin.OpenEstabDetail(ev.Establishment);
+            }
+
+            // Description collapsible
+            if (!string.IsNullOrEmpty(ev.Description))
+            {
+                ImGui.SetNextItemOpen(false, ImGuiCond.Once);
+                if (ImGui.TreeNode($"  {l.Description}##{ev.Id}"))
+                {
+                    var clean = StripMarkdown(ev.Description);
+                    ImGui.PushTextWrapPos(0);
+                    ImGui.TextColored(UiStyle.TextSubtle, clean);
+                    ImGui.PopTextWrapPos();
+                    ImGui.TreePop();
+                }
+            }
+        });
+
+        ImGui.Dummy(new Vector2(0, UiStyle.CardSpacing));
     }
 
     private static string StripMarkdown(string text)
     {
-        // Supprimer les blocs ***texte***, **texte**, *texte*, ___texte___, __texte__, _texte_
         text = System.Text.RegularExpressions.Regex.Replace(text, @"\*{1,3}|_{1,3}", "");
-        // Supprimer les shortcodes emoji :nom:
         text = System.Text.RegularExpressions.Regex.Replace(text, @":[\w+\-]+:", "");
-        // Supprimer les liens [texte](url)
         text = System.Text.RegularExpressions.Regex.Replace(text, @"\[([^\]]+)\]\([^\)]+\)", "$1");
-        // Supprimer les titres # ## ###
         text = System.Text.RegularExpressions.Regex.Replace(text, @"^#{1,6}\s*", "", System.Text.RegularExpressions.RegexOptions.Multiline);
-        // Nettoyer les lignes vides multiples
         text = System.Text.RegularExpressions.Regex.Replace(text, @"\n{3,}", "\n\n");
         return text.Trim();
     }
@@ -578,58 +622,96 @@ public class MainWindow : Window
     private void DrawEstabTab()
     {
         var l = Plugin.L;
+
+        // Chargement initial silencieux à la première ouverture de l'onglet
+        if (!_estabInitialLoaded && !_estabLoading)
+        {
+            _estabInitialLoaded = true;
+            FetchEstablishments(string.Empty);
+        }
+
         ImGui.Spacing();
-        ImGui.SetNextItemWidth(-(UiSizes.SmallButton.X + UiSizes.WideButton.X + 12f));
+        ImGui.SetNextItemWidth(-(UiStyle.SmallButton.X + UiStyle.WideButton.X + 12f));
         var enterPressed = ImGui.InputText("##estabsearch", ref _estabSearchInput, 100, ImGuiInputTextFlags.EnterReturnsTrue);
         ImGui.SameLine();
-        if (ImGui.Button(l.Search, UiSizes.SmallButton) || enterPressed)
+        if (ImGui.Button(l.Search, UiStyle.SmallButton) || enterPressed)
             FetchEstablishments(_estabSearchInput.Trim());
         ImGui.SameLine();
-        if (ImGui.Button(l.ViewOnline + "##estab", UiSizes.WideButton))
+        if (ImGui.Button(l.ViewOnline + "##estab", UiStyle.WideButton))
             OpenUrl(_config.BaseUrl + "/etablissements");
         ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
 
-        if (_estabLoading) { ImGui.TextDisabled(l.Loading); return; }
+        if (_estabLoading) { ImGui.TextColored(UiStyle.TextSubtle, l.Loading); return; }
 
         var visibleEstabs = GetVisibleEstablishments();
 
         if (visibleEstabs.Count == 0)
         {
-            ImGui.TextDisabled(_config.HiddenEstablishmentIds.Count > 0 ? l.EstabNoResults : l.EstabSearchHint);
+            ImGui.TextColored(UiStyle.TextSubtle,
+                _config.HiddenEstablishmentIds.Count > 0 ? l.EstabNoResults : l.EstabSearchHint);
             DrawHiddenEstablishmentsSection();
             return;
         }
 
-        ImGui.TextDisabled(string.Format(l.EstabCount, visibleEstabs.Count));
+        ImGui.TextColored(UiStyle.TextSubtle, string.Format(l.EstabCount, visibleEstabs.Count));
         ImGui.Spacing();
 
         if (!ImGui.BeginChild("##estabscroll", new Vector2(-1, -1), false)) return;
+
+        string? toHide = null;
         foreach (var e in visibleEstabs)
         {
-            ImGui.TextColored(new Vector4(0.9f, 0.7f, 0.3f, 1), e.Name);
-            if (!string.IsNullOrEmpty(e.Slug))
+            bool hideThis = false;
+            UiPrimitives.DrawCardWithBanner(GetBannerWrap(e.Banner), () =>
             {
-                ImGui.SameLine();
-                if (ImGui.Button($"{l.Open}##{e.Id}", UiSizes.SmallButton))
-                    OpenUrl(_config.BaseUrl + "/etablissements/" + e.Slug);
-            }
-            ImGui.SameLine();
-            if (ImGui.Button($"{l.Hide}##hide_est_{e.Id}", UiSizes.SmallButton))
-            {
-                HideEstablishment(e.Id);
-                continue;
-            }
-            var info = new List<string>();
-            if (!string.IsNullOrEmpty(e.Server))   info.Add(e.Server);
-            if (!string.IsNullOrEmpty(e.District)) info.Add(DistrictLabel(e.District));
-            if (e.Ward.HasValue)                   info.Add(string.Format(l.HousingWard, e.Ward));
-            if (e.Plot.HasValue)                   info.Add(string.Format("{0} {1}", l.FieldPlot, e.Plot));
-            if (info.Count > 0)
-                ImGui.TextDisabled("  " + string.Join("  -  ", info));
-            ImGui.Separator();
+                // Nom
+                ImGui.TextColored(UiStyle.TextTitle, e.Name);
+
+                // Chips de localisation
+                var hasLocation = !string.IsNullOrEmpty(e.Server)
+                               || !string.IsNullOrEmpty(e.District)
+                               || e.Ward.HasValue
+                               || e.Plot.HasValue;
+                if (hasLocation)
+                {
+                    if (!string.IsNullOrEmpty(e.Server))
+                    {
+                        UiPrimitives.DrawChip(e.Server);
+                        ImGui.SameLine(0, 4);
+                    }
+                    if (!string.IsNullOrEmpty(e.District))
+                    {
+                        UiPrimitives.DrawChip(DistrictLabel(e.District));
+                        ImGui.SameLine(0, 4);
+                    }
+                    if (e.Ward.HasValue)
+                    {
+                        UiPrimitives.DrawChip(string.Format(l.HousingWard, e.Ward));
+                        ImGui.SameLine(0, 4);
+                    }
+                    if (e.Plot.HasValue)
+                        UiPrimitives.DrawChip(string.Format("{0} {1}", l.FieldPlot, e.Plot));
+                }
+
+                // Boutons d'action
+                ImGui.Spacing();
+                if (UiPrimitives.ColorButton($"{l.EstabDetail}##detail_{e.Id}", UiStyle.SmallButton,
+                    UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive))
+                    Plugin.OpenEstabDetail(e);
+                ImGui.SameLine(0, 4);
+                if (UiPrimitives.ColorButton($"{l.Hide}##hide_est_{e.Id}", UiStyle.SmallButton,
+                    UiStyle.SecondaryNormal, UiStyle.SecondaryHovered, UiStyle.SecondaryActive))
+                    hideThis = true;
+            });
+
+            ImGui.Dummy(new Vector2(0, UiStyle.CardSpacing));
+
+            if (hideThis) { toHide = e.Id; break; }
         }
+        if (toHide != null) HideEstablishment(toHide);
+
         DrawHiddenEstablishmentsSection();
         ImGui.EndChild();
     }
@@ -691,21 +773,21 @@ public class MainWindow : Window
         ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
-        ImGui.TextDisabled($"{Plugin.L.Hide}: {hiddenEvents.Count} events, {hiddenEstabs.Count} lieux");
+        ImGui.TextColored(UiStyle.TextSubtle, $"{Plugin.L.Hide}: {hiddenEvents.Count} events, {hiddenEstabs.Count} lieux");
 
         foreach (var ev in hiddenEvents)
         {
-            ImGui.TextDisabled($"  {ev.Title}");
+            ImGui.TextColored(UiStyle.TextSubtle, $"  {ev.Title}");
             ImGui.SameLine();
-            if (ImGui.Button($"{Plugin.L.Show}##show_event_{ev.Id}", UiSizes.SmallButton))
+            if (ImGui.Button($"{Plugin.L.Show}##show_event_{ev.Id}", UiStyle.SmallButton))
                 ShowEvent(ev.Id);
         }
 
         foreach (var est in hiddenEstabs)
         {
-            ImGui.TextDisabled($"  {est.Name}");
+            ImGui.TextColored(UiStyle.TextSubtle, $"  {est.Name}");
             ImGui.SameLine();
-            if (ImGui.Button($"{Plugin.L.Show}##show_est_from_events_{est.Id}", UiSizes.SmallButton))
+            if (ImGui.Button($"{Plugin.L.Show}##show_est_from_events_{est.Id}", UiStyle.SmallButton))
                 ShowEstablishment(est.Id);
         }
     }
@@ -719,12 +801,12 @@ public class MainWindow : Window
         ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
-        ImGui.TextDisabled($"{Plugin.L.Hide}: {hiddenEstabs.Count} lieu(x)");
+        ImGui.TextColored(UiStyle.TextSubtle, $"{Plugin.L.Hide}: {hiddenEstabs.Count} lieu(x)");
         foreach (var est in hiddenEstabs)
         {
-            ImGui.TextDisabled($"  {est.Name}");
+            ImGui.TextColored(UiStyle.TextSubtle, $"  {est.Name}");
             ImGui.SameLine();
-            if (ImGui.Button($"{Plugin.L.Show}##show_est_{est.Id}", UiSizes.SmallButton))
+            if (ImGui.Button($"{Plugin.L.Show}##show_est_{est.Id}", UiStyle.SmallButton))
                 ShowEstablishment(est.Id);
         }
     }
@@ -755,18 +837,57 @@ public class MainWindow : Window
             .ToList();
     }
 
+    private IDalamudTextureWrap? GetBannerWrap(string? bannerUrl)
+    {
+        if (string.IsNullOrEmpty(bannerUrl)) return null;
+        if (!_estabBannerTasks.TryGetValue(bannerUrl, out var task))
+        {
+            task = FetchBannerTextureAsync(bannerUrl);
+            _estabBannerTasks[bannerUrl] = task;
+        }
+        return task.IsCompletedSuccessfully ? task.Result : null;
+    }
+
+    private async Task<IDalamudTextureWrap?> FetchBannerTextureAsync(string url)
+    {
+        try
+        {
+            var bytes = await _bannerHttp.GetByteArrayAsync(url);
+            return await Plugin.TextureProvider.CreateFromImageAsync(
+                new ReadOnlyMemory<byte>(bytes), null, default);
+        }
+        catch { return null; }
+    }
+
+    private void DisposeBannerCache()
+    {
+        foreach (var (_, task) in _estabBannerTasks)
+            if (task.IsCompletedSuccessfully) task.Result?.Dispose();
+        _estabBannerTasks.Clear();
+    }
+
     private void FetchEstablishments(string search)
     {
         _estabLoading = true;
+        DisposeBannerCache();
         Task.Run(async () =>
         {
-            try   { _estabList = await Plugin.Api.GetEstablishmentsAsync(string.IsNullOrEmpty(search) ? null : search); }
+            try
+            {
+                var list = await Plugin.Api.GetEstablishmentsAsync(string.IsNullOrEmpty(search) ? null : search);
+                var rng  = new Random();
+                for (int i = list.Count - 1; i > 0; i--)
+                {
+                    int j = rng.Next(i + 1);
+                    (list[i], list[j]) = (list[j], list[i]);
+                }
+                _estabList = list;
+            }
             catch { _estabList = []; }
             finally { _estabLoading = false; }
         });
     }
 
-    /// <summary>Met à jour la liste depuis des données déjà chargées (ex: polling Plugin.cs).</summary>
     public void UpdateSessionsList(List<RpSessionDto> sessions)
     {
         _sessionsList      = sessions;
@@ -792,7 +913,7 @@ public class MainWindow : Window
         var snapshot = LocationDebugSnapshot.Collect();
 
         ImGui.Spacing();
-        if (ImGui.Button(l.DebugCopy, UiSizes.WideButton))
+        if (ImGui.Button(l.DebugCopy, UiStyle.WideButton))
         {
             ImGui.SetClipboardText(snapshot.ToDebugDump());
             _debugStatus = l.DebugCopied;
@@ -800,7 +921,7 @@ public class MainWindow : Window
         if (!string.IsNullOrEmpty(_debugStatus))
         {
             ImGui.SameLine();
-            ImGui.TextDisabled(_debugStatus);
+            ImGui.TextColored(UiStyle.TextSubtle, _debugStatus);
         }
 
         ImGui.Spacing();
@@ -871,7 +992,7 @@ public class MainWindow : Window
             return;
 
         foreach (var (key, value) in rows)
-            ImGui.TextDisabled($"{key}: {value}");
+            ImGui.TextColored(UiStyle.TextSubtle, $"{key}: {value}");
 
         ImGui.Spacing();
     }

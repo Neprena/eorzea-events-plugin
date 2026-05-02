@@ -139,7 +139,7 @@ public class EstabDetailWindow : Window, IDisposable
         {
             if (UiPrimitives.ColorButton(l.EstabDiscord + "##discord", UiStyle.MediumButton,
                 UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive))
-                OpenUrl(_estab.DiscordInvite!);
+                OpenUrl(NormalizeDiscordInvite(_estab.DiscordInvite!));
             ImGui.SameLine(0, 4);
         }
         if (!string.IsNullOrEmpty(_estab.Slug))
@@ -257,6 +257,11 @@ public class EstabDetailWindow : Window, IDisposable
 
     private static string DistrictLabel(string key) =>
         Plugin.L.DistrictLabels.TryGetValue(key.ToLowerInvariant(), out var v) ? v : key;
+
+    private static string NormalizeDiscordInvite(string invite) =>
+        invite.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+            ? invite
+            : "https://discord.gg/" + invite;
 
     private static void OpenUrl(string url) =>
         System.Diagnostics.Process.Start(

@@ -8,6 +8,7 @@ using Dalamud.Interface.Windowing;
 using Dalamud.Interface.ImGuiNotification;
 using EorzeaEventsPlugin.Api;
 using EorzeaEventsPlugin.Windows;
+using FFXIVClientStructs.FFXIV.Client.Game;
 using Lumina.Excel.Sheets;
 
 namespace EorzeaEventsPlugin;
@@ -350,7 +351,12 @@ public sealed class Plugin : IDalamudPlugin
             var territory = ClientState.TerritoryType;
             var world     = ObjectTable.LocalPlayer?.CurrentWorld.Value.Name.ToString();
             if (territory > 0 && !string.IsNullOrWhiteSpace(world))
-                Task.Run(async () => await Api.PresenceHeartbeatAsync(territory, world, Config.ClientId));
+            {
+                var housing = GetCurrentHousingForHeartbeat();
+                Task.Run(async () => await Api.PresenceHeartbeatAsync(
+                    territory, world, Config.ClientId,
+                    ward: housing?.Ward, plot: housing?.Plot, room: housing?.Room));
+            }
         }
 
         // Polling session active (fenêtre ouverte ou non)
@@ -762,5 +768,20 @@ public sealed class Plugin : IDalamudPlugin
         IsBlocked = false;
         BlockedMessage = string.Empty;
         BlockedUpdateUrl = string.Empty;
+    }
+
+    private static unsafe (int Ward, int? Plot, int? Room)? GetCurrentHousingForHeartbeat()
+    {
+        var hm = HousingManager.Instance();
+        if (hm == null) return null;
+        var rawWard = hm->GetCurrentWard();
+        if (rawWard < 0) return null;
+        var rawPlot = hm->GetCurrentPlot();
+        var rawRoom = hm->GetCurrentRoom();
+        return (
+            Ward: rawWard + 1,
+            Plot: rawPlot >= 0 ? rawPlot + 1 : null,
+            Room: rawRoom > 0 ? rawRoom : null
+        );
     }
 }

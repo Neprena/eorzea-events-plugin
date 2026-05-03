@@ -306,11 +306,14 @@ public class ApiClient : IDisposable
 
     // Signale la présence du joueur dans un quartier résidentiel (pour le badge "en ligne" sur le site)
     // Utilise le clientId anonyme — pas de token requis
-    public async Task PresenceHeartbeatAsync(uint territoryId, string worldName, string clientId, CancellationToken ct = default)
+    public async Task PresenceHeartbeatAsync(
+        uint territoryId, string worldName, string clientId,
+        int? ward = null, int? plot = null, int? room = null,
+        CancellationToken ct = default)
     {
         try
         {
-            var body = new { territoryId, worldName, clientId };
+            var body = new { territoryId, worldName, clientId, ward, plot, room };
             await _publicHttp.PostAsJsonAsync("api/presence/heartbeat", body, ct);
         }
         catch { /* silencieux */ }

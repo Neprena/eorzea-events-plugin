@@ -63,6 +63,9 @@ public class Configuration : IPluginConfiguration
     /// <summary>Afficher l'entrée "Events" dans la barre de statut du serveur.</summary>
     public bool ShowDtrEvents { get; set; } = true;
 
+    /// <summary>Afficher l'entrée de disponibilité RP (♦) dans la barre de statut du serveur.</summary>
+    public bool ShowDtrRpAvail { get; set; } = true;
+
     /// <summary>Langue de l'interface du plugin (Auto = détection depuis le client FFXIV).</summary>
     public PluginLanguage Language { get; set; } = PluginLanguage.Auto;
 
@@ -93,6 +96,9 @@ public class Configuration : IPluginConfiguration
 
     // État de la disponibilité locale (permanent, sans expiration)
     public bool RpAvailabilityActive { get; set; } = false;
+
+    /// <summary>Proposer de se mettre indisponible à chaque reconnexion si disponible.</summary>
+    public bool RpAskOnLogin { get; set; } = false;
 
     public void Save() => Plugin.PluginInterface.SavePluginConfig(this);
 }

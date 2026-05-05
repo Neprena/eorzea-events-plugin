@@ -68,8 +68,11 @@ public sealed class Plugin : IDalamudPlugin
     private static   RpProfileWindow?      _rpProfileWindow;
     private static   RpAnnouncementWindow? _announcementWindow;
 
-    // RP Availability — nameplate indicators (name+world → rpLevel ou null)
-    private static Dictionary<(string Name, string World), string?> _availablePlayers = [];
+    // RP Availability — nameplate indicators (name+world → (level, approachMode))
+    private static Dictionary<(string Name, string World), (string? Level, string? ApproachMode)> _availablePlayers = [];
+
+    // Prompt "rester disponible ?" affiché au prochain rendu de l'onglet RP
+    internal static bool LoginPromptPending { get; private set; } = false;
 
     internal static bool IsLocalPlayerAvailable()
     {
@@ -80,11 +83,12 @@ public sealed class Plugin : IDalamudPlugin
         return _availablePlayers.ContainsKey((name, world));
     }
     private DateTime _lastAvailabilityCheck = DateTime.MinValue;
-    private const int AvailabilityPollIntervalSeconds = 60;
+    private const int AvailabilityPollIntervalSeconds = 5;
 
     // DTR bar
     private static IDtrBarEntry? _dtrRp;
     private static IDtrBarEntry? _dtrEvents;
+    private static IDtrBarEntry? _dtrRpAvail;
 
     // Notification + DTR polling
     private HashSet<string> _knownSessionIds  = [];
@@ -165,6 +169,7 @@ public sealed class Plugin : IDalamudPlugin
         Framework.Update                        += OnFrameworkUpdate;
         ClientState.TerritoryChanged            += OnTerritoryChanged;
         NamePlateGui.OnNamePlateUpdate          += OnNamePlateUpdate;
+        ClientState.Login                       += OnLogin;
 
         // DTR bar entries
         _dtrRp = DtrBar.Get("EorzeaEvents_RP");
@@ -178,6 +183,40 @@ public sealed class Plugin : IDalamudPlugin
         _dtrEvents.OnClick = _ => OpenMain();
         _dtrEvents.Shown   = Config.ShowDtrEvents;
         SetDtrEvents(0);
+
+        _dtrRpAvail = DtrBar.Get("EorzeaEvents_RpAvail");
+        _dtrRpAvail.Tooltip = new SeStringBuilder().AddText(L.DtrRpAvailTooltip).Build();
+        _dtrRpAvail.OnClick = e =>
+        {
+            if (Config.RpAvailabilityActive)
+            {
+                Task.Run(ClearRpAvailabilityAsync);
+                return;
+            }
+
+            // Capturer les données du joueur sur le framework thread avant Task.Run
+            var player = ObjectTable.LocalPlayer;
+            if (player == null) return;
+            var req = new Api.SetRpAvailableRequest
+            {
+                CharacterName = player.Name.TextValue,
+                Server        = player.HomeWorld.Value.Name.ToString(),
+                Zone          = CurrentZone,
+                TerritoryId   = (int)ClientState.TerritoryType > 0 ? (int?)ClientState.TerritoryType : null,
+            };
+            Task.Run(async () =>
+            {
+                var ok = await Api.SetRpAvailableAsync(req);
+                if (ok)
+                {
+                    Config.RpAvailabilityActive = true;
+                    Config.Save();
+                    _ = Framework.RunOnFrameworkThread(UpdateDtrRpAvail);
+                }
+            });
+        };
+        _dtrRpAvail.Shown = Config.ShowDtrRpAvail;
+        UpdateDtrRpAvail();
 
 #if DEBUG
         if (string.IsNullOrWhiteSpace(Config.ApiToken))
@@ -285,8 +324,28 @@ public sealed class Plugin : IDalamudPlugin
 
     internal static void ApplyDtrVisibility()
     {
-        if (_dtrRp     != null) _dtrRp.Shown     = Config.ShowDtrRp;
-        if (_dtrEvents != null) _dtrEvents.Shown = Config.ShowDtrEvents;
+        if (_dtrRp      != null) _dtrRp.Shown      = Config.ShowDtrRp;
+        if (_dtrEvents  != null) _dtrEvents.Shown  = Config.ShowDtrEvents;
+        if (_dtrRpAvail != null) _dtrRpAvail.Shown = Config.ShowDtrRpAvail;
+    }
+
+    internal static void UpdateDtrRpAvail()
+    {
+        if (_dtrRpAvail == null) return;
+        var sb = new SeStringBuilder();
+        if (Config.RpAvailabilityActive)
+        {
+            sb.AddUiGlow(52);
+            sb.AddText("♦");
+            sb.AddUiGlowOff();
+        }
+        else
+        {
+            sb.AddUiGlow(GlowIdle);
+            sb.AddText("◇");
+            sb.AddUiGlowOff();
+        }
+        _dtrRpAvail.Text = sb.Build();
     }
 
     internal static void RebuildApiClient()
@@ -668,7 +727,7 @@ public sealed class Plugin : IDalamudPlugin
             var entries = await Api.GetRpAvailabilitiesAsync();
             _availablePlayers = entries.ToDictionary(
                 e => (e.CharacterName, e.Server.ToLowerInvariant()),
-                e => e.Profile?.RpLevel);
+                e => (e.Profile?.RpLevel, e.Profile?.ApproachMode));
         }
         catch { /* silencieux */ }
     }
@@ -688,26 +747,102 @@ public sealed class Plugin : IDalamudPlugin
 
             var name  = character.Name.TextValue;
             var world = character.HomeWorld.Value.Name.ToString().ToLowerInvariant();
-            if (!_availablePlayers.TryGetValue((name, world), out var level)) continue;
+            if (!_availablePlayers.TryGetValue((name, world), out var data)) continue;
 
             var l = Plugin.L;
-            var titleText = level switch
+
+            // Genre : Customize[1] → 0 = masculin, 1 = féminin
+            var isFemale = character.Customize[1] != 0;
+
+            var qualifier = data.ApproachMode switch
             {
-                "beginner"  => l.RpProfileLevelBeginner.Split('—')[0].Trim(),
-                "casual"    => "Casual",
-                "confirmed" => l.RpProfileLevelConfirmed.Split('—')[0].Trim(),
-                _           => "RP",
+                "come_to_me" => " - " + l.RpNameplateTimide,
+                "i_approach" => " - " + (isFemale ? l.RpNameplateExtravertie : l.RpNameplateExtraverti),
+                _            => string.Empty,
             };
 
-            handler.TitleParts.Text = new SeStringBuilder().AddText(titleText).Build();
+            handler.TitleParts.Text = new SeStringBuilder()
+                .AddText(l.RpNameplateBase + qualifier)
+                .Build();
             handler.TitleParts.TextWrap = (
                 new SeStringBuilder().AddUiForeground(52).Build(),
                 new SeStringBuilder().AddUiForegroundOff().Build());
-            handler.TitleParts.LeftQuote  = SeString.Empty;
-            handler.TitleParts.RightQuote = SeString.Empty;
             handler.DisplayTitle  = true;
             handler.IsPrefixTitle = false;
         }
+    }
+
+    // ── RP Availability helpers ───────────────────────────────────────────────
+
+    /// <summary>
+    /// Doit être appelé sur le framework thread — lit LocalPlayer puis lance la tâche.
+    /// </summary>
+    internal static void ActivateRpAvailability()
+    {
+        var player = ObjectTable.LocalPlayer;
+        if (player == null) return;
+        var req = new Api.SetRpAvailableRequest
+        {
+            CharacterName = player.Name.TextValue,
+            Server        = player.HomeWorld.Value.Name.ToString(),
+            Zone          = CurrentZone,
+            TerritoryId   = (int)ClientState.TerritoryType > 0 ? (int?)ClientState.TerritoryType : null,
+        };
+        // Capturer le profil local pour le synchro simultanément
+        Api.SaveRpProfileRequest? profileReq = null;
+        if (!string.IsNullOrEmpty(Config.RpProfileLevel) && !string.IsNullOrEmpty(Config.RpProfileApproachMode))
+        {
+            var langs = new List<string>();
+            if (Config.RpProfileLanguages?.Contains("\"fr\"") == true) langs.Add("fr");
+            if (Config.RpProfileLanguages?.Contains("\"en\"") == true) langs.Add("en");
+            if (langs.Count == 0) langs.Add("fr");
+
+            profileReq = new Api.SaveRpProfileRequest
+            {
+                RpLevel       = Config.RpProfileLevel,
+                ApproachMode  = Config.RpProfileApproachMode,
+                Languages     = [.. langs],
+                ContactMode   = Config.RpProfileContactMode,
+                SessionLength = Config.RpProfileSessionLength,
+            };
+        }
+
+        Task.Run(async () =>
+        {
+            // Synchro profil avant activation pour que le GET retourne les données complètes
+            if (profileReq != null)
+                await Api.SaveRpProfileAsync(profileReq);
+
+            var ok = await Api.SetRpAvailableAsync(req);
+            if (ok)
+            {
+                Config.RpAvailabilityActive = true;
+                Config.Save();
+                _ = Framework.RunOnFrameworkThread(UpdateDtrRpAvail);
+            }
+        });
+    }
+
+    // Gardé pour compat avec les appels Task.Run existants dans ConfigWindow
+    internal static async Task SetRpAvailableFromLocalPlayerAsync()
+    {
+        await Framework.RunOnFrameworkThread(ActivateRpAvailability);
+    }
+
+    internal static async Task ClearRpAvailabilityAsync()
+    {
+        await Api.ClearRpAvailabilityAsync();
+        Config.RpAvailabilityActive = false;
+        Config.Save();
+        _ = Framework.RunOnFrameworkThread(UpdateDtrRpAvail);
+    }
+
+    internal static void DismissLoginPrompt() => LoginPromptPending = false;
+
+    private void OnLogin()
+    {
+        if (Config.RpAskOnLogin && Config.RpAvailabilityActive)
+            LoginPromptPending = true;
     }
 
     private void CheckTokenValidity()
@@ -834,12 +969,14 @@ public sealed class Plugin : IDalamudPlugin
         ClientState.TerritoryChanged            -= OnTerritoryChanged;
         Framework.Update                        -= OnFrameworkUpdate;
         NamePlateGui.OnNamePlateUpdate          -= OnNamePlateUpdate;
+        ClientState.Login                       -= OnLogin;
         PluginInterface.UiBuilder.Draw         -= _windowSystem.Draw;
         PluginInterface.UiBuilder.OpenConfigUi -= OpenConfig;
         PluginInterface.UiBuilder.OpenMainUi   -= OpenMain;
         CommandManager.RemoveHandler(CommandMain);
         _dtrRp?.Remove();
         _dtrEvents?.Remove();
+        _dtrRpAvail?.Remove();
         Api.Dispose();
     }
 

@@ -201,11 +201,14 @@ internal sealed class Loc
     public required string NotifEventStartChat  { get; init; }   // {0}=details
     public required string DtrRpTooltip         { get; init; }
     public required string DtrEventsTooltip     { get; init; }
+    public required string DtrRpAvailTooltip    { get; init; }
+    public required string CfgDtrRpAvail        { get; init; }
     public required string PlayersOnline        { get; init; }   // {0} = count
     public required string MoreInfo             { get; init; }
     public required string EventsHideHint       { get; init; }
 
     // ── RP Availability & Profile ─────────────────────────────────────────────
+    public required string RpAvailableDesc         { get; init; }
     public required string RpAvailableTitle        { get; init; }
     public required string RpAvailableEmpty        { get; init; }
     public required string RpAvailableInZone       { get; init; }   // {0} = count
@@ -236,6 +239,18 @@ internal sealed class Loc
     public required string RpProfileViewTitle      { get; init; }
     public required string CfgRpProfileHeader      { get; init; }
     public required string CfgRpIndicator          { get; init; }
+
+    // ── Titre nameplate disponibilité ─────────────────────────────────────────
+    public required string RpLoginPrompt            { get; init; }
+    public required string RpLoginStay             { get; init; }
+    public required string RpLoginDisable          { get; init; }
+    public required string CfgRpAskOnLogin         { get; init; }
+
+    // ── Titre nameplate disponibilité ─────────────────────────────────────────
+    public required string RpNameplateBase          { get; init; }  // "Dispo RP"
+    public required string RpNameplateTimide        { get; init; }  // "Timide"
+    public required string RpNameplateExtraverti    { get; init; }  // masculin
+    public required string RpNameplateExtravertie   { get; init; }  // féminin
 
     // ── Annonce one-shot ──────────────────────────────────────────────────────
     public required string AnnouncementTitle       { get; init; }
@@ -444,8 +459,11 @@ internal sealed class Loc
         NotifEventStartChat  = "Événement en cours : {0}",
         DtrRpTooltip      = "Sessions RP ouvertes en cours\nCliquez pour ouvrir",
         DtrEventsTooltip  = "Événements en cours\nCliquez pour ouvrir",
+        DtrRpAvailTooltip = "Disponibilité RP sauvage\nCliquez pour activer / désactiver",
+        CfgDtrRpAvail     = "Afficher le statut de disponibilité RP (♦)",
         PlayersOnline     = "🟢 {0} joueur(s) en ligne",
 
+        RpAvailableDesc         = "Signale aux autres rôlistes que tu es disponible pour du RP improvisé. Un titre coloré apparaît sous ton nom sur les nameplates des joueurs avec le plugin : « Dispo RP - Timide » si tu préfères qu'on vienne vers toi, « Dispo RP - Avenant·e » si tu peux faire le premier pas.",
         RpAvailableTitle        = "Disponibles pour du RP sauvage",
         RpAvailableEmpty        = "Personne de disponible dans cette zone",
         RpAvailableInZone       = "{0} disponible(s) pour du RP dans votre zone",
@@ -476,6 +494,16 @@ internal sealed class Loc
         RpProfileViewTitle      = "Profil RP",
         CfgRpProfileHeader      = "Profil RP & Disponibilité",
         CfgRpIndicator          = "Afficher ♦ sur les nameplates des joueurs disponibles",
+
+        RpLoginPrompt           = "Tu étais disponible pour du RP lors de ta dernière session.",
+        RpLoginStay             = "Rester disponible",
+        RpLoginDisable          = "Me mettre indisponible",
+        CfgRpAskOnLogin         = "Me demander à la reconnexion si je suis disponible",
+
+        RpNameplateBase         = "Dispo RP",
+        RpNameplateTimide       = "Timide",
+        RpNameplateExtraverti   = "Avenant",
+        RpNameplateExtravertie  = "Avenante",
 
         AnnouncementTitle       = "Nouveau — Profil RP & Disponibilité",
         AnnouncementBadge       = "✦  Mise à jour",
@@ -682,8 +710,11 @@ internal sealed class Loc
         NotifEventStartChat  = "Event is live: {0}",
         DtrRpTooltip      = "Active open RP sessions\nClick to open",
         DtrEventsTooltip  = "Ongoing events\nClick to open",
+        DtrRpAvailTooltip = "Spontaneous RP availability\nClick to toggle",
+        CfgDtrRpAvail     = "Show RP availability status (♦)",
         PlayersOnline     = "🟢 {0} player(s) online",
 
+        RpAvailableDesc         = "Signal to other roleplayers that you're available for spontaneous RP. A colored title appears below your name on nameplates for players with the plugin: \"RP Avail - Shy\" if you'd rather others come to you, \"RP Avail - Friendly\" if you can make the first move.",
         RpAvailableTitle        = "Available for Spontaneous RP",
         RpAvailableEmpty        = "No one available in this zone",
         RpAvailableInZone       = "{0} available for RP in your zone",
@@ -714,6 +745,16 @@ internal sealed class Loc
         RpProfileViewTitle      = "RP Profile",
         CfgRpProfileHeader      = "RP Profile & Availability",
         CfgRpIndicator          = "Show ♦ on nameplates of available players",
+
+        RpLoginPrompt           = "You were available for RP in your last session.",
+        RpLoginStay             = "Stay available",
+        RpLoginDisable          = "Set myself unavailable",
+        CfgRpAskOnLogin         = "Ask me on login if I'm available for RP",
+
+        RpNameplateBase         = "RP Avail",
+        RpNameplateTimide       = "Shy",
+        RpNameplateExtraverti   = "Friendly",
+        RpNameplateExtravertie  = "Friendly",
 
         AnnouncementTitle       = "New — RP Profile & Availability",
         AnnouncementBadge       = "✦  Update",

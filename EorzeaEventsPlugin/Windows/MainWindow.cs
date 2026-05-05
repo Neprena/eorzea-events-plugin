@@ -268,20 +268,14 @@ public class MainWindow : Window
         if (ImGui.Button(l.ViewOnline + "##sessions", UiStyle.SmallButton))
             OpenUrl(_config.BaseUrl + "/rp-live");
 
-        ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
-
         if (!_sessionsLoading)
         {
             var activeSessions = _sessionsList.Where(s => s.EndedAt == null).ToList();
-            if (activeSessions.Count == 0)
+            if (activeSessions.Count > 0)
             {
-                ImGui.TextColored(UiStyle.TextSubtle, l.RpNoSession);
-                ImGui.TextColored(UiStyle.TextSubtle, l.RpBeFirst);
-            }
-            else
-            {
+                ImGui.Spacing();
+                ImGui.Separator();
+                ImGui.Spacing();
                 var currentWorld = Plugin.ObjectTable.LocalPlayer?.CurrentWorld.Value.Name.ToString();
                 var currentZone  = GetCurrentZoneName();
 
@@ -327,7 +321,8 @@ public class MainWindow : Window
         ImGui.Separator();
         ImGui.Spacing();
 
-        DrawAvailabilitySection(l);
+        var noSessions = !_sessionsLoading && _sessionsList.All(s => s.EndedAt != null);
+        DrawAvailabilitySection(l, noSessions);
 
         ImGui.Separator();
         ImGui.Spacing();
@@ -348,16 +343,65 @@ public class MainWindow : Window
         }
     }
 
-    private void DrawAvailabilitySection(Loc l)
+    private void DrawAvailabilitySection(Loc l, bool noSessions = false)
     {
-        if (Plugin.IsLocalPlayerAvailable())
+        // Bannière de prompt post-connexion
+        if (Plugin.LoginPromptPending)
         {
-            ImGui.TextColored(UiStyle.StatusOpen, l.RpAvailableActiveStatus);
-            ImGui.Spacing();
+            UiPrimitives.DrawAlert(UiStyle.StatusOpen, l.RpAvailableActiveStatus, l.RpLoginPrompt, () =>
+            {
+                if (UiPrimitives.ColorButton(l.RpLoginStay + "##stay", Vector2.Zero,
+                    UiStyle.SuccessNormal, UiStyle.SuccessHovered, UiStyle.SuccessActive))
+                {
+                    Plugin.DismissLoginPrompt();
+                    Plugin.ActivateRpAvailability();
+                }
+                ImGui.SameLine(0, 6);
+                if (ImGui.Button(l.RpLoginDisable + "##disable", Vector2.Zero))
+                {
+                    Plugin.DismissLoginPrompt();
+                    _ = Task.Run(Plugin.ClearRpAvailabilityAsync);
+                }
+            });
         }
+
+        // Explication de la fonctionnalité
+        ImGui.PushTextWrapPos(0);
+        ImGui.TextColored(UiStyle.TextSubtle, l.RpAvailableDesc);
+        ImGui.PopTextWrapPos();
+        ImGui.Spacing();
+
+        // Toggle disponibilité
+        var available = Plugin.Config.RpAvailabilityActive;
+        if (ImGui.Checkbox(l.RpAvailableEnable + "##rpavailabletoggle", ref available))
+        {
+            // On est sur le framework thread ici (draw ImGui)
+            if (available) Plugin.ActivateRpAvailability();
+            else           _ = Task.Run(Plugin.ClearRpAvailabilityAsync);
+        }
+
+        ImGui.Spacing();
+
+        // Option "demander à la reconnexion"
+        var askOnLogin = Plugin.Config.RpAskOnLogin;
+        if (ImGui.Checkbox(l.CfgRpAskOnLogin + "##askonlogin", ref askOnLogin))
+        {
+            Plugin.Config.RpAskOnLogin = askOnLogin;
+            Plugin.Config.Save();
+        }
+
+        ImGui.Spacing();
 
         if (ImGui.Button(l.RpProfileSetup + "##openwizard", Vector2.Zero))
             Plugin.OpenRpProfileWizard();
+
+        if (noSessions)
+        {
+            ImGui.Spacing();
+            ImGui.TextColored(UiStyle.TextSubtle, l.RpNoSession);
+            ImGui.TextColored(UiStyle.TextSubtle, l.RpBeFirst);
+        }
+
         ImGui.Spacing();
     }
 
@@ -941,6 +985,10 @@ public class MainWindow : Window
             ImGui.SameLine();
             ImGui.TextColored(UiStyle.TextSubtle, _debugStatus);
         }
+
+        ImGui.SameLine(0, 8);
+        if (ImGui.Button("Preview wizard profil RP", UiStyle.WideButton))
+            Plugin.OpenRpProfileWizard();
 
         ImGui.Spacing();
         ImGui.Separator();

@@ -1,6 +1,7 @@
 using Dalamud.Interface.Windowing;
 using Dalamud.Bindings.ImGui;
 using System.Numerics;
+using System.Threading.Tasks;
 
 namespace EorzeaEventsPlugin.Windows;
 
@@ -27,8 +28,10 @@ public class ConfigWindow : Window
     private bool _suggestSessionOnRpTag;
     private bool _showDtrRp;
     private bool _showDtrEvents;
+    private bool _showDtrRpAvail;
     private int  _languageIndex;
     private bool _showRpAvailableIndicator;
+    private bool _rpAvailable;
 #if DEBUG
     private string _baseUrl = string.Empty;
 #endif
@@ -60,8 +63,10 @@ public class ConfigWindow : Window
         _suggestSessionOnRpTag  = _config.SuggestSessionOnRpTag;
         _showDtrRp                  = _config.ShowDtrRp;
         _showDtrEvents              = _config.ShowDtrEvents;
+        _showDtrRpAvail             = _config.ShowDtrRpAvail;
         _languageIndex              = (int)_config.Language;
         _showRpAvailableIndicator   = _config.ShowRpAvailableIndicator;
+        _rpAvailable                = _config.RpAvailabilityActive;
 #if DEBUG
         _baseUrl                = _config.BaseUrl;
 #endif
@@ -114,8 +119,34 @@ public class ConfigWindow : Window
             _config.AlertOnSessionExpiring  = _alertOnSessionExpiring;
             _config.ShowDtrRp                   = _showDtrRp;
             _config.ShowDtrEvents               = _showDtrEvents;
+            _config.ShowDtrRpAvail              = _showDtrRpAvail;
             _config.Language                    = (PluginLanguage)_languageIndex;
             _config.ShowRpAvailableIndicator    = _showRpAvailableIndicator;
+
+            if (_rpAvailable != _config.RpAvailabilityActive)
+            {
+                _config.RpAvailabilityActive = _rpAvailable;
+                if (_rpAvailable)
+                {
+                    var player = Plugin.ObjectTable.LocalPlayer;
+                    if (player != null)
+                    {
+                        var req = new Api.SetRpAvailableRequest
+                        {
+                            CharacterName = player.Name.TextValue,
+                            Server        = player.HomeWorld.Value.Name.ToString(),
+                            Zone          = Plugin.CurrentZone,
+                            TerritoryId   = (int)Plugin.ClientState.TerritoryType > 0
+                                            ? (int?)Plugin.ClientState.TerritoryType : null,
+                        };
+                        _ = Task.Run(async () => await Plugin.Api.SetRpAvailableAsync(req));
+                    }
+                }
+                else
+                {
+                    _ = Task.Run(async () => await Plugin.Api.ClearRpAvailabilityAsync());
+                }
+            }
 #if DEBUG
             _config.BaseUrl                 = _baseUrl.TrimEnd('/');
 #endif
@@ -254,6 +285,9 @@ public class ConfigWindow : Window
         if (!ImGui.CollapsingHeader(l.CfgRpProfileHeader + "##rpprofile")) return;
         ImGui.Indent();
 
+        ImGui.Checkbox(l.RpAvailableEnable + "##rpavailable", ref _rpAvailable);
+        ImGui.Spacing();
+
         ImGui.Checkbox(l.CfgRpIndicator + "##rpindicator", ref _showRpAvailableIndicator);
         ImGui.Spacing();
 
@@ -268,8 +302,9 @@ public class ConfigWindow : Window
     {
         if (!ImGui.CollapsingHeader(l.CfgDtrHeader + "##dtr")) return;
         ImGui.Indent();
-        ImGui.Checkbox(l.CfgDtrRp + "##dtrRp",        ref _showDtrRp);
-        ImGui.Checkbox(l.CfgDtrEvents + "##dtrEvents", ref _showDtrEvents);
+        ImGui.Checkbox(l.CfgDtrRp + "##dtrRp",             ref _showDtrRp);
+        ImGui.Checkbox(l.CfgDtrEvents + "##dtrEvents",      ref _showDtrEvents);
+        ImGui.Checkbox(l.CfgDtrRpAvail + "##dtrRpAvail",    ref _showDtrRpAvail);
         ImGui.Unindent();
         ImGui.Spacing();
     }

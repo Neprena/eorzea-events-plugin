@@ -74,6 +74,9 @@ public class Configuration : IPluginConfiguration
 
     // ─── Profil RP ───────────────────────────────────────────────────────────
 
+    /// <summary>L'annonce de la fonctionnalité "Profil RP & Disponibilité" a été vue.</summary>
+    public bool RpAnnouncementSeen { get; set; } = false;
+
     /// <summary>Le wizard de profil RP a été complété au moins une fois.</summary>
     public bool RpProfileSetupDone { get; set; } = false;
 
@@ -88,9 +91,8 @@ public class Configuration : IPluginConfiguration
     public string? RpProfileSessionLength { get; set; }
     public string? RpProfileThemes        { get; set; }
 
-    // État de la disponibilité locale
-    public bool      RpAvailabilityActive    { get; set; } = false;
-    public DateTime? RpAvailabilityExpiresAt { get; set; }
+    // État de la disponibilité locale (permanent, sans expiration)
+    public bool RpAvailabilityActive { get; set; } = false;
 
     public void Save() => Plugin.PluginInterface.SavePluginConfig(this);
 }

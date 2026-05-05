@@ -120,7 +120,6 @@ public class RpAvailabilityEntryDto
     [JsonPropertyName("server")]        public string       Server        { get; set; } = string.Empty;
     [JsonPropertyName("zone")]          public string?      Zone          { get; set; }
     [JsonPropertyName("territoryId")]   public int?         TerritoryId   { get; set; }
-    [JsonPropertyName("expiresAt")]     public string       ExpiresAt     { get; set; } = string.Empty;
     [JsonPropertyName("createdAt")]     public string       CreatedAt     { get; set; } = string.Empty;
     [JsonPropertyName("profile")]       public RpProfileDto? Profile      { get; set; }
 }
@@ -131,7 +130,6 @@ public class SetRpAvailableRequest
     [JsonPropertyName("server")]        public string  Server        { get; set; } = string.Empty;
     [JsonPropertyName("zone")]          public string? Zone          { get; set; }
     [JsonPropertyName("territoryId")]   public int?    TerritoryId   { get; set; }
-    [JsonPropertyName("duration")]      public int     Duration      { get; set; } = 60; // minutes
 }
 
 public class SaveRpProfileRequest

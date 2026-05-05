@@ -65,10 +65,20 @@ public sealed class Plugin : IDalamudPlugin
     private static   ConfigWindow?      _configWindow;
     private static   SetupWindow?       _setupWindow;
     private static   EstabDetailWindow? _estabDetailWindow;
-    private static   RpProfileWindow?   _rpProfileWindow;
+    private static   RpProfileWindow?      _rpProfileWindow;
+    private static   RpAnnouncementWindow? _announcementWindow;
 
-    // RP Availability — nameplate indicators
-    private static HashSet<(string Name, string World)> _availablePlayers = [];
+    // RP Availability — nameplate indicators (name+world → rpLevel ou null)
+    private static Dictionary<(string Name, string World), string?> _availablePlayers = [];
+
+    internal static bool IsLocalPlayerAvailable()
+    {
+        var player = ObjectTable.LocalPlayer;
+        if (player == null) return false;
+        var name  = player.Name.TextValue;
+        var world = player.HomeWorld.Value.Name.ToString().ToLowerInvariant();
+        return _availablePlayers.ContainsKey((name, world));
+    }
     private DateTime _lastAvailabilityCheck = DateTime.MinValue;
     private const int AvailabilityPollIntervalSeconds = 60;
 
@@ -134,13 +144,15 @@ public sealed class Plugin : IDalamudPlugin
         _configWindow      = new ConfigWindow(Config);
         _setupWindow       = new SetupWindow(Config);
         _estabDetailWindow = new EstabDetailWindow(Config);
-        _rpProfileWindow   = new RpProfileWindow(Config);
+        _rpProfileWindow    = new RpProfileWindow(Config);
+        _announcementWindow = new RpAnnouncementWindow(Config);
         _windowSystem.AddWindow(_mainWindow);
         _windowSystem.AddWindow(_sessionWindow);
         _windowSystem.AddWindow(_configWindow);
         _windowSystem.AddWindow(_setupWindow);
         _windowSystem.AddWindow(_estabDetailWindow);
         _windowSystem.AddWindow(_rpProfileWindow);
+        _windowSystem.AddWindow(_announcementWindow);
 
         CommandManager.AddHandler(CommandMain, new CommandInfo(OnCommand)
         {
@@ -193,6 +205,10 @@ public sealed class Plugin : IDalamudPlugin
                 MySessionIds = await Api.GetMySessionIdsAsync();
                 CheckTokenValidity();
             });
+
+        // Annonce one-shot : profil RP & disponibilité (utilisateurs existants uniquement)
+        if (!Config.RpAnnouncementSeen && !string.IsNullOrWhiteSpace(Config.ApiToken))
+            if (_announcementWindow != null) _announcementWindow.IsOpen = true;
 
         // Vérifier la version minimale requise
         Task.Run(async () => await CheckMinimumVersionAsync());
@@ -650,9 +666,9 @@ public sealed class Plugin : IDalamudPlugin
         try
         {
             var entries = await Api.GetRpAvailabilitiesAsync();
-            var set = new HashSet<(string, string)>(
-                entries.Select(e => (e.CharacterName, e.Server)));
-            _availablePlayers = set;
+            _availablePlayers = entries.ToDictionary(
+                e => (e.CharacterName, e.Server.ToLowerInvariant()),
+                e => e.Profile?.RpLevel);
         }
         catch { /* silencieux */ }
     }
@@ -671,18 +687,26 @@ public sealed class Plugin : IDalamudPlugin
             if (character == null) continue;
 
             var name  = character.Name.TextValue;
-            var world = character.HomeWorld.Value.Name.ToString();
-            if (!_availablePlayers.Contains((name, world))) continue;
+            var world = character.HomeWorld.Value.Name.ToString().ToLowerInvariant();
+            if (!_availablePlayers.TryGetValue((name, world), out var level)) continue;
 
-            // Ajouter ♦ coloré à droite du nom (TextWrap.End = suffixe)
-            var suffix = new SeStringBuilder()
-                .AddUiForeground(52)  // teal — distinct du tag RP natif (blanc/violet)
-                .AddText(" ♦")
-                .AddUiForegroundOff()
-                .Build();
+            var l = Plugin.L;
+            var titleText = level switch
+            {
+                "beginner"  => l.RpProfileLevelBeginner.Split('—')[0].Trim(),
+                "casual"    => "Casual",
+                "confirmed" => l.RpProfileLevelConfirmed.Split('—')[0].Trim(),
+                _           => "RP",
+            };
 
-            var (start, _) = handler.NameParts.TextWrap;
-            handler.NameParts.TextWrap = (start, suffix);
+            handler.TitleParts.Text = new SeStringBuilder().AddText(titleText).Build();
+            handler.TitleParts.TextWrap = (
+                new SeStringBuilder().AddUiForeground(52).Build(),
+                new SeStringBuilder().AddUiForegroundOff().Build());
+            handler.TitleParts.LeftQuote  = SeString.Empty;
+            handler.TitleParts.RightQuote = SeString.Empty;
+            handler.DisplayTitle  = true;
+            handler.IsPrefixTitle = false;
         }
     }
 

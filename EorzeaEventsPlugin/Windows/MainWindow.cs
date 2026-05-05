@@ -327,6 +327,11 @@ public class MainWindow : Window
         ImGui.Separator();
         ImGui.Spacing();
 
+        DrawAvailabilitySection(l);
+
+        ImGui.Separator();
+        ImGui.Spacing();
+
         if (Plugin.HasActiveSession)
         {
             ImGui.TextColored(UiStyle.StatusOpen, l.RpYourSessionActive);
@@ -341,6 +346,19 @@ public class MainWindow : Window
                 UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive))
                 Plugin.OpenMySession();
         }
+    }
+
+    private void DrawAvailabilitySection(Loc l)
+    {
+        if (Plugin.IsLocalPlayerAvailable())
+        {
+            ImGui.TextColored(UiStyle.StatusOpen, l.RpAvailableActiveStatus);
+            ImGui.Spacing();
+        }
+
+        if (ImGui.Button(l.RpProfileSetup + "##openwizard", Vector2.Zero))
+            Plugin.OpenRpProfileWizard();
+        ImGui.Spacing();
     }
 
     private void DrawSessionEntry(RpSessionDto s)

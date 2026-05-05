@@ -214,6 +214,8 @@ internal sealed class Loc
     public required string RpAvailableDur30        { get; init; }
     public required string RpAvailableDur60        { get; init; }
     public required string RpAvailableDur120       { get; init; }
+    public required string RpAvailableActiveStatus { get; init; }   // {0} = minutes restantes
+    public required string RpAvailableNoToken      { get; init; }
     public required string RpProfileSetup          { get; init; }
     public required string RpProfileWizardTitle    { get; init; }
     public required string RpProfileWizardIntro    { get; init; }
@@ -221,16 +223,27 @@ internal sealed class Loc
     public required string RpProfileLevelBeginner  { get; init; }
     public required string RpProfileLevelCasual    { get; init; }
     public required string RpProfileLevelConfirmed { get; init; }
-    public required string RpProfileApproach       { get; init; }
-    public required string RpProfileApproachCome   { get; init; }
-    public required string RpProfileApproachIGo    { get; init; }
-    public required string RpProfileApproachEither { get; init; }
+    public required string RpProfileApproach           { get; init; }
+    public required string RpProfileApproachCome       { get; init; }
+    public required string RpProfileApproachComeHint   { get; init; }
+    public required string RpProfileApproachIGo        { get; init; }
+    public required string RpProfileApproachIGoHint    { get; init; }
+    public required string RpProfileApproachEither     { get; init; }
+    public required string RpProfileApproachEitherHint { get; init; }
     public required string RpProfileLanguages      { get; init; }
     public required string RpProfileSaved          { get; init; }
     public required string RpProfileError          { get; init; }
     public required string RpProfileViewTitle      { get; init; }
     public required string CfgRpProfileHeader      { get; init; }
     public required string CfgRpIndicator          { get; init; }
+
+    // ── Annonce one-shot ──────────────────────────────────────────────────────
+    public required string AnnouncementTitle       { get; init; }
+    public required string AnnouncementBadge       { get; init; }
+    public required string AnnouncementBody        { get; init; }
+    public required string AnnouncementConfigure   { get; init; }
+    public required string AnnouncementLater       { get; init; }
+    public required string AnnouncementIndicator   { get; init; }
 
     // ── Static instances ──────────────────────────────────────────────────────
 
@@ -437,10 +450,12 @@ internal sealed class Loc
         RpAvailableEmpty        = "Personne de disponible dans cette zone",
         RpAvailableInZone       = "{0} disponible(s) pour du RP dans votre zone",
         RpAvailableEnable       = "Je suis disponible",
-        RpAvailableDisable      = "Ne plus être disponible",
-        RpAvailableDur30        = "30 minutes",
-        RpAvailableDur60        = "1 heure",
-        RpAvailableDur120       = "2 heures",
+        RpAvailableDisable      = "Arrêter",
+        RpAvailableDur30        = "30 min",
+        RpAvailableDur60        = "1h",
+        RpAvailableDur120       = "2h",
+        RpAvailableActiveStatus = "♦  Disponible pour du RP",
+        RpAvailableNoToken      = "Token API requis pour activer la disponibilité.",
         RpProfileSetup          = "Configurer mon profil RP",
         RpProfileWizardTitle    = "Mon profil RP",
         RpProfileWizardIntro    = "Quelques questions rapides pour que les autres joueurs sachent à quoi s'attendre avant de t'approcher.",
@@ -448,16 +463,26 @@ internal sealed class Loc
         RpProfileLevelBeginner  = "Débutant — Je découvre le RP",
         RpProfileLevelCasual    = "Casual — Je RP de temps en temps",
         RpProfileLevelConfirmed = "Confirmé — Rôliste expérimenté",
-        RpProfileApproach       = "Mode d'approche",
-        RpProfileApproachCome   = "Venez vers moi",
-        RpProfileApproachIGo    = "Je peux approcher",
-        RpProfileApproachEither = "Indifférent",
+        RpProfileApproach           = "Mode d'approche",
+        RpProfileApproachCome       = "Venez vers moi",
+        RpProfileApproachComeHint   = "Je suis timide — faites le premier pas, je ne mordrai pas !",
+        RpProfileApproachIGo        = "Je peux approcher",
+        RpProfileApproachIGoHint    = "Je n'hésite pas à initier le contact si je sens une compatibilité.",
+        RpProfileApproachEither     = "Indifférent",
+        RpProfileApproachEitherHint = "Que vous veniez à moi ou l'inverse, je m'adapte.",
         RpProfileLanguages      = "Langue(s) de RP",
         RpProfileSaved          = "Profil enregistré !",
         RpProfileError          = "Erreur lors de l'enregistrement.",
         RpProfileViewTitle      = "Profil RP",
         CfgRpProfileHeader      = "Profil RP & Disponibilité",
         CfgRpIndicator          = "Afficher ♦ sur les nameplates des joueurs disponibles",
+
+        AnnouncementTitle       = "Nouveau — Profil RP & Disponibilité",
+        AnnouncementBadge       = "✦  Mise à jour",
+        AnnouncementBody        = "Tu peux maintenant indiquer que tu es disponible pour du RP improvisé.\n\nLes autres joueurs verront un ♦ à droite de ton nom dans le jeu, et pourront voir ton profil (niveau, mode d'approche, langue) avant de t'aborder.\n\nConfigure ton profil en quelques secondes — tu pourras le modifier à tout moment dans les paramètres.",
+        AnnouncementConfigure   = "Configurer mon profil RP",
+        AnnouncementLater       = "Plus tard",
+        AnnouncementIndicator   = "L'indicateur ♦ sur les nameplates peut être désactivé dans Paramètres.",
     };
 
     public static readonly Loc En = new()
@@ -663,10 +688,12 @@ internal sealed class Loc
         RpAvailableEmpty        = "No one available in this zone",
         RpAvailableInZone       = "{0} available for RP in your zone",
         RpAvailableEnable       = "I'm available",
-        RpAvailableDisable      = "Stop being available",
-        RpAvailableDur30        = "30 minutes",
-        RpAvailableDur60        = "1 hour",
-        RpAvailableDur120       = "2 hours",
+        RpAvailableDisable      = "Stop",
+        RpAvailableDur30        = "30 min",
+        RpAvailableDur60        = "1h",
+        RpAvailableDur120       = "2h",
+        RpAvailableActiveStatus = "♦  Available for RP",
+        RpAvailableNoToken      = "An API token is required to enable availability.",
         RpProfileSetup          = "Set up my RP profile",
         RpProfileWizardTitle    = "My RP Profile",
         RpProfileWizardIntro    = "A few quick questions so other players know what to expect before approaching you.",
@@ -674,15 +701,25 @@ internal sealed class Loc
         RpProfileLevelBeginner  = "Beginner — New to RP",
         RpProfileLevelCasual    = "Casual — I RP occasionally",
         RpProfileLevelConfirmed = "Experienced — Seasoned roleplayer",
-        RpProfileApproach       = "Approach style",
-        RpProfileApproachCome   = "Come to me",
-        RpProfileApproachIGo    = "I can approach",
-        RpProfileApproachEither = "Either way",
+        RpProfileApproach           = "Approach style",
+        RpProfileApproachCome       = "Come to me",
+        RpProfileApproachComeHint   = "I'm a bit shy — feel free to make the first move, I won't bite!",
+        RpProfileApproachIGo        = "I can approach",
+        RpProfileApproachIGoHint    = "I don't mind initiating contact when I feel like we'd click.",
+        RpProfileApproachEither     = "Either way",
+        RpProfileApproachEitherHint = "Whether you come to me or I come to you, it works for me.",
         RpProfileLanguages      = "RP Language(s)",
         RpProfileSaved          = "Profile saved!",
         RpProfileError          = "Error saving profile.",
         RpProfileViewTitle      = "RP Profile",
         CfgRpProfileHeader      = "RP Profile & Availability",
         CfgRpIndicator          = "Show ♦ on nameplates of available players",
+
+        AnnouncementTitle       = "New — RP Profile & Availability",
+        AnnouncementBadge       = "✦  Update",
+        AnnouncementBody        = "You can now signal that you're available for spontaneous RP.\n\nOther players will see a ♦ next to your name in-game and can view your profile (level, approach style, language) before approaching you.\n\nSet up your profile in a few seconds — you can always change it later in Settings.",
+        AnnouncementConfigure   = "Set up my RP profile",
+        AnnouncementLater       = "Later",
+        AnnouncementIndicator   = "The ♦ nameplate indicator can be disabled in Settings.",
     };
 }

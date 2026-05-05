@@ -32,12 +32,12 @@ public class RpProfileWindow : Window
     private static readonly string[] ApproachKeys = ["come_to_me", "i_approach", "either"];
 
     public RpProfileWindow(Configuration config)
-        : base("##rpprofile", ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoResize)
+        : base("##rpprofile", ImGuiWindowFlags.NoResize)
     {
         SizeConstraints = new WindowSizeConstraints
         {
-            MinimumSize = new Vector2(480, 340),
-            MaximumSize = new Vector2(480, 340),
+            MinimumSize = new Vector2(500, 490),
+            MaximumSize = new Vector2(500, 490),
         };
         _config = config;
     }
@@ -106,9 +106,9 @@ public class RpProfileWindow : Window
         // ── Approach mode ──
         ImGui.TextUnformatted(l.RpProfileApproach);
         ImGui.Spacing();
-        DrawRadio(l.RpProfileApproachCome,   ref _approachIdx, 0);
-        DrawRadio(l.RpProfileApproachIGo,    ref _approachIdx, 1);
-        DrawRadio(l.RpProfileApproachEither, ref _approachIdx, 2);
+        DrawRadioWithHint(l.RpProfileApproachCome,   l.RpProfileApproachComeHint,   ref _approachIdx, 0);
+        DrawRadioWithHint(l.RpProfileApproachIGo,    l.RpProfileApproachIGoHint,    ref _approachIdx, 1);
+        DrawRadioWithHint(l.RpProfileApproachEither, l.RpProfileApproachEitherHint, ref _approachIdx, 2);
 
         ImGui.Spacing();
         ImGui.Separator();
@@ -148,6 +148,18 @@ public class RpProfileWindow : Window
             current = value;
     }
 
+    private static void DrawRadioWithHint(string label, string hint, ref int current, int value)
+    {
+        var active = current == value;
+        if (ImGui.RadioButton(label, active))
+            current = value;
+        ImGui.Indent(22f);
+        ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(1f, 1f, 1f, 0.45f));
+        ImGui.TextUnformatted(hint);
+        ImGui.PopStyleColor();
+        ImGui.Unindent(22f);
+    }
+
     private void SaveProfileAsync()
     {
         _saving = true;
@@ -174,14 +186,16 @@ public class RpProfileWindow : Window
         Task.Run(async () =>
         {
             var result = await Plugin.Api.SaveRpProfileAsync(req);
-            Plugin.Framework.RunOnFrameworkThread(() =>
+            await Plugin.Framework.RunOnFrameworkThread(() =>
             {
                 _saving = false;
                 _status = result != null ? Plugin.L.RpProfileSaved : Plugin.L.RpProfileError;
-                if (result != null)
-                    Task.Delay(1200).ContinueWith(_ =>
-                        Plugin.Framework.RunOnFrameworkThread(() => IsOpen = false));
             });
+            if (result != null)
+            {
+                await Task.Delay(1200);
+                await Plugin.Framework.RunOnFrameworkThread(() => IsOpen = false);
+            }
         });
     }
 
@@ -233,14 +247,6 @@ public class RpProfileWindow : Window
         }
 
         ImGui.Spacing();
-
-        if (DateTime.TryParse(entry.ExpiresAt, null,
-            System.Globalization.DateTimeStyles.RoundtripKind, out var exp))
-        {
-            var remaining = exp - DateTime.UtcNow;
-            if (remaining.TotalSeconds > 0)
-                ImGui.TextDisabled($"Disponible encore {(int)remaining.TotalMinutes} min");
-        }
 
         ImGui.Spacing();
         if (ImGui.Button(l.Cancel)) IsOpen = false;

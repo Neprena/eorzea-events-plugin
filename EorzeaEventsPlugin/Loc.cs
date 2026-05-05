@@ -205,6 +205,33 @@ internal sealed class Loc
     public required string MoreInfo             { get; init; }
     public required string EventsHideHint       { get; init; }
 
+    // ── RP Availability & Profile ─────────────────────────────────────────────
+    public required string RpAvailableTitle        { get; init; }
+    public required string RpAvailableEmpty        { get; init; }
+    public required string RpAvailableInZone       { get; init; }   // {0} = count
+    public required string RpAvailableEnable       { get; init; }
+    public required string RpAvailableDisable      { get; init; }
+    public required string RpAvailableDur30        { get; init; }
+    public required string RpAvailableDur60        { get; init; }
+    public required string RpAvailableDur120       { get; init; }
+    public required string RpProfileSetup          { get; init; }
+    public required string RpProfileWizardTitle    { get; init; }
+    public required string RpProfileWizardIntro    { get; init; }
+    public required string RpProfileLevel          { get; init; }
+    public required string RpProfileLevelBeginner  { get; init; }
+    public required string RpProfileLevelCasual    { get; init; }
+    public required string RpProfileLevelConfirmed { get; init; }
+    public required string RpProfileApproach       { get; init; }
+    public required string RpProfileApproachCome   { get; init; }
+    public required string RpProfileApproachIGo    { get; init; }
+    public required string RpProfileApproachEither { get; init; }
+    public required string RpProfileLanguages      { get; init; }
+    public required string RpProfileSaved          { get; init; }
+    public required string RpProfileError          { get; init; }
+    public required string RpProfileViewTitle      { get; init; }
+    public required string CfgRpProfileHeader      { get; init; }
+    public required string CfgRpIndicator          { get; init; }
+
     // ── Static instances ──────────────────────────────────────────────────────
 
     public static readonly Loc Fr = new()
@@ -405,6 +432,32 @@ internal sealed class Loc
         DtrRpTooltip      = "Sessions RP ouvertes en cours\nCliquez pour ouvrir",
         DtrEventsTooltip  = "Événements en cours\nCliquez pour ouvrir",
         PlayersOnline     = "🟢 {0} joueur(s) en ligne",
+
+        RpAvailableTitle        = "Disponibles pour du RP sauvage",
+        RpAvailableEmpty        = "Personne de disponible dans cette zone",
+        RpAvailableInZone       = "{0} disponible(s) pour du RP dans votre zone",
+        RpAvailableEnable       = "Je suis disponible",
+        RpAvailableDisable      = "Ne plus être disponible",
+        RpAvailableDur30        = "30 minutes",
+        RpAvailableDur60        = "1 heure",
+        RpAvailableDur120       = "2 heures",
+        RpProfileSetup          = "Configurer mon profil RP",
+        RpProfileWizardTitle    = "Mon profil RP",
+        RpProfileWizardIntro    = "Quelques questions rapides pour que les autres joueurs sachent à quoi s'attendre avant de t'approcher.",
+        RpProfileLevel          = "Niveau de RP",
+        RpProfileLevelBeginner  = "Débutant — Je découvre le RP",
+        RpProfileLevelCasual    = "Casual — Je RP de temps en temps",
+        RpProfileLevelConfirmed = "Confirmé — Rôliste expérimenté",
+        RpProfileApproach       = "Mode d'approche",
+        RpProfileApproachCome   = "Venez vers moi",
+        RpProfileApproachIGo    = "Je peux approcher",
+        RpProfileApproachEither = "Indifférent",
+        RpProfileLanguages      = "Langue(s) de RP",
+        RpProfileSaved          = "Profil enregistré !",
+        RpProfileError          = "Erreur lors de l'enregistrement.",
+        RpProfileViewTitle      = "Profil RP",
+        CfgRpProfileHeader      = "Profil RP & Disponibilité",
+        CfgRpIndicator          = "Afficher ♦ sur les nameplates des joueurs disponibles",
     };
 
     public static readonly Loc En = new()
@@ -605,5 +658,31 @@ internal sealed class Loc
         DtrRpTooltip      = "Active open RP sessions\nClick to open",
         DtrEventsTooltip  = "Ongoing events\nClick to open",
         PlayersOnline     = "🟢 {0} player(s) online",
+
+        RpAvailableTitle        = "Available for Spontaneous RP",
+        RpAvailableEmpty        = "No one available in this zone",
+        RpAvailableInZone       = "{0} available for RP in your zone",
+        RpAvailableEnable       = "I'm available",
+        RpAvailableDisable      = "Stop being available",
+        RpAvailableDur30        = "30 minutes",
+        RpAvailableDur60        = "1 hour",
+        RpAvailableDur120       = "2 hours",
+        RpProfileSetup          = "Set up my RP profile",
+        RpProfileWizardTitle    = "My RP Profile",
+        RpProfileWizardIntro    = "A few quick questions so other players know what to expect before approaching you.",
+        RpProfileLevel          = "RP Level",
+        RpProfileLevelBeginner  = "Beginner — New to RP",
+        RpProfileLevelCasual    = "Casual — I RP occasionally",
+        RpProfileLevelConfirmed = "Experienced — Seasoned roleplayer",
+        RpProfileApproach       = "Approach style",
+        RpProfileApproachCome   = "Come to me",
+        RpProfileApproachIGo    = "I can approach",
+        RpProfileApproachEither = "Either way",
+        RpProfileLanguages      = "RP Language(s)",
+        RpProfileSaved          = "Profile saved!",
+        RpProfileError          = "Error saving profile.",
+        RpProfileViewTitle      = "RP Profile",
+        CfgRpProfileHeader      = "RP Profile & Availability",
+        CfgRpIndicator          = "Show ♦ on nameplates of available players",
     };
 }

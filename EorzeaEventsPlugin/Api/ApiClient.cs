@@ -101,6 +101,49 @@ public class EstablishmentDto
     [JsonPropertyName("banner")]          public string? Banner          { get; set; }
 }
 
+// ─── RP Profile & Availability ────────────────────────────────────────────────
+
+public class RpProfileDto
+{
+    [JsonPropertyName("rpLevel")]       public string   RpLevel       { get; set; } = string.Empty;
+    [JsonPropertyName("approachMode")]  public string   ApproachMode  { get; set; } = string.Empty;
+    [JsonPropertyName("languages")]     public string[] Languages     { get; set; } = [];
+    [JsonPropertyName("contactMode")]   public string?  ContactMode   { get; set; }
+    [JsonPropertyName("sessionLength")] public string?  SessionLength { get; set; }
+    [JsonPropertyName("themes")]        public string[] Themes        { get; set; } = [];
+}
+
+public class RpAvailabilityEntryDto
+{
+    [JsonPropertyName("id")]            public string       Id            { get; set; } = string.Empty;
+    [JsonPropertyName("characterName")] public string       CharacterName { get; set; } = string.Empty;
+    [JsonPropertyName("server")]        public string       Server        { get; set; } = string.Empty;
+    [JsonPropertyName("zone")]          public string?      Zone          { get; set; }
+    [JsonPropertyName("territoryId")]   public int?         TerritoryId   { get; set; }
+    [JsonPropertyName("expiresAt")]     public string       ExpiresAt     { get; set; } = string.Empty;
+    [JsonPropertyName("createdAt")]     public string       CreatedAt     { get; set; } = string.Empty;
+    [JsonPropertyName("profile")]       public RpProfileDto? Profile      { get; set; }
+}
+
+public class SetRpAvailableRequest
+{
+    [JsonPropertyName("characterName")] public string  CharacterName { get; set; } = string.Empty;
+    [JsonPropertyName("server")]        public string  Server        { get; set; } = string.Empty;
+    [JsonPropertyName("zone")]          public string? Zone          { get; set; }
+    [JsonPropertyName("territoryId")]   public int?    TerritoryId   { get; set; }
+    [JsonPropertyName("duration")]      public int     Duration      { get; set; } = 60; // minutes
+}
+
+public class SaveRpProfileRequest
+{
+    [JsonPropertyName("rpLevel")]       public string   RpLevel       { get; set; } = string.Empty;
+    [JsonPropertyName("approachMode")]  public string   ApproachMode  { get; set; } = string.Empty;
+    [JsonPropertyName("languages")]     public string[] Languages     { get; set; } = [];
+    [JsonPropertyName("contactMode")]   public string?  ContactMode   { get; set; }
+    [JsonPropertyName("sessionLength")] public string?  SessionLength { get; set; }
+    [JsonPropertyName("themes")]        public string[] Themes        { get; set; } = [];
+}
+
 // ─── Request bodies ───────────────────────────────────────────────────────────
 
 public class CreateSessionRequest
@@ -323,6 +366,66 @@ public class ApiClient : IDisposable
     {
         var sessions = await GetActiveSessionsAsync(ct);
         return sessions.FirstOrDefault(s => s.Id == sessionId);
+    }
+
+    // ─── RP Profile ──────────────────────────────────────────────────────────
+
+    public async Task<RpProfileDto?> GetRpProfileAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var res = await _http.GetAsync("api/rp-profile", ct);
+            HandleAuthResponse(res.StatusCode);
+            if (!res.IsSuccessStatusCode) return null;
+            return await res.Content.ReadFromJsonAsync<RpProfileDto>(JsonOptions, ct);
+        }
+        catch { return null; }
+    }
+
+    public async Task<RpProfileDto?> SaveRpProfileAsync(SaveRpProfileRequest req, CancellationToken ct = default)
+    {
+        try
+        {
+            var res = await _http.PutAsJsonAsync("api/rp-profile", req, JsonOptions, ct);
+            HandleAuthResponse(res.StatusCode);
+            if (!res.IsSuccessStatusCode) return null;
+            return await res.Content.ReadFromJsonAsync<RpProfileDto>(JsonOptions, ct);
+        }
+        catch { return null; }
+    }
+
+    // ─── RP Availability ─────────────────────────────────────────────────────
+
+    public async Task<List<RpAvailabilityEntryDto>> GetRpAvailabilitiesAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var res = await _publicHttp.GetFromJsonAsync<List<RpAvailabilityEntryDto>>("api/rp-availability", JsonOptions, ct);
+            return res ?? [];
+        }
+        catch { return []; }
+    }
+
+    public async Task<bool> SetRpAvailableAsync(SetRpAvailableRequest req, CancellationToken ct = default)
+    {
+        try
+        {
+            var res = await _http.PostAsJsonAsync("api/rp-availability", req, JsonOptions, ct);
+            HandleAuthResponse(res.StatusCode);
+            return res.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
+
+    public async Task<bool> ClearRpAvailabilityAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var res = await _http.DeleteAsync("api/rp-availability", ct);
+            HandleAuthResponse(res.StatusCode);
+            return res.IsSuccessStatusCode;
+        }
+        catch { return false; }
     }
 
     public void Dispose() { _http.Dispose(); _publicHttp.Dispose(); }

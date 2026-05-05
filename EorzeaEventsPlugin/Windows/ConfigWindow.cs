@@ -28,6 +28,7 @@ public class ConfigWindow : Window
     private bool _showDtrRp;
     private bool _showDtrEvents;
     private int  _languageIndex;
+    private bool _showRpAvailableIndicator;
 #if DEBUG
     private string _baseUrl = string.Empty;
 #endif
@@ -57,9 +58,10 @@ public class ConfigWindow : Window
         _alertOnRpTagRemoved    = _config.AlertOnRpTagRemoved;
         _alertOnSessionExpiring = _config.AlertOnSessionExpiring;
         _suggestSessionOnRpTag  = _config.SuggestSessionOnRpTag;
-        _showDtrRp              = _config.ShowDtrRp;
-        _showDtrEvents          = _config.ShowDtrEvents;
-        _languageIndex          = (int)_config.Language;
+        _showDtrRp                  = _config.ShowDtrRp;
+        _showDtrEvents              = _config.ShowDtrEvents;
+        _languageIndex              = (int)_config.Language;
+        _showRpAvailableIndicator   = _config.ShowRpAvailableIndicator;
 #if DEBUG
         _baseUrl                = _config.BaseUrl;
 #endif
@@ -82,6 +84,7 @@ public class ConfigWindow : Window
             DrawRpNotificationSection(l);
             DrawEventNotificationSection(l);
             DrawSessionSection(l);
+            DrawRpProfileSection(l);
             DrawDtrSection(l);
             DrawLanguageSection(l);
 #if DEBUG
@@ -109,9 +112,10 @@ public class ConfigWindow : Window
             _config.AlertOnZoneChange       = _alertOnZoneChange;
             _config.AlertOnRpTagRemoved     = _alertOnRpTagRemoved;
             _config.AlertOnSessionExpiring  = _alertOnSessionExpiring;
-            _config.ShowDtrRp               = _showDtrRp;
-            _config.ShowDtrEvents           = _showDtrEvents;
-            _config.Language                = (PluginLanguage)_languageIndex;
+            _config.ShowDtrRp                   = _showDtrRp;
+            _config.ShowDtrEvents               = _showDtrEvents;
+            _config.Language                    = (PluginLanguage)_languageIndex;
+            _config.ShowRpAvailableIndicator    = _showRpAvailableIndicator;
 #if DEBUG
             _config.BaseUrl                 = _baseUrl.TrimEnd('/');
 #endif
@@ -241,6 +245,21 @@ public class ConfigWindow : Window
         ImGui.Checkbox(l.CfgAlertZone,     ref _alertOnZoneChange);
         ImGui.Checkbox(l.CfgAlertTag,      ref _alertOnRpTagRemoved);
         ImGui.Checkbox(l.CfgAlertExpiry,   ref _alertOnSessionExpiring);
+        ImGui.Unindent();
+        ImGui.Spacing();
+    }
+
+    private void DrawRpProfileSection(Loc l)
+    {
+        if (!ImGui.CollapsingHeader(l.CfgRpProfileHeader + "##rpprofile")) return;
+        ImGui.Indent();
+
+        ImGui.Checkbox(l.CfgRpIndicator + "##rpindicator", ref _showRpAvailableIndicator);
+        ImGui.Spacing();
+
+        if (ImGui.Button(l.RpProfileSetup + "##openrpwizard"))
+            Plugin.OpenRpProfileWizard();
+
         ImGui.Unindent();
         ImGui.Spacing();
     }

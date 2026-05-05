@@ -72,5 +72,25 @@ public class Configuration : IPluginConfiguration
     /// <summary>IDs d'établissements masqués localement.</summary>
     public List<string> HiddenEstablishmentIds { get; set; } = [];
 
+    // ─── Profil RP ───────────────────────────────────────────────────────────
+
+    /// <summary>Le wizard de profil RP a été complété au moins une fois.</summary>
+    public bool RpProfileSetupDone { get; set; } = false;
+
+    /// <summary>Afficher le marqueur ♦ sur les nameplates des joueurs disponibles pour du RP.</summary>
+    public bool ShowRpAvailableIndicator { get; set; } = true;
+
+    // Cache local du profil (évite un appel API au démarrage)
+    public string? RpProfileLevel         { get; set; }
+    public string? RpProfileApproachMode  { get; set; }
+    public string? RpProfileLanguages     { get; set; }
+    public string? RpProfileContactMode   { get; set; }
+    public string? RpProfileSessionLength { get; set; }
+    public string? RpProfileThemes        { get; set; }
+
+    // État de la disponibilité locale
+    public bool      RpAvailabilityActive    { get; set; } = false;
+    public DateTime? RpAvailabilityExpiresAt { get; set; }
+
     public void Save() => Plugin.PluginInterface.SavePluginConfig(this);
 }

@@ -1,5 +1,6 @@
 using Dalamud.Game.Command;
 using Dalamud.Game.Gui.Dtr;
+using Dalamud.Game.Gui.NamePlate;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.IoC;
 using Dalamud.Plugin;
@@ -36,6 +37,7 @@ public sealed class Plugin : IDalamudPlugin
     [PluginService] internal static INotificationManager    NotificationMgr { get; private set; } = null!;
     [PluginService] internal static IObjectTable            ObjectTable     { get; private set; } = null!;
     [PluginService] internal static IDtrBar                 DtrBar          { get; private set; } = null!;
+    [PluginService] internal static INamePlateGui           NamePlateGui    { get; private set; } = null!;
     [PluginService] internal static IChatGui                ChatGui         { get; private set; } = null!;
     [PluginService] internal static IToastGui               ToastGui        { get; private set; } = null!;
     [PluginService] internal static IGameGui                GameGui         { get; private set; } = null!;
@@ -63,6 +65,12 @@ public sealed class Plugin : IDalamudPlugin
     private static   ConfigWindow?      _configWindow;
     private static   SetupWindow?       _setupWindow;
     private static   EstabDetailWindow? _estabDetailWindow;
+    private static   RpProfileWindow?   _rpProfileWindow;
+
+    // RP Availability — nameplate indicators
+    private static HashSet<(string Name, string World)> _availablePlayers = [];
+    private DateTime _lastAvailabilityCheck = DateTime.MinValue;
+    private const int AvailabilityPollIntervalSeconds = 60;
 
     // DTR bar
     private static IDtrBarEntry? _dtrRp;
@@ -126,11 +134,13 @@ public sealed class Plugin : IDalamudPlugin
         _configWindow      = new ConfigWindow(Config);
         _setupWindow       = new SetupWindow(Config);
         _estabDetailWindow = new EstabDetailWindow(Config);
+        _rpProfileWindow   = new RpProfileWindow(Config);
         _windowSystem.AddWindow(_mainWindow);
         _windowSystem.AddWindow(_sessionWindow);
         _windowSystem.AddWindow(_configWindow);
         _windowSystem.AddWindow(_setupWindow);
         _windowSystem.AddWindow(_estabDetailWindow);
+        _windowSystem.AddWindow(_rpProfileWindow);
 
         CommandManager.AddHandler(CommandMain, new CommandInfo(OnCommand)
         {
@@ -142,6 +152,7 @@ public sealed class Plugin : IDalamudPlugin
         PluginInterface.UiBuilder.OpenMainUi   += OpenMain;
         Framework.Update                        += OnFrameworkUpdate;
         ClientState.TerritoryChanged            += OnTerritoryChanged;
+        NamePlateGui.OnNamePlateUpdate          += OnNamePlateUpdate;
 
         // DTR bar entries
         _dtrRp = DtrBar.Get("EorzeaEvents_RP");
@@ -221,6 +232,17 @@ public sealed class Plugin : IDalamudPlugin
         }
         if (_sessionWindow != null) _sessionWindow.IsOpen = true;
     }
+    internal static void OpenRpProfileWizard()
+    {
+        if (IsBlocked) { OpenMain(); return; }
+        _rpProfileWindow?.OpenWizard();
+    }
+
+    internal static void OpenRpProfileViewer(Api.RpAvailabilityEntryDto entry)
+    {
+        _rpProfileWindow?.OpenViewer(entry);
+    }
+
     internal static void OpenSetup(bool tokenInvalid = false)
     {
         if (IsBlocked)
@@ -361,6 +383,14 @@ public sealed class Plugin : IDalamudPlugin
 
         // Polling session active (fenêtre ouverte ou non)
         _sessionWindow?.PollSessionStatus();
+
+        // Disponibilités RP (60 s) — seulement si l'indicateur est activé
+        if (Config.ShowRpAvailableIndicator
+            && (now - _lastAvailabilityCheck).TotalSeconds >= AvailabilityPollIntervalSeconds)
+        {
+            _lastAvailabilityCheck = now;
+            Task.Run(async () => await RefreshAvailablePlayersAsync());
+        }
 
         // Surveillance tag RP (chaque frame, lecture uint = négligeable)
         var rpPlayer = ObjectTable.LocalPlayer;
@@ -613,6 +643,49 @@ public sealed class Plugin : IDalamudPlugin
         }
     }
 
+    // ── RP Availability nameplate ─────────────────────────────────────────────
+
+    private static async Task RefreshAvailablePlayersAsync()
+    {
+        try
+        {
+            var entries = await Api.GetRpAvailabilitiesAsync();
+            var set = new HashSet<(string, string)>(
+                entries.Select(e => (e.CharacterName, e.Server)));
+            _availablePlayers = set;
+        }
+        catch { /* silencieux */ }
+    }
+
+    private void OnNamePlateUpdate(
+        INamePlateUpdateContext context,
+        IReadOnlyList<INamePlateUpdateHandler> handlers)
+    {
+        if (!Config.ShowRpAvailableIndicator || _availablePlayers.Count == 0) return;
+
+        foreach (var handler in handlers)
+        {
+            if (handler.NamePlateKind != NamePlateKind.PlayerCharacter) continue;
+
+            var character = handler.PlayerCharacter;
+            if (character == null) continue;
+
+            var name  = character.Name.TextValue;
+            var world = character.HomeWorld.Value.Name.ToString();
+            if (!_availablePlayers.Contains((name, world))) continue;
+
+            // Ajouter ♦ coloré à droite du nom (TextWrap.End = suffixe)
+            var suffix = new SeStringBuilder()
+                .AddUiForeground(52)  // teal — distinct du tag RP natif (blanc/violet)
+                .AddText(" ♦")
+                .AddUiForegroundOff()
+                .Build();
+
+            var (start, _) = handler.NameParts.TextWrap;
+            handler.NameParts.TextWrap = (start, suffix);
+        }
+    }
+
     private void CheckTokenValidity()
     {
         if (Api.IsTokenValid || _tokenInvalidNotified) return;
@@ -736,6 +809,7 @@ public sealed class Plugin : IDalamudPlugin
     {
         ClientState.TerritoryChanged            -= OnTerritoryChanged;
         Framework.Update                        -= OnFrameworkUpdate;
+        NamePlateGui.OnNamePlateUpdate          -= OnNamePlateUpdate;
         PluginInterface.UiBuilder.Draw         -= _windowSystem.Draw;
         PluginInterface.UiBuilder.OpenConfigUi -= OpenConfig;
         PluginInterface.UiBuilder.OpenMainUi   -= OpenMain;

@@ -290,7 +290,8 @@ public class MainWindow : Window
                         others.Add(s);
                 }
 
-                if (!ImGui.BeginChild("##sessionsscroll", new Vector2(-1, -110), false))
+                var bottomH = 10f * ImGui.GetFrameHeightWithSpacing();
+                if (!ImGui.BeginChild("##sessionsscroll", new Vector2(-1, -bottomH), false))
                     goto DrawButton;
 
                 if (nearby.Count > 0)

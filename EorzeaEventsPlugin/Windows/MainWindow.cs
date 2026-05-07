@@ -505,7 +505,7 @@ public class MainWindow : Window
         }
 
         var nowCount     = DateTime.UtcNow;
-        var ongoingCount = visibleEvents.Count(e => IsOngoing(e, nowCount));
+        var ongoingCount = visibleEvents.Count(e => IsOngoing(e, nowCount) && !e.Cancelled);
         if (ongoingCount > 0)
         {
             ImGui.TextColored(UiStyle.StatusOpen, string.Format(l.EventsOngoing, ongoingCount));
@@ -587,11 +587,21 @@ public class MainWindow : Window
                 }
 
                 UiPrimitives.DrawChip($"{dayStr}  {timeStr}", UiStyle.ChipBgAccent);
-                if (ev.IsRecurring)
+                if (ev.Cancelled)
+                {
+                    ImGui.SameLine(0, UiStyle.InlineSpacing);
+                    UiPrimitives.DrawChip(l.EventCancelled, new Vector4(0.75f, 0.2f, 0.2f, 0.45f));
+                }
+                else if (ev.IsRecurring)
                 {
                     ImGui.SameLine(0, UiStyle.InlineSpacing);
                     UiPrimitives.DrawChip(l.Recurring, UiStyle.ChipBgOpen);
                 }
+                ImGui.Spacing();
+            }
+            else if (ev.Cancelled)
+            {
+                UiPrimitives.DrawChip(l.EventCancelled, new Vector4(0.75f, 0.2f, 0.2f, 0.45f));
                 ImGui.Spacing();
             }
             else if (ev.IsRecurring)
@@ -600,7 +610,17 @@ public class MainWindow : Window
                 ImGui.Spacing();
             }
 
-            ImGui.TextColored(titleColor, ev.Title);
+            var displayColor = ev.Cancelled ? UiStyle.TextSubtle : titleColor;
+            var titlePos = ImGui.GetCursorScreenPos();
+            ImGui.TextColored(displayColor, ev.Title);
+            if (ev.Cancelled)
+            {
+                var textSize = ImGui.CalcTextSize(ev.Title);
+                ImGui.GetWindowDrawList().AddLine(
+                    new System.Numerics.Vector2(titlePos.X, titlePos.Y + textSize.Y * 0.5f),
+                    new System.Numerics.Vector2(titlePos.X + textSize.X, titlePos.Y + textSize.Y * 0.5f),
+                    ImGui.ColorConvertFloat4ToU32(displayColor), 1f);
+            }
 
             // Établissement + bouton "Plus d'info"
             if (ev.Establishment != null)

@@ -65,6 +65,7 @@ public class EventDto
     [JsonPropertyName("endDate")]       public string?                 EndDate       { get; set; }
     [JsonPropertyName("isRecurring")]   public bool                    IsRecurring   { get; set; }
     [JsonPropertyName("isOfficial")]    public bool                    IsOfficial    { get; set; }
+    [JsonPropertyName("cancelled")]     public bool                    Cancelled     { get; set; }
     [JsonPropertyName("establishment")] public EstablishmentSummaryDto? Establishment { get; set; }
 }
 

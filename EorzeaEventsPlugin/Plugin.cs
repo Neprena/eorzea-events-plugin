@@ -608,6 +608,7 @@ public sealed class Plugin : IDalamudPlugin
     private static bool IsVisibleEventForNotifications(EventDto ev, DateTime utcNow)
     {
         if (ev.IsOfficial) return false;
+        if (ev.Cancelled)  return false;
         if (Config.HiddenEventIds.Contains(ev.Id)) return false;
         if (!string.IsNullOrEmpty(ev.Establishment?.Id) && Config.HiddenEstablishmentIds.Contains(ev.Establishment.Id))
             return false;
@@ -616,6 +617,7 @@ public sealed class Plugin : IDalamudPlugin
 
     private static bool IsOngoingEvent(EventDto ev, DateTime utcNow)
     {
+        if (ev.Cancelled) return false;
         if (!DateTime.TryParse(ev.StartDate, null, System.Globalization.DateTimeStyles.RoundtripKind, out var start))
             return false;
         if (utcNow < start) return false;

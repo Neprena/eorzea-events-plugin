@@ -206,6 +206,7 @@ internal sealed class Loc
     public required string PlayersOnline        { get; init; }   // {0} = count
     public required string MoreInfo             { get; init; }
     public required string EventsHideHint       { get; init; }
+    public required string EventCancelled       { get; init; }
 
     // ── RP Availability & Profile ─────────────────────────────────────────────
     public required string RpAvailableDesc         { get; init; }
@@ -304,6 +305,7 @@ internal sealed class Loc
         EventsOngoing  = "{0} en cours",
         EventsTotal    = "· {0} événement(s) au total",
         EventsHideHint = "Pour ne plus voir un lieu ni recevoir ses notifications, masque-le depuis l'onglet Lieux.",
+        EventCancelled = "Annulé pour aujourd'hui",
 
         EstabSearchHint = "Recherchez par nom, serveur ou quartier.",
         EstabNoResults  = "Aucun résultat.",
@@ -555,6 +557,7 @@ internal sealed class Loc
         EventsOngoing  = "{0} ongoing",
         EventsTotal    = "· {0} event(s) total",
         EventsHideHint = "To stop seeing a venue and its event notifications, hide it from the Venues tab.",
+        EventCancelled = "Cancelled for today",
 
         EstabSearchHint = "Search by name, server or ward.",
         EstabNoResults  = "No results found.",

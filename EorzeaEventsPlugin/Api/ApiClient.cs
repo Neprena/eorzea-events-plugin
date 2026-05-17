@@ -325,11 +325,18 @@ public class ApiClient : IDisposable
         catch { return []; }
     }
 
-    public async Task HeartbeatAsync(string? version = null, CancellationToken ct = default)
+    public async Task HeartbeatAsync(
+        string? version = null,
+        uint? territoryId = null,
+        string? worldName = null,
+        int? ward = null,
+        int? plot = null,
+        int? room = null,
+        CancellationToken ct = default)
     {
         try
         {
-            var body = new { version };
+            var body = new { version, territoryId, worldName, ward, plot, room };
             var res  = await _http.PostAsJsonAsync("api/plugin/heartbeat", body, JsonOptions, ct);
             HandleAuthResponse(res.StatusCode);
         }

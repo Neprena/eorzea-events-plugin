@@ -420,10 +420,19 @@ public sealed class Plugin : IDalamudPlugin
             && (now - _lastHeartbeat).TotalSeconds >= HeartbeatIntervalSeconds)
         {
             _lastHeartbeat = now;
+            var territory = ClientState.TerritoryType;
+            var world     = ObjectTable.LocalPlayer?.CurrentWorld.Value.Name.ToString();
+            var housing   = ClientState.IsLoggedIn ? GetCurrentHousingForHeartbeat() : null;
             Task.Run(async () =>
             {
                 var v = PluginInterface.Manifest.AssemblyVersion;
-                await Api.HeartbeatAsync($"{v.Major}.{v.Minor}.{v.Build}");
+                await Api.HeartbeatAsync(
+                    version:     $"{v.Major}.{v.Minor}.{v.Build}",
+                    territoryId: territory > 0 ? territory : null,
+                    worldName:   !string.IsNullOrWhiteSpace(world) ? world : null,
+                    ward:        housing?.Ward,
+                    plot:        housing?.Plot,
+                    room:        housing?.Room);
                 CheckTokenValidity();
             });
         }

@@ -11,17 +11,16 @@ public class SetupWindow : Window
     private readonly Configuration            _config;
     private          ISharedImmediateTexture? _banner;
     private int    _step         = 0;
-    private string _tokenBuf     = string.Empty;
-    private bool   _tokenMasked  = true;
-    private string _error        = string.Empty;
     private bool   _tokenInvalid = false;
+    private bool   _isMigration  = false;
+    private int    _initialCount = 0;
 
-    public void Restart(bool tokenInvalid = false)
+    public void Restart(bool tokenInvalid = false, bool migration = false)
     {
-        _step         = tokenInvalid ? 1 : 0;
-        _tokenBuf     = string.Empty;
-        _error        = string.Empty;
+        _step         = (tokenInvalid || migration) ? 1 : 0;
         _tokenInvalid = tokenInvalid;
+        _isMigration  = migration;
+        _initialCount = _config.CharacterTokens.Count;
         IsOpen        = true;
     }
 
@@ -43,10 +42,15 @@ public class SetupWindow : Window
 
     public override void Draw()
     {
+        // Auto-advance vers Done : nouveau perso OU re-link d'un perso existant.
+        if (_step == 1 && (_config.CharacterTokens.Count > _initialCount
+            || Plugin.ActiveLinkState?.Status == "bound"))
+            _step = 2;
+
         switch (_step)
         {
             case 0: DrawWelcome(); break;
-            case 1: DrawToken();   break;
+            case 1: DrawLink();    break;
             case 2: DrawDone();    break;
         }
     }
@@ -100,85 +104,138 @@ public class SetupWindow : Window
             _step = 1;
     }
 
-    // ─── Étape 1 : Token — instructions (gauche 45%) | saisie (droite 55%) ───
+    // ─── Étape 1 : Couplage du personnage in-game ────────────────────────────
 
-    private void DrawToken()
+    private void DrawLink()
     {
         var l = Plugin.L;
         DrawBanner(80f);
 
-        if (_tokenInvalid)
+        // Bannières contextuelles (au plus une à la fois)
+        if (_isMigration)
+            UiPrimitives.DrawAlert(new Vector4(0.3f, 0.7f, 1f, 1f),
+                "✦  " + l.SetupMigrationTitle, l.SetupMigrationDesc, () => { });
+        else if (_tokenInvalid)
             UiPrimitives.DrawAlert(new Vector4(1f, 0.7f, 0.2f, 1f),
                 "⚠  " + l.SetupTokenInvalid, string.Empty, () => { });
 
-        if (!ImGui.BeginTable("##tokenform", 2, ImGuiTableFlags.None)) return;
-        ImGui.TableSetupColumn("desc",  ImGuiTableColumnFlags.WidthStretch, 0.45f);
-        ImGui.TableSetupColumn("input", ImGuiTableColumnFlags.WidthStretch, 0.55f);
-        ImGui.TableNextRow();
-
-        // Instructions (gauche)
-        ImGui.TableSetColumnIndex(0);
+        ImGui.Spacing();
         ImGui.TextColored(UiStyle.TextSection, l.SetupStepTitle.ToUpper());
         ImGui.Spacing();
         ImGui.PushTextWrapPos(0);
         ImGui.TextColored(UiStyle.TextMuted, l.SetupStepDesc);
         ImGui.PopTextWrapPos();
         ImGui.Spacing();
-        if (UiPrimitives.ColorButton(l.SetupOpenDashboard, new Vector2(-1, 0),
-            UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive))
-            OpenUrl(_config.BaseUrl.TrimEnd('/') + "/dashboard/profil#plugin-token");
+        ImGui.Separator();
+        ImGui.Spacing();
 
-        // Saisie (droite)
-        ImGui.TableSetColumnIndex(1);
-        ImGui.TextColored(UiStyle.TextMuted, l.SetupTokenLabel);
-        ImGui.SetNextItemWidth(-(UiStyle.SmallButton.X + ImGui.GetStyle().ItemSpacing.X));
-        if (_tokenMasked)
-            ImGui.InputText("##token", ref _tokenBuf, 256, ImGuiInputTextFlags.Password);
-        else
-            ImGui.InputText("##token", ref _tokenBuf, 256);
-        ImGui.SameLine();
-        if (ImGui.Button(_tokenMasked ? l.Show : l.Hide, UiStyle.SmallButton))
-            _tokenMasked = !_tokenMasked;
+        var link = Plugin.ActiveLinkState;
+        var couplingInProgress = link != null
+            && link.Status == "pending"
+            && DateTime.UtcNow < link.ExpiresAt;
 
-        if (!string.IsNullOrEmpty(_error))
+        if (couplingInProgress)
         {
+            ImGui.TextColored(UiStyle.TextSection, "EN ATTENTE DE CONFIRMATION");
             ImGui.Spacing();
-            ImGui.TextColored(new Vector4(1, 0.35f, 0.35f, 1), _error);
+            ImGui.PushTextWrapPos(0);
+            ImGui.TextColored(UiStyle.TextMuted, $"{link!.CharacterName} @ {link.WorldName}");
+            ImGui.Spacing();
+            ImGui.TextColored(UiStyle.TextSubtle,
+                "Une page de confirmation est ouverte dans votre navigateur. " +
+                "Connectez-vous au site si nécessaire puis cliquez « Confirmer ».");
+            if (!string.IsNullOrEmpty(link.ErrorMessage))
+            {
+                ImGui.Spacing();
+                ImGui.TextColored(new Vector4(1f, 0.5f, 0.5f, 1f), "⚠  " + link.ErrorMessage);
+            }
+            ImGui.PopTextWrapPos();
+            ImGui.Spacing();
+            if (UiPrimitives.ColorButton("Rouvrir la page de confirmation", new Vector2(-1, 0),
+                UiStyle.SecondaryNormal, UiStyle.SecondaryHovered, UiStyle.SecondaryActive))
+            {
+                try { Dalamud.Utility.Util.OpenLink(link.LinkUrl); } catch { /* ignore */ }
+            }
+        }
+        else if (link != null && (link.Status == "expired" || link.Status == "error"))
+        {
+            ImGui.PushTextWrapPos(0);
+            ImGui.TextColored(new Vector4(1f, 0.6f, 0.2f, 1f),
+                link.Status == "expired"
+                    ? "⏱  Session expirée. Relancez la procédure."
+                    : "✗  Échec du couplage. Relancez la procédure.");
+            ImGui.PopTextWrapPos();
+            ImGui.Spacing();
+            if (UiPrimitives.ColorButton("Réessayer", new Vector2(-1, 0),
+                UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive))
+            {
+                _initialCount = _config.CharacterTokens.Count;
+                _ = Plugin.StartCharacterLinkAsync();
+            }
+        }
+        else
+        {
+            ImGui.TextColored(UiStyle.TextMuted, l.SetupTokenLabel);
+            ImGui.Spacing();
+
+            var player = Plugin.ObjectTable.LocalPlayer;
+            if (player == null)
+            {
+                ImGui.TextColored(new Vector4(1f, 0.5f, 0.5f, 1f), l.SetupErrPrefix);
+                ImGui.Spacing();
+                ImGui.BeginDisabled();
+                UiPrimitives.ColorButton("Lier ce personnage", new Vector2(-1, 0),
+                    UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive);
+                ImGui.EndDisabled();
+            }
+            else
+            {
+                var name      = player.Name.TextValue;
+                var worldName = player.HomeWorld.Value.Name.ToString();
+                var worldId   = (int)player.HomeWorld.RowId;
+                ImGui.TextColored(UiStyle.TextTitle, $"{name} @ {worldName}");
+
+                var existing = _config.FindCharacterToken(name, worldId);
+                if (existing != null)
+                {
+                    ImGui.Spacing();
+                    ImGui.TextColored(UiStyle.StatusOpen,
+                        "✓ Ce personnage est déjà lié. Vous pouvez fermer cet assistant ou re-lier pour générer un nouveau token.");
+                }
+
+                ImGui.Spacing();
+                var label = existing != null ? "Re-lier ce personnage" : "Lier ce personnage";
+                if (UiPrimitives.ColorButton(label, new Vector2(-1, 0),
+                    UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive))
+                {
+                    _initialCount = _config.CharacterTokens.Count;
+                    _ = Plugin.StartCharacterLinkAsync();
+                }
+            }
         }
 
         ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
 
-        var canSave = !string.IsNullOrWhiteSpace(_tokenBuf);
-        if (!canSave) ImGui.BeginDisabled();
-        if (UiPrimitives.ColorButton(l.Save, UiStyle.MediumButton,
-            UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive))
+        if (_isMigration)
         {
-            var trimmed = _tokenBuf.Trim();
-            if (!trimmed.StartsWith("ee_"))
+            if (ImGui.Button("Ignorer pour l'instant##migskip", UiStyle.SmallButton))
             {
-                _error = l.SetupErrPrefix;
-            }
-            else
-            {
-                _config.ApiToken = trimmed;
+                _config.MigrationNoticeSeen = true;
                 _config.Save();
-                Plugin.RebuildApiClient();
-                _tokenInvalid = false;
-                _step  = 2;
-                _error = string.Empty;
+                IsOpen = false;
+                Plugin.OpenMain();
             }
         }
-        if (!canSave) ImGui.EndDisabled();
-        ImGui.SameLine();
-        if (ImGui.Button(l.SetupSkip, UiStyle.SmallButton))
+        else
         {
-            IsOpen = false;
-            Plugin.OpenMain();
+            if (ImGui.Button(l.SetupSkip, UiStyle.SmallButton))
+            {
+                IsOpen = false;
+                Plugin.OpenMain();
+            }
         }
-
-        ImGui.EndTable();
     }
 
     // ─── Étape 2 : Terminé ────────────────────────────────────────────────────
@@ -187,6 +244,13 @@ public class SetupWindow : Window
     {
         var l = Plugin.L;
         DrawBanner();
+
+        // Si on vient d'une migration, marquer comme vu dès que le link est réussi.
+        if (_isMigration && !_config.MigrationNoticeSeen)
+        {
+            _config.MigrationNoticeSeen = true;
+            _config.Save();
+        }
 
         UiPrimitives.DrawCard(() =>
         {

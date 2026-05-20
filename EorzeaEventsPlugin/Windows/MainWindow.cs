@@ -372,13 +372,27 @@ public class MainWindow : Window
         ImGui.PopTextWrapPos();
         ImGui.Spacing();
 
-        // Toggle disponibilité
-        var available = Plugin.Config.RpAvailabilityActive;
-        if (ImGui.Checkbox(l.RpAvailableEnable + "##rpavailabletoggle", ref available))
+        // Toggle disponibilité — désactivé si le perso actuel n'est pas lié
+        var player     = Plugin.ObjectTable.LocalPlayer;
+        var charLinked = player != null
+            && Plugin.Config.FindCharacterToken(player.Name.TextValue, (int)player.HomeWorld.RowId) != null;
+
+        if (!charLinked)
         {
-            // On est sur le framework thread ici (draw ImGui)
-            if (available) Plugin.ActivateRpAvailability();
-            else           _ = Task.Run(Plugin.ClearRpAvailabilityAsync);
+            ImGui.TextColored(new Vector4(1f, 0.6f, 0.2f, 1f), l.RpAvailableNoToken);
+            ImGui.Spacing();
+            if (ImGui.Button("Lier ce personnage##linkfromrp", Vector2.Zero))
+                Plugin.OpenSetup(migration: Plugin.Config.CharacterTokens.Count == 0
+                    && !string.IsNullOrWhiteSpace(Plugin.Config.ApiToken));
+        }
+        else
+        {
+            var available = Plugin.Config.RpAvailabilityActive;
+            if (ImGui.Checkbox(l.RpAvailableEnable + "##rpavailabletoggle", ref available))
+            {
+                if (available) Plugin.ActivateRpAvailability();
+                else           _ = Task.Run(Plugin.ClearRpAvailabilityAsync);
+            }
         }
 
         ImGui.Spacing();

@@ -132,7 +132,7 @@ public class MySessionWindow : Window
     private void StartSession()
     {
         var l = Plugin.L;
-        if (string.IsNullOrWhiteSpace(Plugin.Config.ApiToken)) { ShowError(l.ErrTokenMissing); return; }
+        if (!Plugin.Api.HasToken) { ShowError(l.ErrTokenMissing); return; }
         var pos      = GetCurrentPosition();
         var housing  = GetCurrentHousing();
         var (terId, mapId) = GetCurrentTerritoryMap();
@@ -340,9 +340,9 @@ public class MySessionWindow : Window
         var l = Plugin.L;
         WindowName = l.MySessionTitle + "##mysession";
 
-        if (string.IsNullOrWhiteSpace(_config.ApiToken) || !Plugin.Api.IsTokenValid)
+        if (!Plugin.Api.HasToken || !Plugin.Api.IsTokenValid)
         {
-            var tokenMissing = string.IsNullOrWhiteSpace(_config.ApiToken);
+            var tokenMissing = !Plugin.Api.HasToken;
             ImGui.Spacing();
             ImGui.TextColored(new Vector4(1, 0.6f, 0, 1),
                 tokenMissing ? l.ErrTokenMissing : "⚠  " + l.TokenInvalidLine1);

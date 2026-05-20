@@ -131,14 +131,15 @@ internal sealed class Loc
     public required string BtnStop                    { get; init; }
 
     // ── Setup window ──────────────────────────────────────────────────────────
-    public required string SetupWelcomeL1       { get; init; }
-    public required string SetupWelcomeL2       { get; init; }
-    public required string SetupWelcomeL3       { get; init; }
-    public required string SetupStart           { get; init; }
-    public required string SetupStepTitle       { get; init; }
-    public required string SetupStepDesc        { get; init; }
-    public required string SetupOpenDashboard   { get; init; }
-    public required string SetupTokenLabel      { get; init; }
+    public required string SetupWelcomeL1        { get; init; }
+    public required string SetupWelcomeL2        { get; init; }
+    public required string SetupWelcomeL3        { get; init; }
+    public required string SetupStart            { get; init; }
+    public required string SetupStepTitle        { get; init; }
+    public required string SetupStepDesc         { get; init; }
+    public required string SetupMigrationTitle   { get; init; }
+    public required string SetupMigrationDesc    { get; init; }
+    public required string SetupTokenLabel       { get; init; }
     public required string SetupTokenInvalid    { get; init; }
     public required string SetupErrPrefix       { get; init; }
     public required string SetupSkip            { get; init; }
@@ -396,19 +397,20 @@ internal sealed class Loc
 
         SetupWelcomeL1     = "Ce plugin fonctionne de pair avec le site",
         SetupWelcomeL2     = "Il vous permet de gérer vos sessions de RP ouvert directement depuis FFXIV, sans quitter le jeu.",
-        SetupWelcomeL3     = "La configuration ne prend que quelques secondes.",
-        SetupStart         = "Commencer",
-        SetupStepTitle     = "Étape 1 / 1 — Token API",
-        SetupStepDesc      = "Générez un token API depuis votre profil, puis collez-le ici.",
-        SetupOpenDashboard = "Ouvrir le profil eorzea.events",
-        SetupTokenLabel    = "Token API :",
-        SetupTokenInvalid  = "Ton token API est expiré ou invalide.\nGénère-en un nouveau depuis ton profil pour continuer.",
-        SetupErrPrefix     = "Le token doit commencer par « ee_ ».",
+        SetupWelcomeL3     = "Le couplage prend quelques secondes : il vous suffira de confirmer dans votre navigateur.",
+        SetupStart            = "Commencer",
+        SetupStepTitle        = "Étape 1 / 1 — Lier votre personnage",
+        SetupStepDesc         = "Connectez-vous in-game sur le personnage à lier. Le plugin va lire son nom et son monde via Dalamud, puis ouvrir une page de confirmation dans votre navigateur. Cliquez « Confirmer » sur cette page et le couplage se fera automatiquement.",
+        SetupMigrationTitle   = "Nouveau : tokens par personnage",
+        SetupMigrationDesc    = "Le plugin supporte maintenant un token distinct par personnage. Liez votre personnage actuel pour en profiter. Votre ancien token continue de fonctionner en attendant.",
+        SetupTokenLabel       = "Personnage détecté :",
+        SetupTokenInvalid  = "Le lien avec ce personnage a expiré ou été révoqué.\nRelancez le couplage pour continuer.",
+        SetupErrPrefix     = "Aucun personnage n'est connecté in-game pour le moment.",
         SetupSkip          = "Passer",
-        SetupDoneTitle     = "Tout est prêt !",
-        SetupDoneL1        = "Votre token est enregistré. Vous pouvez maintenant créer",
+        SetupDoneTitle     = "Personnage lié !",
+        SetupDoneL1        = "Votre personnage est lié. Vous pouvez maintenant créer",
         SetupDoneL2        = "des sessions RP directement depuis le jeu.",
-        SetupDoneHint      = "Utilisez /eorzea pour ouvrir le panneau principal.",
+        SetupDoneHint      = "Tapez /eorzea pour ouvrir le panneau, /eorzea link pour lier d'autres personnages.",
         SetupOpenPlugin    = "Ouvrir Eorzea Events",
 
         CfgTokenLabel       = "Token API :",
@@ -475,7 +477,7 @@ internal sealed class Loc
         RpAvailableDur60        = "1h",
         RpAvailableDur120       = "2h",
         RpAvailableActiveStatus = "♦  Disponible pour du RP",
-        RpAvailableNoToken      = "Token API requis pour activer la disponibilité.",
+        RpAvailableNoToken      = "Liez ce personnage pour activer la disponibilité RP.",
         RpProfileSetup          = "Configurer mon profil RP",
         RpProfileWizardTitle    = "Mon profil RP",
         RpProfileWizardIntro    = "Quelques questions rapides pour que les autres joueurs sachent à quoi s'attendre avant de t'approcher.",
@@ -648,19 +650,20 @@ internal sealed class Loc
 
         SetupWelcomeL1     = "This plugin works alongside the website",
         SetupWelcomeL2     = "It lets you manage your open RP sessions directly from FFXIV, without leaving the game.",
-        SetupWelcomeL3     = "Setup only takes a few seconds.",
-        SetupStart         = "Get started",
-        SetupStepTitle     = "Step 1 / 1 — API Token",
-        SetupStepDesc      = "Generate an API token from your profile, then paste it here.",
-        SetupOpenDashboard = "Open eorzea.events profile",
-        SetupTokenLabel    = "API Token:",
-        SetupTokenInvalid  = "Your API token is expired or invalid.\nGenerate a new one from your profile to continue.",
-        SetupErrPrefix     = "Token must start with \"ee_\".",
+        SetupWelcomeL3     = "Linking takes a few seconds: just confirm in your browser.",
+        SetupStart            = "Get started",
+        SetupStepTitle        = "Step 1 / 1 — Link your character",
+        SetupStepDesc         = "Log in-game on the character you want to link. The plugin reads its name and world via Dalamud, then opens a confirmation page in your browser. Click \"Confirm\" on that page and the link completes automatically.",
+        SetupMigrationTitle   = "New: per-character tokens",
+        SetupMigrationDesc    = "The plugin now supports one token per character. Link your current character to use it. Your legacy token keeps working in the meantime.",
+        SetupTokenLabel       = "Detected character:",
+        SetupTokenInvalid  = "The link with this character has expired or was revoked.\nStart the linking process again to continue.",
+        SetupErrPrefix     = "No character is currently logged in-game.",
         SetupSkip          = "Skip",
-        SetupDoneTitle     = "All set!",
-        SetupDoneL1        = "Your token is saved. You can now create",
+        SetupDoneTitle     = "Character linked!",
+        SetupDoneL1        = "Your character is linked. You can now create",
         SetupDoneL2        = "RP sessions directly from the game.",
-        SetupDoneHint      = "Use /eorzea to open the main panel.",
+        SetupDoneHint      = "Type /eorzea to open the panel, /eorzea link to link more characters.",
         SetupOpenPlugin    = "Open Eorzea Events",
 
         CfgTokenLabel       = "API Token:",
@@ -727,7 +730,7 @@ internal sealed class Loc
         RpAvailableDur60        = "1h",
         RpAvailableDur120       = "2h",
         RpAvailableActiveStatus = "♦  Available for RP",
-        RpAvailableNoToken      = "An API token is required to enable availability.",
+        RpAvailableNoToken      = "Link this character to enable RP availability.",
         RpProfileSetup          = "Set up my RP profile",
         RpProfileWizardTitle    = "My RP Profile",
         RpProfileWizardIntro    = "A few quick questions so other players know what to expect before approaching you.",

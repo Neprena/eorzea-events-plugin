@@ -160,7 +160,7 @@ public sealed class Plugin : IDalamudPlugin
 
         CommandManager.AddHandler(CommandMain, new CommandInfo(OnCommand)
         {
-            HelpMessage = "Ouvre le panneau Eorzea Events. Utilisez /eorzea config pour configurer.",
+            HelpMessage = "Ouvre le panneau. /eorzea config = paramètres. /eorzea link = lier le personnage actuel.",
         });
 
         PluginInterface.UiBuilder.Draw         += _windowSystem.Draw;
@@ -231,8 +231,15 @@ public sealed class Plugin : IDalamudPlugin
         }
 #endif
 
-        if (string.IsNullOrWhiteSpace(Config.ApiToken))
+        // Ouvre l'assistant de configuration uniquement si AUCUN moyen d'auth n'est
+        // disponible : ni token legacy, ni token de personnage.
+        if (string.IsNullOrWhiteSpace(Config.ApiToken) && Config.CharacterTokens.Count == 0)
             OpenSetup();
+        // Migration one-shot : invite les utilisateurs legacy à lier un personnage.
+        else if (!string.IsNullOrWhiteSpace(Config.ApiToken)
+            && Config.CharacterTokens.Count == 0
+            && !Config.MigrationNoticeSeen)
+            _setupWindow?.Restart(migration: true);
 
         if (!string.IsNullOrWhiteSpace(Config.ActiveSessionId))
             RestoreSession();
@@ -258,8 +265,11 @@ public sealed class Plugin : IDalamudPlugin
 
     private void OnCommand(string command, string args)
     {
-        if (args.Trim().Equals("config", StringComparison.OrdinalIgnoreCase))
+        var trimmed = args.Trim();
+        if (trimmed.Equals("config", StringComparison.OrdinalIgnoreCase))
             OpenConfig();
+        else if (trimmed.Equals("link", StringComparison.OrdinalIgnoreCase))
+            _ = StartCharacterLinkAsync();
         else
             OpenMain();
     }
@@ -298,7 +308,7 @@ public sealed class Plugin : IDalamudPlugin
         _rpProfileWindow?.OpenViewer(entry);
     }
 
-    internal static void OpenSetup(bool tokenInvalid = false)
+    internal static void OpenSetup(bool tokenInvalid = false, bool migration = false)
     {
         if (IsBlocked)
         {
@@ -309,7 +319,7 @@ public sealed class Plugin : IDalamudPlugin
         if (_mainWindow    != null) _mainWindow.IsOpen    = false;
         if (_sessionWindow != null) _sessionWindow.IsOpen = false;
         if (_configWindow  != null) _configWindow.IsOpen  = false;
-        _setupWindow?.Restart(tokenInvalid);
+        _setupWindow?.Restart(tokenInvalid, migration);
     }
     internal static bool HasActiveSession => _sessionWindow?.HasActiveSession ?? false;
 
@@ -352,6 +362,234 @@ public sealed class Plugin : IDalamudPlugin
     {
         Api.Dispose();
         Api = new ApiClient(Config.BaseUrl, Config.ApiToken);
+        _lastTokenAppliedKey = null; // force la ré-application après reconstruction
+    }
+
+    // ─── Sélection auto du token selon le perso connecté ────────────────────
+
+    /// <summary>
+    /// Clé du dernier token appliqué au client API. Permet d'éviter de re-set
+    /// le token à chaque framework update si le perso n'a pas changé.
+    /// Format : "{characterName}@{worldId}" ou "legacy" ou "none".
+    /// </summary>
+    private static string? _lastTokenAppliedKey;
+
+    /// <summary>
+    /// Synchronise le token utilisé par <see cref="Api"/> avec le perso actuellement
+    /// connecté in-game. À appeler depuis le framework thread (lit ObjectTable).
+    /// Sélectionne :
+    ///  - le CharacterApiToken si lié à (name, worldId),
+    ///  - sinon, le token legacy (Config.ApiToken),
+    ///  - sinon, aucun token.
+    /// </summary>
+    private static void EnsureTokenForActivePlayer()
+    {
+        string key;
+        string tokenToApply;
+        var player = ObjectTable.LocalPlayer;
+        if (player != null)
+        {
+            var name = player.Name.TextValue;
+            var worldId = (int)player.HomeWorld.RowId;
+            var entry = Config.FindCharacterToken(name, worldId);
+            if (entry != null && !string.IsNullOrWhiteSpace(entry.Token))
+            {
+                key = $"{name}@{worldId}";
+                tokenToApply = entry.Token;
+            }
+            else if (!string.IsNullOrWhiteSpace(Config.ApiToken))
+            {
+                key = "legacy";
+                tokenToApply = Config.ApiToken;
+            }
+            else
+            {
+                key = "none";
+                tokenToApply = string.Empty;
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(Config.ApiToken))
+        {
+            key = "legacy";
+            tokenToApply = Config.ApiToken;
+        }
+        else
+        {
+            key = "none";
+            tokenToApply = string.Empty;
+        }
+
+        if (key == _lastTokenAppliedKey) return;
+        _lastTokenAppliedKey = key;
+        Api.SetToken(string.IsNullOrEmpty(tokenToApply) ? null : tokenToApply);
+        Log.Debug($"[EorzeaEvents] Token API basculé sur '{key}'.");
+    }
+
+    // ─── Workflow de couplage d'un personnage (web-link) ────────────────────
+
+    /// <summary>
+    /// État courant d'une session de couplage en cours (lue par l'UI ConfigWindow).
+    /// </summary>
+    internal sealed class CharacterLinkState
+    {
+        public string CharacterName { get; init; } = string.Empty;
+        public int    WorldId       { get; init; }
+        public string WorldName     { get; init; } = string.Empty;
+        public string LinkUrl       { get; init; } = string.Empty;
+        public DateTime ExpiresAt   { get; init; }
+        public string Status        { get; set; } = "pending"; // pending | bound | expired | error
+        public string? ErrorMessage { get; set; }
+    }
+
+    internal static CharacterLinkState? ActiveLinkState { get; private set; }
+
+    /// <summary>
+    /// Démarre le couplage du perso actuellement connecté. Le secret est généré
+    /// localement et hashé pour le serveur. L'URL de confirmation est ouverte
+    /// dans le navigateur et le plugin poll en arrière-plan jusqu'à obtenir
+    /// le token, puis le sauvegarde dans la config.
+    /// </summary>
+    internal static async Task StartCharacterLinkAsync()
+    {
+        // Lit les données du perso sur le framework thread.
+        var (name, worldId, worldName) = await Framework.RunOnFrameworkThread(() =>
+        {
+            var p = ObjectTable.LocalPlayer;
+            if (p == null) return (string.Empty, 0, string.Empty);
+            return (p.Name.TextValue, (int)p.HomeWorld.RowId, p.HomeWorld.Value.Name.ToString());
+        });
+
+        if (string.IsNullOrWhiteSpace(name) || worldId <= 0)
+        {
+            ChatGui.PrintError("[Eorzea Events] Aucun personnage connecté. Connectez-vous in-game et réessayez.");
+            return;
+        }
+
+        // Génère un secret cryptographiquement aléatoire (32 bytes) + son hash SHA256.
+        var secretBytes = new byte[32];
+        System.Security.Cryptography.RandomNumberGenerator.Fill(secretBytes);
+        var plainSecret = Convert.ToHexString(secretBytes).ToLowerInvariant();
+        var hashedSecret = Convert.ToHexString(
+            System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.ASCII.GetBytes(plainSecret))
+        ).ToLowerInvariant();
+
+        var req = new LinkStartRequest
+        {
+            CharacterName = name,
+            WorldId       = worldId,
+            WorldName     = worldName,
+            HashedSecret  = hashedSecret,
+        };
+
+        var resp = await Api.StartLinkAsync(req);
+        if (resp == null)
+        {
+            ChatGui.PrintError("[Eorzea Events] Impossible de démarrer le couplage (le serveur a refusé la requête).");
+            return;
+        }
+
+        DateTime expiresAt;
+        if (!DateTime.TryParse(resp.ExpiresAt, null,
+                System.Globalization.DateTimeStyles.RoundtripKind, out expiresAt))
+            expiresAt = DateTime.UtcNow.AddMinutes(10);
+
+        // On construit l'URL de confirmation localement à partir du BaseUrl configuré
+        // (dev/prod selon Config.BaseUrl). On ignore resp.LinkUrl qui dépend des
+        // variables d'environnement côté serveur et peut pointer ailleurs.
+        var linkUrl = Config.BaseUrl.TrimEnd('/') + "/plugin/link/" + resp.SessionId;
+
+        ActiveLinkState = new CharacterLinkState
+        {
+            CharacterName = name,
+            WorldId       = worldId,
+            WorldName     = worldName,
+            LinkUrl       = linkUrl,
+            ExpiresAt     = expiresAt,
+            Status        = "pending",
+        };
+
+        // Ouvre la page de confirmation dans le navigateur de l'utilisateur.
+        try { Dalamud.Utility.Util.OpenLink(linkUrl); }
+        catch (Exception ex) { Log.Warning(ex, "[EorzeaEvents] OpenLink échoué — l'utilisateur devra copier l'URL manuellement."); }
+
+        ChatGui.Print(new SeStringBuilder()
+            .AddUiForeground(45) // bleu
+            .AddText("[Eorzea Events] ")
+            .AddUiForegroundOff()
+            .AddText($"Ouverture de la page de confirmation pour {name}@{worldName}. Validez dans votre navigateur.")
+            .Build());
+
+        // Poll en arrière-plan : 5 s d'intervalle pendant max 10 min.
+        const int maxAttempts = 600 / 5;
+        var consecutiveErrors = 0;
+        for (var i = 0; i < maxAttempts; i++)
+        {
+            if (DateTime.UtcNow >= expiresAt)
+            {
+                ActiveLinkState.Status = "expired";
+                ChatGui.PrintError("[Eorzea Events] Session de couplage expirée.");
+                return;
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(5));
+            var (result, payload) = await Api.PollLinkAsync(resp.SessionId, plainSecret);
+            if (result == LinkPollResult.Pending)
+            {
+                consecutiveErrors = 0;
+                continue;
+            }
+            if (result == LinkPollResult.Error)
+            {
+                consecutiveErrors++;
+                Log.Warning($"[EorzeaEvents] Poll link erreur #{consecutiveErrors} (sessionId={resp.SessionId[..8]}…)");
+                if (consecutiveErrors >= 3)
+                    ActiveLinkState.ErrorMessage = "Erreur de communication avec le serveur";
+                continue;
+            }
+            if (result == LinkPollResult.Bound && !string.IsNullOrWhiteSpace(payload?.Token))
+            {
+                // On a le token — on le sauvegarde dans la config.
+                var existing = Config.FindCharacterToken(name, worldId);
+                if (existing != null)
+                {
+                    existing.Token = payload.Token!;
+                    existing.WorldName = worldName;
+                    existing.LinkedAt = DateTime.UtcNow;
+                }
+                else
+                {
+                    Config.CharacterTokens.Add(new CharacterTokenEntry
+                    {
+                        CharacterName = name,
+                        WorldId       = worldId,
+                        WorldName     = worldName,
+                        Token         = payload.Token!,
+                        LinkedAt      = DateTime.UtcNow,
+                    });
+                }
+                Config.Save();
+                _lastTokenAppliedKey = null; // force re-sélection au prochain tick
+
+                ActiveLinkState.Status = "bound";
+                ChatGui.Print(new SeStringBuilder()
+                    .AddUiForeground(43) // vert
+                    .AddText("[Eorzea Events] ")
+                    .AddUiForegroundOff()
+                    .AddText($"Personnage {name}@{worldName} lié avec succès.")
+                    .Build());
+                return;
+            }
+            if (result == LinkPollResult.Expired)
+            {
+                ActiveLinkState.Status = "expired";
+                ChatGui.PrintError("[Eorzea Events] Session de couplage expirée ou déjà utilisée.");
+                return;
+            }
+            // result == Error → on retente au prochain tick
+        }
+
+        ActiveLinkState.Status = "expired";
+        ChatGui.PrintError("[Eorzea Events] Délai dépassé sans confirmation.");
     }
 
     // ─── DTR helpers ─────────────────────────────────────────────────────────────
@@ -415,8 +653,13 @@ public sealed class Plugin : IDalamudPlugin
             Task.Run(async () => await CheckOngoingEventsAsync());
         }
 
-        // Heartbeat (60 s) — seulement si token configuré
-        if (!string.IsNullOrWhiteSpace(Config.ApiToken)
+        // Maintient le token Bearer en phase avec le perso connecté in-game.
+        // (lit ObjectTable, donc doit rester sur le framework thread)
+        EnsureTokenForActivePlayer();
+
+        // Heartbeat (60 s) — déclenché dès qu'on a au moins un token (legacy OU perso)
+        var hasAnyToken = !string.IsNullOrWhiteSpace(Config.ApiToken) || Config.CharacterTokens.Count > 0;
+        if (hasAnyToken
             && (now - _lastHeartbeat).TotalSeconds >= HeartbeatIntervalSeconds)
         {
             _lastHeartbeat = now;
@@ -441,8 +684,8 @@ public sealed class Plugin : IDalamudPlugin
         if (_tokenInvalidNotified && Api.IsTokenValid)
             _tokenInvalidNotified = false;
 
-        // Sessions de l'utilisateur courant (30 s) — seulement si token configuré
-        if (!string.IsNullOrWhiteSpace(Config.ApiToken)
+        // Sessions de l'utilisateur courant (30 s) — déclenché dès qu'on a un token quelconque
+        if (hasAnyToken
             && (now - _lastMySessionsCheck).TotalSeconds >= MySessionsIntervalSeconds)
         {
             _lastMySessionsCheck = now;

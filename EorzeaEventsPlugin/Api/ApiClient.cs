@@ -143,6 +143,47 @@ public class SaveRpProfileRequest
     [JsonPropertyName("themes")]        public string[] Themes        { get; set; } = [];
 }
 
+// ─── Workflow de couplage plugin ↔ compte (web-link) ─────────────────────────
+
+public class LinkStartRequest
+{
+    [JsonPropertyName("characterName")] public string CharacterName { get; set; } = string.Empty;
+    [JsonPropertyName("worldId")]       public int    WorldId       { get; set; }
+    [JsonPropertyName("worldName")]     public string WorldName     { get; set; } = string.Empty;
+    [JsonPropertyName("hashedSecret")]  public string HashedSecret  { get; set; } = string.Empty;
+}
+
+public class LinkStartResponse
+{
+    [JsonPropertyName("sessionId")] public string SessionId { get; set; } = string.Empty;
+    [JsonPropertyName("linkUrl")]   public string LinkUrl   { get; set; } = string.Empty;
+    [JsonPropertyName("pollUrl")]   public string PollUrl   { get; set; } = string.Empty;
+    [JsonPropertyName("expiresAt")] public string ExpiresAt { get; set; } = string.Empty;
+}
+
+public class LinkPollCharacterDto
+{
+    [JsonPropertyName("name")]      public string Name      { get; set; } = string.Empty;
+    [JsonPropertyName("worldId")]   public int    WorldId   { get; set; }
+    [JsonPropertyName("worldName")] public string WorldName { get; set; } = string.Empty;
+}
+
+public class LinkPollResponse
+{
+    [JsonPropertyName("status")]    public string  Status    { get; set; } = string.Empty; // pending | bound
+    [JsonPropertyName("token")]     public string? Token     { get; set; }
+    [JsonPropertyName("character")] public LinkPollCharacterDto? Character { get; set; }
+}
+
+/// <summary>Résultat synthétique d'un poll, observable par l'UI du plugin.</summary>
+public enum LinkPollResult
+{
+    Pending,
+    Bound,
+    Expired,
+    Error,
+}
+
 // ─── Request bodies ───────────────────────────────────────────────────────────
 
 public class CreateSessionRequest
@@ -200,6 +241,13 @@ public class ApiClient : IDisposable
     /// </summary>
     public bool IsTokenValid { get; private set; } = true;
 
+    /// <summary>
+    /// Le serveur a indiqué via le header X-Token-Deprecated que le token utilisé
+    /// est un ancien token de compte (ee_*) — l'utilisateur devrait migrer vers
+    /// un token de personnage (ec_*) via le workflow de couplage.
+    /// </summary>
+    public bool IsTokenDeprecated { get; private set; } = false;
+
     public bool HasToken => _http.DefaultRequestHeaders.Authorization != null;
 
     public ApiClient(string baseUrl, string? token = null)
@@ -207,11 +255,51 @@ public class ApiClient : IDisposable
         var baseUri = new Uri(baseUrl.TrimEnd('/') + "/");
         _publicHttp = new HttpClient { BaseAddress = baseUri };
         _http       = new HttpClient { BaseAddress = baseUri };
-        if (!string.IsNullOrWhiteSpace(token))
-            _http.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", token);
+        SetToken(token);
     }
 
+    /// <summary>
+    /// Remplace le token Bearer utilisé pour les requêtes authentifiées.
+    /// Vide ou null → désactive l'auth. Reset l'état IsTokenValid / IsTokenDeprecated.
+    /// </summary>
+    public void SetToken(string? token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            _http.DefaultRequestHeaders.Authorization = null;
+        }
+        else
+        {
+            _http.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", token);
+        }
+        IsTokenValid = true;
+        IsTokenDeprecated = false;
+    }
+
+    private void HandleAuthResponse(HttpResponseMessage res)
+    {
+        var status = res.StatusCode;
+        if (status == System.Net.HttpStatusCode.Unauthorized)
+            IsTokenValid = false;
+        else if ((int)status < 500)
+            IsTokenValid = true;
+
+        // Avertissement legacy : le serveur signale que ce token doit être migré.
+        if (res.Headers.TryGetValues("X-Token-Deprecated", out var values))
+        {
+            foreach (var v in values)
+            {
+                if (string.Equals(v, "true", StringComparison.OrdinalIgnoreCase))
+                {
+                    IsTokenDeprecated = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    // Backward-compat : ancienne signature acceptant juste le code de statut.
     private void HandleAuthResponse(System.Net.HttpStatusCode status)
     {
         if (status == System.Net.HttpStatusCode.Unauthorized)
@@ -338,9 +426,53 @@ public class ApiClient : IDisposable
         {
             var body = new { version, territoryId, worldName, ward, plot, room };
             var res  = await _http.PostAsJsonAsync("api/plugin/heartbeat", body, JsonOptions, ct);
-            HandleAuthResponse(res.StatusCode);
+            HandleAuthResponse(res); // capture aussi X-Token-Deprecated
         }
         catch { /* silencieux */ }
+    }
+
+    // ─── Workflow de couplage (web-link à la SnowCloak/Mare) ─────────────────
+
+    /// <summary>
+    /// Démarre une session de couplage côté serveur. Le plugin doit générer un
+    /// secret aléatoire local (32 bytes), passer ici son SHA256 hex, et garder le
+    /// secret clair pour le poll. L'utilisateur ouvre ensuite LinkUrl dans son
+    /// navigateur, confirme via NextAuth, puis le plugin poll PollUrl avec le
+    /// secret clair pour récupérer le token de personnage.
+    /// </summary>
+    public async Task<LinkStartResponse?> StartLinkAsync(LinkStartRequest req, CancellationToken ct = default)
+    {
+        try
+        {
+            var res = await _publicHttp.PostAsJsonAsync("api/plugin/link/start", req, JsonOptions, ct);
+            if (!res.IsSuccessStatusCode) return null;
+            return await res.Content.ReadFromJsonAsync<LinkStartResponse>(JsonOptions, ct);
+        }
+        catch { return null; }
+    }
+
+    /// <summary>
+    /// Interroge le serveur sur l'état d'une session de couplage. Le secret clair
+    /// est passé en query pour prouver que le plugin est bien celui qui a démarré
+    /// la session. Retourne Bound + le token quand l'utilisateur a confirmé.
+    /// Le token n'est lisible qu'une seule fois — appeler à nouveau renvoie Expired.
+    /// </summary>
+    public async Task<(LinkPollResult result, LinkPollResponse? payload)> PollLinkAsync(
+        string sessionId, string plainSecret, CancellationToken ct = default)
+    {
+        try
+        {
+            var url = $"api/plugin/link/poll/{Uri.EscapeDataString(sessionId)}?secret={Uri.EscapeDataString(plainSecret)}";
+            var res = await _publicHttp.GetAsync(url, ct);
+            if (res.StatusCode == System.Net.HttpStatusCode.Gone) return (LinkPollResult.Expired, null);
+            if (!res.IsSuccessStatusCode) return (LinkPollResult.Error, null);
+            var payload = await res.Content.ReadFromJsonAsync<LinkPollResponse>(JsonOptions, ct);
+            if (payload == null) return (LinkPollResult.Error, null);
+            return string.Equals(payload.Status, "bound", StringComparison.OrdinalIgnoreCase)
+                ? (LinkPollResult.Bound, payload)
+                : (LinkPollResult.Pending, payload);
+        }
+        catch { return (LinkPollResult.Error, null); }
     }
 
     public async Task<int> GetOnlineCountAsync(CancellationToken ct = default)

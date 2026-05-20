@@ -85,6 +85,10 @@ public class ConfigWindow : Window
             DrawTokenSection(l);
             ImGui.Spacing();
 
+            // Personnages liés + bouton de couplage
+            DrawCharacterTokensSection();
+            ImGui.Spacing();
+
             ImGui.PushTextWrapPos(0);
             DrawRpNotificationSection(l);
             DrawEventNotificationSection(l);
@@ -178,6 +182,93 @@ public class ConfigWindow : Window
             if (UiPrimitives.ColorButton(l.CfgTokenEdit + "##token", UiStyle.SmallButton,
                 UiStyle.SecondaryNormal, UiStyle.SecondaryHovered, UiStyle.SecondaryActive))
                 Plugin.OpenSetup(tokenInvalid: !hasToken || !Plugin.Api.IsTokenValid);
+
+            if (Plugin.Api.IsTokenDeprecated)
+            {
+                ImGui.TextColored(new Vector4(1f, 0.7f, 0.2f, 1f),
+                    "⚠ Token de compte legacy en cours d'utilisation — liez ce personnage pour migrer.");
+            }
+        });
+    }
+
+    private void DrawCharacterTokensSection()
+    {
+        UiPrimitives.DrawCard(() =>
+        {
+            ImGui.TextColored(UiStyle.TextSection, "Personnages liés");
+            ImGui.SameLine(0, 12);
+            ImGui.TextColored(UiStyle.TextSubtle, $"({_config.CharacterTokens.Count})");
+
+            // État d'une session de couplage en cours
+            var link = Plugin.ActiveLinkState;
+            if (link != null && link.Status == "pending" && DateTime.UtcNow < link.ExpiresAt)
+            {
+                ImGui.Spacing();
+                ImGui.TextColored(new Vector4(0.6f, 0.85f, 1f, 1f),
+                    $"Couplage en cours pour {link.CharacterName}@{link.WorldName}…");
+                ImGui.TextColored(UiStyle.TextSubtle,
+                    "Confirmez dans le navigateur. Le plugin récupérera le token automatiquement.");
+                if (ImGui.Button("Rouvrir la page de confirmation##reopen"))
+                {
+                    try { Dalamud.Utility.Util.OpenLink(link.LinkUrl); } catch { /* ignore */ }
+                }
+            }
+
+            ImGui.Spacing();
+
+            // Bouton "Lier ce personnage"
+            var player = Plugin.ObjectTable.LocalPlayer;
+            if (player == null)
+            {
+                ImGui.TextColored(UiStyle.TextSubtle, "Connectez-vous in-game pour lier un personnage.");
+            }
+            else
+            {
+                var name = player.Name.TextValue;
+                var worldId = (int)player.HomeWorld.RowId;
+                var worldName = player.HomeWorld.Value.Name.ToString();
+                var existing = _config.FindCharacterToken(name, worldId);
+                if (existing != null)
+                {
+                    ImGui.TextColored(UiStyle.StatusOpen, $"✓ {name}@{worldName} déjà lié");
+                    ImGui.SameLine(0, 12);
+                    if (ImGui.Button("Re-lier##relink"))
+                        _ = Plugin.StartCharacterLinkAsync();
+                }
+                else
+                {
+                    if (UiPrimitives.ColorButton($"Lier {name}@{worldName}##link",
+                        UiStyle.MediumButton,
+                        UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive))
+                    {
+                        _ = Plugin.StartCharacterLinkAsync();
+                    }
+                }
+            }
+
+            // Liste des persos déjà liés
+            if (_config.CharacterTokens.Count > 0)
+            {
+                ImGui.Spacing();
+                ImGui.Separator();
+                ImGui.Spacing();
+                int? removeIndex = null;
+                for (var i = 0; i < _config.CharacterTokens.Count; i++)
+                {
+                    var c = _config.CharacterTokens[i];
+                    ImGui.TextColored(UiStyle.TextSubtle, "•");
+                    ImGui.SameLine(0, 8);
+                    ImGui.Text($"{c.CharacterName}@{c.WorldName}");
+                    ImGui.SameLine(0, 12);
+                    if (ImGui.SmallButton($"Oublier##{i}"))
+                        removeIndex = i;
+                }
+                if (removeIndex.HasValue)
+                {
+                    _config.CharacterTokens.RemoveAt(removeIndex.Value);
+                    _config.Save();
+                }
+            }
         });
     }
 
@@ -342,6 +433,19 @@ public class ConfigWindow : Window
         if (ImGui.Button("Local dev (3000)##devlocal", UiStyle.MediumButton))
             _baseUrl = "http://localhost:3000";
         ImGui.Unindent();
+        ImGui.Spacing();
+
+        ImGui.Separator();
+        ImGui.Spacing();
+        ImGui.TextColored(new Vector4(1f, 0.5f, 0.3f, 1f), "Wizard migration");
+        ImGui.Spacing();
+        if (ImGui.Button("Simuler migration##devsimmig", UiStyle.MediumButton))
+        {
+            _config.MigrationNoticeSeen = false;
+            _config.CharacterTokens.Clear();
+            _config.Save();
+            Plugin.OpenSetup(migration: true);
+        }
         ImGui.Spacing();
     }
 #endif

@@ -4,19 +4,80 @@ namespace EorzeaEventsPlugin;
 
 public enum PluginLanguage { Auto, French, English }
 
+/// <summary>
+/// Token API lié à un personnage FFXIV spécifique (workflow web-link).
+/// Le token est de la forme `ec_*`. Le plugin sélectionne automatiquement
+/// le bon token selon le perso connecté in-game.
+/// </summary>
+[Serializable]
+public class CharacterTokenEntry
+{
+    public string CharacterName { get; set; } = string.Empty;
+    public int    WorldId       { get; set; }
+    public string WorldName     { get; set; } = string.Empty;
+    public string Token         { get; set; } = string.Empty;
+    public DateTime LinkedAt    { get; set; } = DateTime.UtcNow;
+}
+
 [Serializable]
 public class Configuration : IPluginConfiguration
 {
     public int Version { get; set; } = 2;
 
-    /// <summary>Token API généré depuis le dashboard Eorzea Events.</summary>
+    /// <summary>
+    /// Token API legacy (User.apiToken, préfixe ee_). Conservé pour la transition.
+    /// Sera retiré dans une release future une fois tous les utilisateurs migrés.
+    /// </summary>
     public string ApiToken { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Tokens API par personnage (préfixe ec_). Le plugin sélectionne automatiquement
+    /// l'entrée correspondant au personnage actuellement connecté in-game.
+    /// </summary>
+    public List<CharacterTokenEntry> CharacterTokens { get; set; } = [];
+
+    /// <summary>
+    /// Trouve le token attaché au personnage donné (clé naturelle name+worldId).
+    /// Retourne null si aucun token n'est lié.
+    /// </summary>
+    public CharacterTokenEntry? FindCharacterToken(string characterName, int worldId)
+    {
+        return CharacterTokens.Find(c =>
+            string.Equals(c.CharacterName, characterName, StringComparison.Ordinal)
+            && c.WorldId == worldId);
+    }
+
+    /// <summary>
+    /// Sélectionne le meilleur token disponible pour le perso donné :
+    /// 1. Token de personnage si lié.
+    /// 2. Sinon, token legacy (ApiToken).
+    /// 3. Sinon, chaîne vide.
+    /// </summary>
+    public string ResolveTokenForCharacter(string? characterName, int? worldId)
+    {
+        if (!string.IsNullOrEmpty(characterName) && worldId.HasValue)
+        {
+            var entry = FindCharacterToken(characterName, worldId.Value);
+            if (entry != null && !string.IsNullOrWhiteSpace(entry.Token))
+                return entry.Token;
+        }
+        return ApiToken ?? string.Empty;
+    }
 
     /// <summary>Identifiant anonyme unique généré automatiquement pour les heartbeats de présence.</summary>
     public string ClientId { get; set; } = Guid.NewGuid().ToString();
 
-    /// <summary>URL de base de l'API (sans slash final).</summary>
-    public string BaseUrl { get; set; } = "https://eorzea.events";
+    /// <summary>
+    /// URL de base de l'API (sans slash final).
+    /// La valeur par défaut dépend du build : Release → prod, Debug → localhost.
+    /// Toujours modifiable via Config → Dev section (DEBUG uniquement).
+    /// </summary>
+    public string BaseUrl { get; set; } =
+#if DEBUG
+        "http://localhost:3000";
+#else
+        "https://eorzea.events";
+#endif
 
     /// <summary>ID de la session RP en cours (null si aucune).</summary>
     public string? ActiveSessionId { get; set; }
@@ -76,6 +137,9 @@ public class Configuration : IPluginConfiguration
     public List<string> HiddenEstablishmentIds { get; set; } = [];
 
     // ─── Profil RP ───────────────────────────────────────────────────────────
+
+    /// <summary>True si l'utilisateur a vu ou ignoré le wizard de migration vers les tokens de personnage.</summary>
+    public bool MigrationNoticeSeen { get; set; } = false;
 
     /// <summary>L'annonce de la fonctionnalité "Profil RP & Disponibilité" a été vue.</summary>
     public bool RpAnnouncementSeen { get; set; } = false;

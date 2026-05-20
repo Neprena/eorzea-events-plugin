@@ -139,6 +139,7 @@ internal sealed class Loc
     public required string SetupStepDesc         { get; init; }
     public required string SetupMigrationTitle   { get; init; }
     public required string SetupMigrationDesc    { get; init; }
+    public required string SetupMigrationMore    { get; init; }
     public required string SetupTokenLabel       { get; init; }
     public required string SetupTokenInvalid    { get; init; }
     public required string SetupErrPrefix       { get; init; }
@@ -403,6 +404,7 @@ internal sealed class Loc
         SetupStepDesc         = "Connectez-vous in-game sur le personnage à lier. Le plugin va lire son nom et son monde via Dalamud, puis ouvrir une page de confirmation dans votre navigateur. Cliquez « Confirmer » sur cette page et le couplage se fera automatiquement.",
         SetupMigrationTitle   = "Nouveau : tokens par personnage",
         SetupMigrationDesc    = "Le plugin supporte maintenant un token distinct par personnage. Liez votre personnage actuel pour en profiter. Votre ancien token continue de fonctionner en attendant.",
+        SetupMigrationMore    = "Plus d'infos",
         SetupTokenLabel       = "Personnage détecté :",
         SetupTokenInvalid  = "Le lien avec ce personnage a expiré ou été révoqué.\nRelancez le couplage pour continuer.",
         SetupErrPrefix     = "Aucun personnage n'est connecté in-game pour le moment.",
@@ -656,6 +658,7 @@ internal sealed class Loc
         SetupStepDesc         = "Log in-game on the character you want to link. The plugin reads its name and world via Dalamud, then opens a confirmation page in your browser. Click \"Confirm\" on that page and the link completes automatically.",
         SetupMigrationTitle   = "New: per-character tokens",
         SetupMigrationDesc    = "The plugin now supports one token per character. Link your current character to use it. Your legacy token keeps working in the meantime.",
+        SetupMigrationMore    = "Learn more",
         SetupTokenLabel       = "Detected character:",
         SetupTokenInvalid  = "The link with this character has expired or was revoked.\nStart the linking process again to continue.",
         SetupErrPrefix     = "No character is currently logged in-game.",

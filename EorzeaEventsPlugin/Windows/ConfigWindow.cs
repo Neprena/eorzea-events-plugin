@@ -81,10 +81,6 @@ public class ConfigWindow : Window
         var footerHeight = ImGui.GetFrameHeightWithSpacing() + ImGui.GetStyle().WindowPadding.Y * 2 + 8f;
         if (ImGui.BeginChild("##configscroll", new Vector2(0, -footerHeight), false))
         {
-            // Token — pleine largeur en card compacte
-            DrawTokenSection(l);
-            ImGui.Spacing();
-
             // Personnages liés + bouton de couplage
             DrawCharacterTokensSection();
             ImGui.Spacing();
@@ -165,30 +161,6 @@ public class ConfigWindow : Window
             LoadFromConfig();
             IsOpen = false;
         }
-    }
-
-    private void DrawTokenSection(Loc l)
-    {
-        UiPrimitives.DrawCard(() =>
-        {
-            ImGui.TextColored(UiStyle.TextSection, "API");
-            ImGui.SameLine(0, 12);
-            var hasToken = !string.IsNullOrWhiteSpace(_config.ApiToken);
-            if (hasToken)
-                ImGui.TextColored(UiStyle.StatusOpen, l.CfgTokenOk + " ✓");
-            else
-                ImGui.TextColored(new Vector4(1f, 0.4f, 0.4f, 1f), l.CfgTokenMissing);
-            ImGui.SameLine(0, 12);
-            if (UiPrimitives.ColorButton(l.CfgTokenEdit + "##token", UiStyle.SmallButton,
-                UiStyle.SecondaryNormal, UiStyle.SecondaryHovered, UiStyle.SecondaryActive))
-                Plugin.OpenSetup(tokenInvalid: !hasToken || !Plugin.Api.IsTokenValid);
-
-            if (Plugin.Api.IsTokenDeprecated)
-            {
-                ImGui.TextColored(new Vector4(1f, 0.7f, 0.2f, 1f),
-                    "⚠ Token de compte legacy en cours d'utilisation — liez ce personnage pour migrer.");
-            }
-        });
     }
 
     private void DrawCharacterTokensSection()

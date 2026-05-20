@@ -114,7 +114,11 @@ public class SetupWindow : Window
         // Bannières contextuelles (au plus une à la fois)
         if (_isMigration)
             UiPrimitives.DrawAlert(new Vector4(0.3f, 0.7f, 1f, 1f),
-                "✦  " + l.SetupMigrationTitle, l.SetupMigrationDesc, () => { });
+                "✦  " + l.SetupMigrationTitle, l.SetupMigrationDesc, () =>
+                {
+                    if (ImGui.SmallButton(l.SetupMigrationMore + "##moreinfo"))
+                        OpenUrl(_config.BaseUrl.TrimEnd('/') + "/plugin/character-tokens");
+                });
         else if (_tokenInvalid)
             UiPrimitives.DrawAlert(new Vector4(1f, 0.7f, 0.2f, 1f),
                 "⚠  " + l.SetupTokenInvalid, string.Empty, () => { });

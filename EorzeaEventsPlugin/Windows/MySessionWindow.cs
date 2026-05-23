@@ -56,11 +56,18 @@ public class MySessionWindow : Window
     private string GetCurrentWorld()
         => Plugin.ObjectTable.LocalPlayer?.CurrentWorld.Value.Name.ToString() ?? Plugin.L.WorldUnknown;
 
-    private string GetCurrentZone()
+    private unsafe string GetCurrentZone()
     {
         var sheet = Plugin.DataManager.GetExcelSheet<TerritoryType>();
         if (sheet == null) return Plugin.L.ZoneUnknown;
-        var row = sheet.GetRowOrDefault(Plugin.ClientState.TerritoryType);
+        var terType = Plugin.ClientState.TerritoryType;
+        var hm = HousingManager.Instance();
+        if (hm != null && hm->GetCurrentWard() >= 0)
+        {
+            var orig = HousingManager.GetOriginalHouseTerritoryTypeId();
+            if (orig != 0) terType = orig;
+        }
+        var row = sheet.GetRowOrDefault(terType);
         return row?.PlaceName.Value.Name.ToString() ?? Plugin.L.ZoneUnknown;
     }
 

@@ -129,6 +129,9 @@ internal sealed class Loc
     public required string AlertExpiryTitle           { get; init; }
     public required string AlertExpiryDesc            { get; init; }   // {0} = minutes
     public required string BtnStop                    { get; init; }
+    public required string AlertActiveEventTitle      { get; init; }
+    public required string AlertActiveEventDesc       { get; init; }   // {0} = eventTitle, {1} = estabName
+    public required string BtnCreateAnyway            { get; init; }
 
     // ── Setup window ──────────────────────────────────────────────────────────
     public required string SetupWelcomeL1        { get; init; }
@@ -395,6 +398,9 @@ internal sealed class Loc
         AlertExpiryTitle      = "⏱  Session bientôt expirée",
         AlertExpiryDesc       = "Votre session RP expire dans {0} minute(s). Souhaitez-vous la prolonger ?",
         BtnStop               = "Arrêter",
+        AlertActiveEventTitle = "⚠  Événement en cours ici",
+        AlertActiveEventDesc  = "« {0} » est déjà en cours chez {1}. Les participants reçoivent des notifications automatiques. Le RP ouvert est pour les sessions spontanées sans événement planifié.",
+        BtnCreateAnyway       = "Créer quand même",
 
         SetupWelcomeL1     = "Ce plugin fonctionne de pair avec le site",
         SetupWelcomeL2     = "Il vous permet de gérer vos sessions de RP ouvert directement depuis FFXIV, sans quitter le jeu.",
@@ -649,6 +655,9 @@ internal sealed class Loc
         AlertExpiryTitle      = "⏱  Session expiring soon",
         AlertExpiryDesc       = "Your RP session expires in {0} minute(s). Do you want to extend it?",
         BtnStop               = "Stop",
+        AlertActiveEventTitle = "⚠  Event in progress here",
+        AlertActiveEventDesc  = "\"{0}\" is running at {1}. Attendees receive automatic notifications. Open RP is for spontaneous sessions without a scheduled event.",
+        BtnCreateAnyway       = "Create anyway",
 
         SetupWelcomeL1     = "This plugin works alongside the website",
         SetupWelcomeL2     = "It lets you manage your open RP sessions directly from FFXIV, without leaving the game.",

@@ -31,6 +31,10 @@ public class MySessionWindow : Window
     private bool _pendingExpiryPrompt       = false;
     private bool _expiryDismissed           = false;
 
+    private bool   _pendingActiveEventWarning = false;
+    private string _conflictEstabName         = string.Empty;
+    private string _conflictEventTitle        = string.Empty;
+
     private DateTime _lastSessionCheck = DateTime.MinValue;
     private const int PollIntervalSeconds = 5;
 
@@ -129,7 +133,7 @@ public class MySessionWindow : Window
     public void OnRpTagRemoved()     => _pendingRpTagPrompt       = true;
     public void OnRpTagActivated()   => _pendingRpTagActivePrompt = true;
 
-    private void StartSession()
+    private void StartSession(bool force = false)
     {
         var l = Plugin.L;
         if (!Plugin.Api.HasToken) { ShowError(l.ErrTokenMissing); return; }
@@ -154,6 +158,7 @@ public class MySessionWindow : Window
             Duration      = _duration,
             TerritoryId   = terId,
             MapId         = mapId,
+            Force         = force,
         };
         if (string.IsNullOrWhiteSpace(req.Title)) { ShowError(l.ErrTitleRequired); return; }
 
@@ -164,9 +169,16 @@ public class MySessionWindow : Window
             {
                 var session = await Plugin.Api.CreateSessionAsync(req);
                 _activeSession = session; _pendingRpTagActivePrompt = false;
+                _pendingActiveEventWarning = false;
                 _config.ActiveSessionId = session!.Id; _config.Save();
                 ShowSuccess(l.StatusStarted);
                 _title = _description = string.Empty;
+            }
+            catch (ActiveEventConflictException aex)
+            {
+                _conflictEstabName   = aex.EstablishmentName;
+                _conflictEventTitle  = aex.EventTitle;
+                _pendingActiveEventWarning = true;
             }
             catch (Exception ex)
             {
@@ -381,6 +393,20 @@ public class MySessionWindow : Window
                 if (ImGui.Button(l.Ignore + "##rptag_active", UiStyle.SmallButton))
                     { _pendingRpTagActivePrompt = false; IsOpen = false; }
             });
+
+        if (_pendingActiveEventWarning)
+            UiPrimitives.DrawAlert(new Vector4(1f, 0.75f, 0.1f, 1f),
+                l.AlertActiveEventTitle,
+                string.Format(l.AlertActiveEventDesc, _conflictEventTitle, _conflictEstabName),
+                () =>
+                {
+                    if (UiPrimitives.ColorButton(l.BtnCreateAnyway + "##activeevent", UiStyle.WideButton,
+                        UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive))
+                        { _pendingActiveEventWarning = false; StartSession(force: true); }
+                    ImGui.SameLine();
+                    if (ImGui.Button(l.Cancel + "##activeevent", UiStyle.SmallButton))
+                        _pendingActiveEventWarning = false;
+                });
 
         if (!ImGui.BeginTable("##createform", 2, ImGuiTableFlags.None)) return;
         ImGui.TableSetupColumn("ctx",  ImGuiTableColumnFlags.WidthStretch, 0.38f);

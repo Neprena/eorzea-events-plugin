@@ -202,6 +202,16 @@ public class CreateSessionRequest
     [JsonPropertyName("duration")]      public int     Duration      { get; set; } = 2;
     [JsonPropertyName("territoryId")]   public uint?   TerritoryId   { get; set; }
     [JsonPropertyName("mapId")]         public uint?   MapId         { get; set; }
+    [JsonPropertyName("force")]         public bool    Force         { get; set; } = false;
+}
+
+public class ActiveEventConflictException : Exception
+{
+    public string EstablishmentName { get; }
+    public string EventTitle        { get; }
+    public ActiveEventConflictException(string estabName, string eventTitle)
+        : base("active_event_at_location")
+    { EstablishmentName = estabName; EventTitle = eventTitle; }
 }
 
 public class UpdateSessionRequest
@@ -360,14 +370,22 @@ public class ApiClient : IDisposable
         if (!res.IsSuccessStatusCode)
         {
             var body = await res.Content.ReadAsStringAsync(ct);
-            // Essayer d'extraire le champ "error" du JSON
             try
             {
                 var err = System.Text.Json.JsonDocument.Parse(body).RootElement;
+                // Avertissement : événement actif au même emplacement
+                if (err.TryGetProperty("type", out var typeEl)
+                    && typeEl.GetString() == "active_event_at_location")
+                {
+                    var estab = err.TryGetProperty("establishmentName", out var en) ? en.GetString() ?? "" : "";
+                    var title = err.TryGetProperty("eventTitle",        out var et) ? et.GetString() ?? "" : "";
+                    throw new ActiveEventConflictException(estab, title);
+                }
                 if (err.TryGetProperty("error", out var msg))
                     throw new Exception(msg.GetString() ?? $"HTTP {(int)res.StatusCode}");
             }
             catch (System.Text.Json.JsonException) { }
+            catch (ActiveEventConflictException) { throw; }
             throw new Exception($"HTTP {(int)res.StatusCode}");
         }
         return await res.Content.ReadFromJsonAsync<RpSessionDto>(JsonOptions, ct);

@@ -231,15 +231,10 @@ public sealed class Plugin : IDalamudPlugin
         }
 #endif
 
-        // Ouvre l'assistant de configuration uniquement si AUCUN moyen d'auth n'est
-        // disponible : ni token legacy, ni token de personnage.
-        if (string.IsNullOrWhiteSpace(Config.ApiToken) && Config.CharacterTokens.Count == 0)
-            OpenSetup();
-        // Migration one-shot : invite les utilisateurs legacy à lier un personnage.
-        else if (!string.IsNullOrWhiteSpace(Config.ApiToken)
-            && Config.CharacterTokens.Count == 0
-            && !Config.MigrationNoticeSeen)
-            _setupWindow?.Restart(migration: true);
+        // Si le plugin est rechargé en cours de jeu, ouvrir les fenêtres immédiatement.
+        // Sinon, OnLogin() s'en chargera quand le joueur sélectionnera un personnage.
+        if (ClientState.IsLoggedIn)
+            DoFirstRunCheck();
 
         if (!string.IsNullOrWhiteSpace(Config.ActiveSessionId))
             RestoreSession();
@@ -252,15 +247,24 @@ public sealed class Plugin : IDalamudPlugin
                 CheckTokenValidity();
             });
 
-        // Annonce one-shot : profil RP & disponibilité (utilisateurs existants uniquement)
-        if (!Config.RpAnnouncementSeen && !string.IsNullOrWhiteSpace(Config.ApiToken))
-            if (_announcementWindow != null) _announcementWindow.IsOpen = true;
-
         // Vérifier la version minimale requise
         Task.Run(async () => await CheckMinimumVersionAsync());
 
         // Initialiser la zone courante
         CurrentZone = ResolveTerritoryName(ClientState.TerritoryType);
+    }
+
+    private void DoFirstRunCheck()
+    {
+        if (string.IsNullOrWhiteSpace(Config.ApiToken) && Config.CharacterTokens.Count == 0)
+            OpenSetup();
+        else if (!string.IsNullOrWhiteSpace(Config.ApiToken)
+            && Config.CharacterTokens.Count == 0
+            && !Config.MigrationNoticeSeen)
+            _setupWindow?.Restart(migration: true);
+
+        if (!Config.RpAnnouncementSeen && !string.IsNullOrWhiteSpace(Config.ApiToken))
+            if (_announcementWindow != null) _announcementWindow.IsOpen = true;
     }
 
     private void OnCommand(string command, string args)
@@ -1095,6 +1099,8 @@ public sealed class Plugin : IDalamudPlugin
 
     private void OnLogin()
     {
+        DoFirstRunCheck();
+        _tokenInvalidNotified = false;
         if (Config.RpAskOnLogin && Config.RpAvailabilityActive)
             LoginPromptPending = true;
     }
@@ -1102,6 +1108,7 @@ public sealed class Plugin : IDalamudPlugin
     private void CheckTokenValidity()
     {
         if (Api.IsTokenValid || _tokenInvalidNotified) return;
+        if (!ClientState.IsLoggedIn) return;
         _tokenInvalidNotified = true;
 
         NotificationMgr.AddNotification(new Notification

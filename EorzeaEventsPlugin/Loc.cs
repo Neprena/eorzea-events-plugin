@@ -131,6 +131,8 @@ internal sealed class Loc
     public required string BtnStop                    { get; init; }
     public required string AlertActiveEventTitle      { get; init; }
     public required string AlertActiveEventDesc       { get; init; }   // {0} = eventTitle, {1} = estabName
+    public required string AlertActiveRpTitle         { get; init; }
+    public required string AlertActiveRpDesc          { get; init; }   // {0} = sessionTitle, {1} = authorName
     public required string BtnCreateAnyway            { get; init; }
 
     // ── Setup window ──────────────────────────────────────────────────────────
@@ -400,6 +402,8 @@ internal sealed class Loc
         BtnStop               = "Arrêter",
         AlertActiveEventTitle = "⚠  Événement en cours ici",
         AlertActiveEventDesc  = "« {0} » est déjà en cours chez {1}. Les participants reçoivent des notifications automatiques. Le RP ouvert est pour les sessions spontanées sans événement planifié.",
+        AlertActiveRpTitle    = "⚠  RP ouvert déjà en cours ici",
+        AlertActiveRpDesc     = "« {0} » par {1} est déjà en cours à cet emplacement. Rejoins-la si tu veux participer, ou crée la tienne quand même si c'est un RP distinct.",
         BtnCreateAnyway       = "Créer quand même",
 
         SetupWelcomeL1     = "Ce plugin fonctionne de pair avec le site",
@@ -657,6 +661,8 @@ internal sealed class Loc
         BtnStop               = "Stop",
         AlertActiveEventTitle = "⚠  Event in progress here",
         AlertActiveEventDesc  = "\"{0}\" is running at {1}. Attendees receive automatic notifications. Open RP is for spontaneous sessions without a scheduled event.",
+        AlertActiveRpTitle    = "⚠  Open RP already in progress here",
+        AlertActiveRpDesc     = "\"{0}\" by {1} is already running at this location. Join it if you want to take part, or create yours anyway if it's a distinct RP.",
         BtnCreateAnyway       = "Create anyway",
 
         SetupWelcomeL1     = "This plugin works alongside the website",

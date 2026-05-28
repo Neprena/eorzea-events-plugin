@@ -35,6 +35,10 @@ public class MySessionWindow : Window
     private string _conflictEstabName         = string.Empty;
     private string _conflictEventTitle        = string.Empty;
 
+    private bool   _pendingActiveRpWarning  = false;
+    private string _conflictRpSessionTitle  = string.Empty;
+    private string _conflictRpAuthorName    = string.Empty;
+
     private DateTime _lastSessionCheck = DateTime.MinValue;
     private const int PollIntervalSeconds = 5;
 
@@ -177,6 +181,7 @@ public class MySessionWindow : Window
                 var session = await Plugin.Api.CreateSessionAsync(req);
                 _activeSession = session; _pendingRpTagActivePrompt = false;
                 _pendingActiveEventWarning = false;
+                _pendingActiveRpWarning    = false;
                 _config.ActiveSessionId = session!.Id; _config.Save();
                 ShowSuccess(l.StatusStarted);
                 _title = _description = string.Empty;
@@ -186,6 +191,12 @@ public class MySessionWindow : Window
                 _conflictEstabName   = aex.EstablishmentName;
                 _conflictEventTitle  = aex.EventTitle;
                 _pendingActiveEventWarning = true;
+            }
+            catch (ActiveRpConflictException rex)
+            {
+                _conflictRpSessionTitle = rex.SessionTitle;
+                _conflictRpAuthorName   = rex.AuthorName;
+                _pendingActiveRpWarning = true;
             }
             catch (Exception ex)
             {
@@ -413,6 +424,20 @@ public class MySessionWindow : Window
                     ImGui.SameLine();
                     if (ImGui.Button(l.Cancel + "##activeevent", UiStyle.SmallButton))
                         _pendingActiveEventWarning = false;
+                });
+
+        if (_pendingActiveRpWarning)
+            UiPrimitives.DrawAlert(new Vector4(1f, 0.75f, 0.1f, 1f),
+                l.AlertActiveRpTitle,
+                string.Format(l.AlertActiveRpDesc, _conflictRpSessionTitle, _conflictRpAuthorName),
+                () =>
+                {
+                    if (UiPrimitives.ColorButton(l.BtnCreateAnyway + "##activerp", UiStyle.WideButton,
+                        UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive))
+                        { _pendingActiveRpWarning = false; StartSession(force: true); }
+                    ImGui.SameLine();
+                    if (ImGui.Button(l.Cancel + "##activerp", UiStyle.SmallButton))
+                        _pendingActiveRpWarning = false;
                 });
 
         if (!ImGui.BeginTable("##createform", 2, ImGuiTableFlags.None)) return;

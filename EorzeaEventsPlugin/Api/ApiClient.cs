@@ -214,6 +214,15 @@ public class ActiveEventConflictException : Exception
     { EstablishmentName = estabName; EventTitle = eventTitle; }
 }
 
+public class ActiveRpConflictException : Exception
+{
+    public string SessionTitle { get; }
+    public string AuthorName   { get; }
+    public ActiveRpConflictException(string sessionTitle, string authorName)
+        : base("active_rp_at_same_location")
+    { SessionTitle = sessionTitle; AuthorName = authorName; }
+}
+
 public class UpdateSessionRequest
 {
     [JsonPropertyName("title")]         public string? Title         { get; set; }
@@ -374,18 +383,28 @@ public class ApiClient : IDisposable
             {
                 var err = System.Text.Json.JsonDocument.Parse(body).RootElement;
                 // Avertissement : événement actif au même emplacement
-                if (err.TryGetProperty("type", out var typeEl)
-                    && typeEl.GetString() == "active_event_at_location")
+                if (err.TryGetProperty("type", out var typeEl))
                 {
-                    var estab = err.TryGetProperty("establishmentName", out var en) ? en.GetString() ?? "" : "";
-                    var title = err.TryGetProperty("eventTitle",        out var et) ? et.GetString() ?? "" : "";
-                    throw new ActiveEventConflictException(estab, title);
+                    var typeStr = typeEl.GetString();
+                    if (typeStr == "active_event_at_location")
+                    {
+                        var estab = err.TryGetProperty("establishmentName", out var en) ? en.GetString() ?? "" : "";
+                        var title = err.TryGetProperty("eventTitle",        out var et) ? et.GetString() ?? "" : "";
+                        throw new ActiveEventConflictException(estab, title);
+                    }
+                    if (typeStr == "active_rp_at_same_location")
+                    {
+                        var stitle = err.TryGetProperty("sessionTitle", out var st) ? st.GetString() ?? "" : "";
+                        var author = err.TryGetProperty("authorName",   out var an) ? an.GetString() ?? "" : "";
+                        throw new ActiveRpConflictException(stitle, author);
+                    }
                 }
                 if (err.TryGetProperty("error", out var msg))
                     throw new Exception(msg.GetString() ?? $"HTTP {(int)res.StatusCode}");
             }
             catch (System.Text.Json.JsonException) { }
             catch (ActiveEventConflictException) { throw; }
+            catch (ActiveRpConflictException) { throw; }
             throw new Exception($"HTTP {(int)res.StatusCode}");
         }
         return await res.Content.ReadFromJsonAsync<RpSessionDto>(JsonOptions, ct);

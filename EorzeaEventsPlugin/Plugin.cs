@@ -772,6 +772,10 @@ public sealed class Plugin : IDalamudPlugin
             {
                 if (_knownSessionIds.Contains(session.Id)) continue;
 
+                // Anti-spam : tant que la session n'a pas atteint le délai serveur (5 min),
+                // on ne notifie pas ET on ne la marque pas connue → ré-évaluée au prochain poll.
+                if (!session.NotifyEligible) continue;
+
                 var isNearby = currentWorld != null && CurrentZone != null
                     && session.Server == currentWorld && session.Location == CurrentZone;
 
@@ -822,7 +826,13 @@ public sealed class Plugin : IDalamudPlugin
                 }
             }
 
-            _knownSessionIds = ids;
+            // Marquer connues : les sessions déjà connues encore présentes + toutes celles
+            // désormais éligibles (notifiées ou écartées par un filtre). Les sessions trop
+            // jeunes restent « inconnues » pour être ré-évaluées une fois le délai écoulé.
+            _knownSessionIds = sessions
+                .Where(s => _knownSessionIds.Contains(s.Id) || s.NotifyEligible)
+                .Select(s => s.Id)
+                .ToHashSet();
         }
         catch { /* silencieux */ }
     }

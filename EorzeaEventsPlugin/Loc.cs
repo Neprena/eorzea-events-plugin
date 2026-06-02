@@ -133,6 +133,8 @@ internal sealed class Loc
     public required string AlertActiveEventDesc       { get; init; }   // {0} = eventTitle, {1} = estabName
     public required string AlertActiveRpTitle         { get; init; }
     public required string AlertActiveRpDesc          { get; init; }   // {0} = sessionTitle, {1} = authorName
+    public required string AlertEventPromoTitle       { get; init; }
+    public required string AlertEventPromoDesc        { get; init; }   // {0} = eventTitle, {1} = estabName
     public required string BtnCreateAnyway            { get; init; }
 
     // ── Setup window ──────────────────────────────────────────────────────────
@@ -404,6 +406,8 @@ internal sealed class Loc
         AlertActiveEventDesc  = "« {0} » est déjà en cours chez {1}. Les participants reçoivent des notifications automatiques. Le RP ouvert est pour les sessions spontanées sans événement planifié.",
         AlertActiveRpTitle    = "⚠  RP ouvert déjà en cours ici",
         AlertActiveRpDesc     = "« {0} » par {1} est déjà en cours à cet emplacement. Rejoins-la si tu veux participer, ou crée la tienne quand même si c'est un RP distinct.",
+        AlertEventPromoTitle  = "⛔  Session refusée",
+        AlertEventPromoDesc   = "Cette session ferait doublon avec l'événement « {0} » déjà annoncé chez {1}. Le RP ouvert sert aux scènes spontanées, pas à promouvoir un événement planifié. Rejoins l'événement existant, ou contacte le staff si c'est une erreur.",
         BtnCreateAnyway       = "Créer quand même",
 
         SetupWelcomeL1     = "Ce plugin fonctionne de pair avec le site",
@@ -663,6 +667,8 @@ internal sealed class Loc
         AlertActiveEventDesc  = "\"{0}\" is running at {1}. Attendees receive automatic notifications. Open RP is for spontaneous sessions without a scheduled event.",
         AlertActiveRpTitle    = "⚠  Open RP already in progress here",
         AlertActiveRpDesc     = "\"{0}\" by {1} is already running at this location. Join it if you want to take part, or create yours anyway if it's a distinct RP.",
+        AlertEventPromoTitle  = "⛔  Session blocked",
+        AlertEventPromoDesc   = "This session would duplicate the event \"{0}\" already announced at {1}. Open RP is for spontaneous scenes, not for promoting a planned event. Join the existing event, or contact staff if this is a mistake.",
         BtnCreateAnyway       = "Create anyway",
 
         SetupWelcomeL1     = "This plugin works alongside the website",

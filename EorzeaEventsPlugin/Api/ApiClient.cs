@@ -41,6 +41,8 @@ public class RpSessionDto
     [JsonPropertyName("territoryId")]   public uint?   TerritoryId   { get; set; }
     [JsonPropertyName("mapId")]         public uint?   MapId         { get; set; }
     [JsonPropertyName("author")]        public RpSessionAuthorDto? Author { get; set; }
+    // Anti-spam serveur : false tant que la session a < 5 min → pas de notif in-game.
+    [JsonPropertyName("notifyEligible")] public bool   NotifyEligible { get; set; }
 }
 
 public class EstablishmentSummaryDto
@@ -223,6 +225,17 @@ public class ActiveRpConflictException : Exception
     { SessionTitle = sessionTitle; AuthorName = authorName; }
 }
 
+// Blocage dur (IA) : la session sert à promouvoir un évènement déjà annoncé.
+// Pas de bypass "force" possible — refus définitif.
+public class EventPromotionBlockedException : Exception
+{
+    public string EstablishmentName { get; }
+    public string EventTitle        { get; }
+    public EventPromotionBlockedException(string estabName, string eventTitle)
+        : base("event_promotion_blocked")
+    { EstablishmentName = estabName; EventTitle = eventTitle; }
+}
+
 public class UpdateSessionRequest
 {
     [JsonPropertyName("title")]         public string? Title         { get; set; }
@@ -398,6 +411,12 @@ public class ApiClient : IDisposable
                         var author = err.TryGetProperty("authorName",   out var an) ? an.GetString() ?? "" : "";
                         throw new ActiveRpConflictException(stitle, author);
                     }
+                    if (typeStr == "event_promotion_blocked")
+                    {
+                        var estab = err.TryGetProperty("establishmentName", out var en2) ? en2.GetString() ?? "" : "";
+                        var title = err.TryGetProperty("eventTitle",        out var et2) ? et2.GetString() ?? "" : "";
+                        throw new EventPromotionBlockedException(estab, title);
+                    }
                 }
                 if (err.TryGetProperty("error", out var msg))
                     throw new Exception(msg.GetString() ?? $"HTTP {(int)res.StatusCode}");
@@ -405,6 +424,7 @@ public class ApiClient : IDisposable
             catch (System.Text.Json.JsonException) { }
             catch (ActiveEventConflictException) { throw; }
             catch (ActiveRpConflictException) { throw; }
+            catch (EventPromotionBlockedException) { throw; }
             throw new Exception($"HTTP {(int)res.StatusCode}");
         }
         return await res.Content.ReadFromJsonAsync<RpSessionDto>(JsonOptions, ct);

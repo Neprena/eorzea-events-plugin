@@ -39,6 +39,10 @@ public class MySessionWindow : Window
     private string _conflictRpSessionTitle  = string.Empty;
     private string _conflictRpAuthorName    = string.Empty;
 
+    private bool   _pendingEventPromoBlock = false;
+    private string _promoEventTitle        = string.Empty;
+    private string _promoEstabName         = string.Empty;
+
     private DateTime _lastSessionCheck = DateTime.MinValue;
     private const int PollIntervalSeconds = 5;
 
@@ -182,6 +186,7 @@ public class MySessionWindow : Window
                 _activeSession = session; _pendingRpTagActivePrompt = false;
                 _pendingActiveEventWarning = false;
                 _pendingActiveRpWarning    = false;
+                _pendingEventPromoBlock    = false;
                 _config.ActiveSessionId = session!.Id; _config.Save();
                 ShowSuccess(l.StatusStarted);
                 _title = _description = string.Empty;
@@ -197,6 +202,12 @@ public class MySessionWindow : Window
                 _conflictRpSessionTitle = rex.SessionTitle;
                 _conflictRpAuthorName   = rex.AuthorName;
                 _pendingActiveRpWarning = true;
+            }
+            catch (EventPromotionBlockedException pex)
+            {
+                _promoEstabName         = pex.EstablishmentName;
+                _promoEventTitle        = pex.EventTitle;
+                _pendingEventPromoBlock = true;
             }
             catch (Exception ex)
             {
@@ -438,6 +449,17 @@ public class MySessionWindow : Window
                     ImGui.SameLine();
                     if (ImGui.Button(l.Cancel + "##activerp", UiStyle.SmallButton))
                         _pendingActiveRpWarning = false;
+                });
+
+        // Blocage dur (IA) : promo d'un évènement déjà annoncé → PAS de bouton "forcer".
+        if (_pendingEventPromoBlock)
+            UiPrimitives.DrawAlert(new Vector4(0.9f, 0.25f, 0.25f, 1f),
+                l.AlertEventPromoTitle,
+                string.Format(l.AlertEventPromoDesc, _promoEventTitle, _promoEstabName),
+                () =>
+                {
+                    if (ImGui.Button(l.Cancel + "##eventpromo", UiStyle.SmallButton))
+                        _pendingEventPromoBlock = false;
                 });
 
         if (!ImGui.BeginTable("##createform", 2, ImGuiTableFlags.None)) return;

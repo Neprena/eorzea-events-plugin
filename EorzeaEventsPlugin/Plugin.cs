@@ -715,6 +715,9 @@ public sealed class Plugin : IDalamudPlugin
         // Polling session active (fenêtre ouverte ou non)
         _sessionWindow?.PollSessionStatus();
 
+        // Mise à jour automatique de la position (5 min, silencieuse, sans propagation Discord)
+        _sessionWindow?.AutoRefreshPositionIfDue();
+
         // Disponibilités RP (60 s) — seulement si l'indicateur est activé
         if (Config.ShowRpAvailableIndicator
             && (now - _lastAvailabilityCheck).TotalSeconds >= AvailabilityPollIntervalSeconds)

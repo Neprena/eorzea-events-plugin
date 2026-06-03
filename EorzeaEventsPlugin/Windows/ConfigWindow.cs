@@ -25,6 +25,7 @@ public class ConfigWindow : Window
     private bool _alertOnZoneChange;
     private bool _alertOnRpTagRemoved;
     private bool _alertOnSessionExpiring;
+    private bool _autoRefreshPosition;
     private bool _suggestSessionOnRpTag;
     private bool _showDtrRp;
     private bool _showDtrEvents;
@@ -60,6 +61,7 @@ public class ConfigWindow : Window
         _alertOnZoneChange      = _config.AlertOnZoneChange;
         _alertOnRpTagRemoved    = _config.AlertOnRpTagRemoved;
         _alertOnSessionExpiring = _config.AlertOnSessionExpiring;
+        _autoRefreshPosition    = _config.AutoRefreshPosition;
         _suggestSessionOnRpTag  = _config.SuggestSessionOnRpTag;
         _showDtrRp                  = _config.ShowDtrRp;
         _showDtrEvents              = _config.ShowDtrEvents;
@@ -117,6 +119,7 @@ public class ConfigWindow : Window
             _config.AlertOnZoneChange       = _alertOnZoneChange;
             _config.AlertOnRpTagRemoved     = _alertOnRpTagRemoved;
             _config.AlertOnSessionExpiring  = _alertOnSessionExpiring;
+            _config.AutoRefreshPosition     = _autoRefreshPosition;
             _config.ShowDtrRp                   = _showDtrRp;
             _config.ShowDtrEvents               = _showDtrEvents;
             _config.ShowDtrRpAvail              = _showDtrRpAvail;
@@ -339,6 +342,7 @@ public class ConfigWindow : Window
         ImGui.Checkbox(l.CfgAlertZone,     ref _alertOnZoneChange);
         ImGui.Checkbox(l.CfgAlertTag,      ref _alertOnRpTagRemoved);
         ImGui.Checkbox(l.CfgAlertExpiry,   ref _alertOnSessionExpiring);
+        ImGui.Checkbox(l.CfgAutoRefreshPos, ref _autoRefreshPosition);
         ImGui.Unindent();
         ImGui.Spacing();
     }

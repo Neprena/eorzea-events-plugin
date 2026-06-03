@@ -106,6 +106,9 @@ public class Configuration : IPluginConfiguration
     /// <summary>Proposer de prolonger ou d'arrêter la session quand elle est sur le point d'expirer.</summary>
     public bool AlertOnSessionExpiring { get; set; } = true;
 
+    /// <summary>Mettre à jour automatiquement la position de la session RP active toutes les 5 min (sans propager au fil Discord).</summary>
+    public bool AutoRefreshPosition { get; set; } = true;
+
     /// <summary>Proposer de démarrer une session quand le tag RP est activé sans session en cours.</summary>
     public bool SuggestSessionOnRpTag { get; set; } = true;
 

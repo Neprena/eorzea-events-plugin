@@ -182,6 +182,7 @@ internal sealed class Loc
     public required string CfgAlertZone         { get; init; }
     public required string CfgAlertTag          { get; init; }
     public required string CfgAlertExpiry       { get; init; }
+    public required string CfgAutoRefreshPos    { get; init; }
     public required string CfgLangHeader        { get; init; }
     public required string CfgLangAuto          { get; init; }
     public required string CfgLangFr            { get; init; }
@@ -453,6 +454,7 @@ internal sealed class Loc
         CfgAlertZone        = "Me prévenir si je change de zone ou effectue un TP",
         CfgAlertTag         = "Me prévenir si je retire le tag RP",
         CfgAlertExpiry      = "Me prévenir quand ma session arrive à expiration (15 min avant)",
+        CfgAutoRefreshPos   = "Mettre à jour ma position automatiquement (toutes les 5 min)",
         CfgLangHeader       = "Langue",
         CfgLangAuto         = "Automatique (langue du jeu)",
         CfgLangFr           = "Français",
@@ -714,6 +716,7 @@ internal sealed class Loc
         CfgAlertZone        = "Warn me if I change zone or teleport",
         CfgAlertTag         = "Warn me if I remove the RP tag",
         CfgAlertExpiry      = "Warn me when my session is about to expire (15 min before)",
+        CfgAutoRefreshPos   = "Update my position automatically (every 5 min)",
         CfgLangHeader       = "Language",
         CfgLangAuto         = "Auto (game language)",
         CfgLangFr           = "Francais",

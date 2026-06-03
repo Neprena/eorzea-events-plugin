@@ -252,6 +252,7 @@ public class UpdateSessionRequest
     [JsonPropertyName("duration")]      public int?    Duration      { get; set; }
     [JsonPropertyName("territoryId")]   public uint?   TerritoryId   { get; set; }
     [JsonPropertyName("mapId")]         public uint?   MapId         { get; set; }
+    [JsonPropertyName("silent")]        public bool?   Silent        { get; set; }
 }
 
 // ─── Client ──────────────────────────────────────────────────────────────────

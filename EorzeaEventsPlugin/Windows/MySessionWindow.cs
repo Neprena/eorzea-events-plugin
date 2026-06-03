@@ -46,6 +46,9 @@ public class MySessionWindow : Window
     private DateTime _lastSessionCheck = DateTime.MinValue;
     private const int PollIntervalSeconds = 5;
 
+    private DateTime _lastAutoPositionRefresh = DateTime.MinValue;
+    private const int AutoPositionRefreshSeconds = 300;
+
     public bool HasActiveSession => _activeSession != null;
 
     public MySessionWindow(Configuration config)
@@ -137,6 +140,7 @@ public class MySessionWindow : Window
     public void SetActiveSession(RpSessionDto? session)
     {
         _activeSession            = session;
+        _lastAutoPositionRefresh  = DateTime.UtcNow;
         _pendingZonePrompt        = false;
         _pendingRpTagPrompt       = false;
         _pendingRpTagActivePrompt = false;
@@ -260,10 +264,14 @@ public class MySessionWindow : Window
         });
     }
 
-    private void RefreshPosition()
+    // Met à jour la position de la session active.
+    // silent=true : rafraîchissement automatique → aucun feedback UI (pas de _busy ni de
+    // _statusMsg) et propagation Discord désactivée côté serveur (req.Silent).
+    private void RefreshPosition(bool silent = false)
     {
         var l = Plugin.L;
         if (_activeSession == null) return;
+        _lastAutoPositionRefresh = DateTime.UtcNow;
         var pos     = GetCurrentPosition();
         var housing = GetCurrentHousing();
         var (terId, mapId) = GetCurrentTerritoryMap();
@@ -278,7 +286,23 @@ public class MySessionWindow : Window
             Location = GetCurrentZone(), Server = GetCurrentWorld(),
             CharacterName = string.IsNullOrEmpty(charName) ? null : charName,
             TerritoryId = terId, MapId = mapId,
+            Silent = silent ? true : null,
         };
+
+        if (silent)
+        {
+            Task.Run(async () =>
+            {
+                try
+                {
+                    var updated = await Plugin.Api.UpdateSessionAsync(id, req);
+                    if (updated != null) _activeSession = updated;
+                }
+                catch { /* silencieux : rafraîchissement automatique */ }
+            });
+            return;
+        }
+
         _busy = true; _statusMsg = string.Empty;
         Task.Run(async () =>
         {
@@ -297,6 +321,18 @@ public class MySessionWindow : Window
             catch (Exception ex) { ShowError(ex.Message); }
             finally { _busy = false; }
         });
+    }
+
+    /// <summary>
+    /// Appelé à chaque tick du framework : déclenche un rafraîchissement automatique et silencieux
+    /// de la position toutes les 5 min si l'option est activée et qu'une session est active.
+    /// </summary>
+    public void AutoRefreshPositionIfDue()
+    {
+        if (_activeSession == null || _busy) return;
+        if (!_config.AutoRefreshPosition) return;
+        if ((DateTime.UtcNow - _lastAutoPositionRefresh).TotalSeconds < AutoPositionRefreshSeconds) return;
+        RefreshPosition(silent: true);
     }
 
     private void ExtendSession(int hours = 1)

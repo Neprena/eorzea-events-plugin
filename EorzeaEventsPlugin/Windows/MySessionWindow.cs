@@ -543,12 +543,11 @@ public class MySessionWindow : Window
         ImGui.InputText("##title", ref _title, 100);
 
         ImGui.Spacing();
-        if (string.IsNullOrEmpty(_characterName)) _characterName = GetCharacterName();
+        // Nom du perso non modifiable : toujours le personnage actuellement connecté
+        // (lié à la clé API). Affichage en lecture seule.
+        _characterName = GetCharacterName();
         ImGui.TextColored(UiStyle.TextMuted, l.FieldCharName);
-        ImGui.SetNextItemWidth(-(UiStyle.SmallButton.X + ImGui.GetStyle().ItemSpacing.X));
-        ImGui.InputText("##charname", ref _characterName, 60);
-        ImGui.SameLine();
-        if (ImGui.Button(l.Auto, UiStyle.SmallButton)) _characterName = GetCharacterName();
+        ImGui.TextColored(UiStyle.TextTitle, _characterName);
 
         ImGui.Spacing();
         ImGui.TextColored(UiStyle.TextSubtle, l.FieldDesc + " (opt.)");

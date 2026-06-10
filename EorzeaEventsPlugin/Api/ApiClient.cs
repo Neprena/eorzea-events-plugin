@@ -232,9 +232,11 @@ public class EventPromotionBlockedException : Exception
 {
     public string EstablishmentName { get; }
     public string EventTitle        { get; }
-    public EventPromotionBlockedException(string estabName, string eventTitle)
+    public string ReasonFr          { get; }
+    public string ReasonEn          { get; }
+    public EventPromotionBlockedException(string estabName, string eventTitle, string reasonFr, string reasonEn)
         : base("event_promotion_blocked")
-    { EstablishmentName = estabName; EventTitle = eventTitle; }
+    { EstablishmentName = estabName; EventTitle = eventTitle; ReasonFr = reasonFr; ReasonEn = reasonEn; }
 }
 
 public class UpdateSessionRequest
@@ -415,9 +417,11 @@ public class ApiClient : IDisposable
                     }
                     if (typeStr == "event_promotion_blocked")
                     {
-                        var estab = err.TryGetProperty("establishmentName", out var en2) ? en2.GetString() ?? "" : "";
-                        var title = err.TryGetProperty("eventTitle",        out var et2) ? et2.GetString() ?? "" : "";
-                        throw new EventPromotionBlockedException(estab, title);
+                        var estab    = err.TryGetProperty("establishmentName", out var en2) ? en2.GetString() ?? "" : "";
+                        var title    = err.TryGetProperty("eventTitle",        out var et2) ? et2.GetString() ?? "" : "";
+                        var reasonFr = err.TryGetProperty("reasonFr",          out var rfr) ? rfr.GetString() ?? "" : "";
+                        var reasonEn = err.TryGetProperty("reasonEn",          out var ren) ? ren.GetString() ?? "" : "";
+                        throw new EventPromotionBlockedException(estab, title, reasonFr, reasonEn);
                     }
                 }
                 if (err.TryGetProperty("error", out var msg))

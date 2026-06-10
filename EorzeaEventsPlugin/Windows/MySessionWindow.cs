@@ -42,6 +42,7 @@ public class MySessionWindow : Window
     private bool   _pendingEventPromoBlock = false;
     private string _promoEventTitle        = string.Empty;
     private string _promoEstabName         = string.Empty;
+    private string _promoReason            = string.Empty;
 
     private DateTime _lastSessionCheck = DateTime.MinValue;
     private const int PollIntervalSeconds = 5;
@@ -214,6 +215,9 @@ public class MySessionWindow : Window
             {
                 _promoEstabName         = pex.EstablishmentName;
                 _promoEventTitle        = pex.EventTitle;
+                _promoReason            = Plugin.L == Loc.Fr ? pex.ReasonFr : pex.ReasonEn;
+                if (string.IsNullOrEmpty(_promoReason))
+                    _promoReason = !string.IsNullOrEmpty(pex.ReasonFr) ? pex.ReasonFr : pex.ReasonEn;
                 _pendingEventPromoBlock = true;
             }
             catch (Exception ex)
@@ -494,7 +498,10 @@ public class MySessionWindow : Window
         if (_pendingEventPromoBlock)
             UiPrimitives.DrawAlert(new Vector4(0.9f, 0.25f, 0.25f, 1f),
                 l.AlertEventPromoTitle,
-                string.Format(l.AlertEventPromoDesc, _promoEventTitle, _promoEstabName),
+                string.Format(l.AlertEventPromoDesc, _promoEventTitle, _promoEstabName)
+                    + (string.IsNullOrEmpty(_promoReason)
+                        ? string.Empty
+                        : "\n\n" + string.Format(l.AlertEventPromoReason, _promoReason)),
                 () =>
                 {
                     if (ImGui.Button(l.Cancel + "##eventpromo", UiStyle.SmallButton))

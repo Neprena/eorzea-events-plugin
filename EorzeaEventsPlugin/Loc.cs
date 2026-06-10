@@ -135,6 +135,7 @@ internal sealed class Loc
     public required string AlertActiveRpDesc          { get; init; }   // {0} = sessionTitle, {1} = authorName
     public required string AlertEventPromoTitle       { get; init; }
     public required string AlertEventPromoDesc        { get; init; }   // {0} = eventTitle, {1} = estabName
+    public required string AlertEventPromoReason      { get; init; }   // {0} = motif serveur (reasonFr/reasonEn)
     public required string BtnCreateAnyway            { get; init; }
 
     // ── Setup window ──────────────────────────────────────────────────────────
@@ -409,6 +410,7 @@ internal sealed class Loc
         AlertActiveRpDesc     = "« {0} » par {1} est déjà en cours à cet emplacement. Rejoins-la si tu veux participer, ou crée la tienne quand même si c'est un RP distinct.",
         AlertEventPromoTitle  = "⛔  Session refusée",
         AlertEventPromoDesc   = "Cette session ferait doublon avec l'événement « {0} » déjà annoncé chez {1}. Le RP ouvert sert aux scènes spontanées, pas à promouvoir un événement planifié. Rejoins l'événement existant, ou contacte le staff si c'est une erreur.",
+        AlertEventPromoReason = "Motif : {0}",
         BtnCreateAnyway       = "Créer quand même",
 
         SetupWelcomeL1     = "Ce plugin fonctionne de pair avec le site",
@@ -671,6 +673,7 @@ internal sealed class Loc
         AlertActiveRpDesc     = "\"{0}\" by {1} is already running at this location. Join it if you want to take part, or create yours anyway if it's a distinct RP.",
         AlertEventPromoTitle  = "⛔  Session blocked",
         AlertEventPromoDesc   = "This session would duplicate the event \"{0}\" already announced at {1}. Open RP is for spontaneous scenes, not for promoting a planned event. Join the existing event, or contact staff if this is a mistake.",
+        AlertEventPromoReason = "Reason: {0}",
         BtnCreateAnyway       = "Create anyway",
 
         SetupWelcomeL1     = "This plugin works alongside the website",

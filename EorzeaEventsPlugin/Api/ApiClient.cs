@@ -149,10 +149,11 @@ public class SaveRpProfileRequest
 
 public class LinkStartRequest
 {
-    [JsonPropertyName("characterName")] public string CharacterName { get; set; } = string.Empty;
-    [JsonPropertyName("worldId")]       public int    WorldId       { get; set; }
-    [JsonPropertyName("worldName")]     public string WorldName     { get; set; } = string.Empty;
-    [JsonPropertyName("hashedSecret")]  public string HashedSecret  { get; set; } = string.Empty;
+    [JsonPropertyName("characterName")] public string  CharacterName { get; set; } = string.Empty;
+    [JsonPropertyName("worldId")]       public int     WorldId       { get; set; }
+    [JsonPropertyName("worldName")]     public string  WorldName     { get; set; } = string.Empty;
+    [JsonPropertyName("contentId")]     public string? ContentId     { get; set; }
+    [JsonPropertyName("hashedSecret")]  public string  HashedSecret  { get; set; } = string.Empty;
 }
 
 public class LinkStartResponse
@@ -478,11 +479,13 @@ public class ApiClient : IDisposable
         int? ward = null,
         int? plot = null,
         int? room = null,
+        string? characterName = null,
+        string? contentId = null,
         CancellationToken ct = default)
     {
         try
         {
-            var body = new { version, territoryId, worldName, ward, plot, room };
+            var body = new { version, territoryId, worldName, ward, plot, room, characterName, contentId };
             var res  = await _http.PostAsJsonAsync("api/plugin/heartbeat", body, JsonOptions, ct);
             HandleAuthResponse(res); // capture aussi X-Token-Deprecated
         }

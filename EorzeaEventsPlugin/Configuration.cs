@@ -17,12 +17,18 @@ public class CharacterTokenEntry
     public string WorldName     { get; set; } = string.Empty;
     public string Token         { get; set; } = string.Empty;
     public DateTime LinkedAt    { get; set; } = DateTime.UtcNow;
+
+    /// <summary>
+    /// ContentId Dalamud du personnage (identité stable, survit au rename).
+    /// 0 = entrée legacy liée avant cette fonctionnalité (backfillée à la volée).
+    /// </summary>
+    public ulong ContentId { get; set; }
 }
 
 [Serializable]
 public class Configuration : IPluginConfiguration
 {
-    public int Version { get; set; } = 2;
+    public int Version { get; set; } = 3;
 
     /// <summary>
     /// Token API legacy (User.apiToken, préfixe ee_). Conservé pour la transition.
@@ -45,6 +51,16 @@ public class Configuration : IPluginConfiguration
         return CharacterTokens.Find(c =>
             string.Equals(c.CharacterName, characterName, StringComparison.Ordinal)
             && c.WorldId == worldId);
+    }
+
+    /// <summary>
+    /// Trouve le token par ContentId (identité stable qui survit au rename).
+    /// Retourne null si contentId vaut 0 ou si aucune entrée ne correspond.
+    /// </summary>
+    public CharacterTokenEntry? FindCharacterTokenByContentId(ulong contentId)
+    {
+        if (contentId == 0) return null;
+        return CharacterTokens.Find(c => c.ContentId == contentId);
     }
 
     /// <summary>

@@ -73,7 +73,10 @@ public class MySessionWindow : Window
         if (sheet == null) return Plugin.L.ZoneUnknown;
         var terType = Plugin.ClientState.TerritoryType;
         var hm = HousingManager.Instance();
-        if (hm != null && hm->GetCurrentWard() >= 0)
+        // Ne substituer le nom de zone par l'intérieur d'estate QUE lorsqu'on est
+        // réellement dans un logement. IndoorTerritory != null = intérieur chargé ;
+        // null en plein ward (où GetCurrentWard() >= 0 est trompeur).
+        if (hm != null && hm->IndoorTerritory != null)
         {
             var orig = HousingManager.GetOriginalHouseTerritoryTypeId();
             if (orig != 0) terType = orig;

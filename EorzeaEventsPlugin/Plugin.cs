@@ -395,10 +395,22 @@ public sealed class Plugin : IDalamudPlugin
         {
             var name = player.Name.TextValue;
             var worldId = (int)player.HomeWorld.RowId;
-            var entry = Config.FindCharacterToken(name, worldId);
+            var contentId = GetLocalContentId();
+            // Identité stable d'abord (survit au rename), repli sur name+world pour
+            // les entrées legacy — qu'on backfill alors avec le ContentId connu.
+            var entry = Config.FindCharacterTokenByContentId(contentId);
+            if (entry == null)
+            {
+                entry = Config.FindCharacterToken(name, worldId);
+                if (entry != null && contentId != 0 && entry.ContentId == 0)
+                {
+                    entry.ContentId = contentId;
+                    Config.Save();
+                }
+            }
             if (entry != null && !string.IsNullOrWhiteSpace(entry.Token))
             {
-                key = $"{name}@{worldId}";
+                key = contentId != 0 ? $"cid:{contentId}" : $"{name}@{worldId}";
                 tokenToApply = entry.Token;
             }
             else if (!string.IsNullOrWhiteSpace(Config.ApiToken))
@@ -429,6 +441,18 @@ public sealed class Plugin : IDalamudPlugin
         Log.Debug($"[EorzeaEvents] Token API basculé sur '{key}'.");
     }
 
+    /// <summary>
+    /// ContentId du personnage local (identité stable, survit au rename). 0 si non
+    /// connecté. IClientState.LocalContentId n'existe plus en SDK 15 → on lit le champ
+    /// ContentId via FFXIVClientStructs. À appeler sur le framework thread.
+    /// </summary>
+    private static unsafe ulong GetLocalContentId()
+    {
+        var player = ObjectTable.LocalPlayer;
+        if (player == null || player.Address == IntPtr.Zero) return 0;
+        return ((FFXIVClientStructs.FFXIV.Client.Game.Character.Character*)player.Address)->ContentId;
+    }
+
     // ─── Workflow de couplage d'un personnage (web-link) ────────────────────
 
     /// <summary>
@@ -456,11 +480,11 @@ public sealed class Plugin : IDalamudPlugin
     internal static async Task StartCharacterLinkAsync()
     {
         // Lit les données du perso sur le framework thread.
-        var (name, worldId, worldName) = await Framework.RunOnFrameworkThread(() =>
+        var (name, worldId, worldName, contentId) = await Framework.RunOnFrameworkThread(() =>
         {
             var p = ObjectTable.LocalPlayer;
-            if (p == null) return (string.Empty, 0, string.Empty);
-            return (p.Name.TextValue, (int)p.HomeWorld.RowId, p.HomeWorld.Value.Name.ToString());
+            if (p == null) return (string.Empty, 0, string.Empty, 0UL);
+            return (p.Name.TextValue, (int)p.HomeWorld.RowId, p.HomeWorld.Value.Name.ToString(), GetLocalContentId());
         });
 
         if (string.IsNullOrWhiteSpace(name) || worldId <= 0)
@@ -482,6 +506,7 @@ public sealed class Plugin : IDalamudPlugin
             CharacterName = name,
             WorldId       = worldId,
             WorldName     = worldName,
+            ContentId     = contentId != 0 ? contentId.ToString() : null,
             HashedSecret  = hashedSecret,
         };
 
@@ -552,12 +577,17 @@ public sealed class Plugin : IDalamudPlugin
             }
             if (result == LinkPollResult.Bound && !string.IsNullOrWhiteSpace(payload?.Token))
             {
-                // On a le token — on le sauvegarde dans la config.
-                var existing = Config.FindCharacterToken(name, worldId);
+                // On a le token — on le sauvegarde dans la config. On ancre sur le
+                // ContentId (stable) avec repli sur name+world pour les entrées legacy.
+                var existing = Config.FindCharacterTokenByContentId(contentId)
+                            ?? Config.FindCharacterToken(name, worldId);
                 if (existing != null)
                 {
-                    existing.Token = payload.Token!;
+                    existing.CharacterName = name;
+                    existing.WorldId = worldId;
                     existing.WorldName = worldName;
+                    existing.ContentId = contentId;
+                    existing.Token = payload.Token!;
                     existing.LinkedAt = DateTime.UtcNow;
                 }
                 else
@@ -567,6 +597,7 @@ public sealed class Plugin : IDalamudPlugin
                         CharacterName = name,
                         WorldId       = worldId,
                         WorldName     = worldName,
+                        ContentId     = contentId,
                         Token         = payload.Token!,
                         LinkedAt      = DateTime.UtcNow,
                     });
@@ -669,17 +700,21 @@ public sealed class Plugin : IDalamudPlugin
             _lastHeartbeat = now;
             var territory = ClientState.TerritoryType;
             var world     = ObjectTable.LocalPlayer?.CurrentWorld.Value.Name.ToString();
+            var charName  = ObjectTable.LocalPlayer?.Name.TextValue;
+            var contentId = GetLocalContentId();
             var housing   = ClientState.IsLoggedIn ? GetCurrentHousingForHeartbeat() : null;
             Task.Run(async () =>
             {
                 var v = PluginInterface.Manifest.AssemblyVersion;
                 await Api.HeartbeatAsync(
-                    version:     $"{v.Major}.{v.Minor}.{v.Build}",
-                    territoryId: territory > 0 ? territory : null,
-                    worldName:   !string.IsNullOrWhiteSpace(world) ? world : null,
-                    ward:        housing?.Ward,
-                    plot:        housing?.Plot,
-                    room:        housing?.Room);
+                    version:       $"{v.Major}.{v.Minor}.{v.Build}",
+                    territoryId:   territory > 0 ? territory : null,
+                    worldName:     !string.IsNullOrWhiteSpace(world) ? world : null,
+                    ward:          housing?.Ward,
+                    plot:          housing?.Plot,
+                    room:          housing?.Room,
+                    characterName: !string.IsNullOrWhiteSpace(charName) ? charName : null,
+                    contentId:     contentId != 0 ? contentId.ToString() : null);
                 CheckTokenValidity();
             });
         }

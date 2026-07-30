@@ -267,14 +267,23 @@ public class SetRpAvailableRequest
 /// Les champs que le plugin n'édite pas sont renvoyés tels qu'ils ont été lus :
 /// l'enregistrement remplace la fiche entière, les omettre les effacerait.
 /// </summary>
+/// <summary>
+/// Corps du PUT de fiche RP.
+///
+/// Les listes sont nullables et valent null par défaut : la sérialisation omet
+/// les valeurs nulles, et le serveur laisse intact tout champ absent. Un
+/// remplissage partiel, comme celui de l'assistant de première configuration, ne
+/// peut donc plus vider les accroches ni les thèmes. Une liste explicitement
+/// assignée, fût-elle vide, reste envoyée et fait foi.
+/// </summary>
 public class SaveRpProfileRequest
 {
-    [JsonPropertyName("rpLevel")]       public string   RpLevel       { get; set; } = string.Empty;
-    [JsonPropertyName("approachMode")]  public string   ApproachMode  { get; set; } = string.Empty;
-    [JsonPropertyName("languages")]     public string[] Languages     { get; set; } = [];
-    [JsonPropertyName("contactMode")]   public string?  ContactMode   { get; set; }
-    [JsonPropertyName("sessionLength")] public string?  SessionLength { get; set; }
-    [JsonPropertyName("themes")]        public string[] Themes        { get; set; } = [];
+    [JsonPropertyName("rpLevel")]       public string    RpLevel       { get; set; } = string.Empty;
+    [JsonPropertyName("approachMode")]  public string    ApproachMode  { get; set; } = string.Empty;
+    [JsonPropertyName("languages")]     public string[]  Languages     { get; set; } = [];
+    [JsonPropertyName("contactMode")]   public string?   ContactMode   { get; set; }
+    [JsonPropertyName("sessionLength")] public string?   SessionLength { get; set; }
+    [JsonPropertyName("themes")]        public string[]? Themes        { get; set; }
 
     [JsonPropertyName("rpName")]       public string?  RpName       { get; set; }
     [JsonPropertyName("nickname")]     public string?  Nickname     { get; set; }
@@ -286,9 +295,9 @@ public class SaveRpProfileRequest
     [JsonPropertyName("appearance")]   public string?  Appearance   { get; set; }
     [JsonPropertyName("personality")]  public string?  Personality  { get; set; }
     [JsonPropertyName("background")]   public string?  Background   { get; set; }
-    [JsonPropertyName("hooks")]        public string[] Hooks        { get; set; } = [];
+    [JsonPropertyName("hooks")]        public string[]? Hooks       { get; set; }
     [JsonPropertyName("currentQuest")] public string?  CurrentQuest { get; set; }
-    [JsonPropertyName("avoidThemes")]  public string[] AvoidThemes  { get; set; } = [];
+    [JsonPropertyName("avoidThemes")]  public string[]? AvoidThemes { get; set; }
     [JsonPropertyName("limits")]       public string?  Limits       { get; set; }
     [JsonPropertyName("nsfw")]         public bool     Nsfw         { get; set; }
     [JsonPropertyName("availability")] public string?  Availability { get; set; }

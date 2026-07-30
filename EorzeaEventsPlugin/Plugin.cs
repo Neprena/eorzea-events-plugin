@@ -368,7 +368,7 @@ public sealed class Plugin : IDalamudPlugin
         _sessionWindow     = new MySessionWindow(Config);
         _setupWindow       = new SetupWindow(Config);
         _estabDetailWindow = new EstabDetailWindow(Config);
-        _rpProfileWindow    = new RpProfileWindow(Config);
+        _rpProfileWindow    = new RpProfileWindow();
         _announcementWindow = new RpAnnouncementWindow(Config);
         _whatsNewWindow     = new WhatsNewWindow(Config);
         _portraitZoomWindow = new PortraitZoomWindow();
@@ -698,6 +698,141 @@ public sealed class Plugin : IDalamudPlugin
         return ((FFXIVClientStructs.FFXIV.Client.Game.Character.Character*)player.Address)->ContentId;
     }
 
+    // ─── Amis RP ─────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Personnages à qui la fiche du personnage courant est ouverte.
+    ///
+    /// Liste d'accès et non liste sociale : elle n'apprend rien sur les autres,
+    /// et le serveur ne dit jamais qui nous a ajouté. Gardée en mémoire parce que
+    /// le menu contextuel s'exécute sur le thread de jeu et doit répondre sans
+    /// attendre le réseau. Seul son propriétaire la modifie, donc aucun sondage
+    /// périodique : elle est relue à la connexion, au changement de personnage et
+    /// après chaque ajout ou retrait.
+    /// </summary>
+    internal static IReadOnlyList<Api.RpFriendDto> Friends { get; private set; } = [];
+
+    private static HashSet<string> _friendIds     = [];
+    private static HashSet<string> _friendHashes  = [];
+    private static string?         _friendsLoadedFor;
+
+    /// <summary>Ce personnage figure-t-il dans ma liste d'accès ?</summary>
+    internal static bool IsFriend(string? characterId) =>
+        characterId is { Length: > 0 } id && _friendIds.Contains(id);
+
+    /// <summary>
+    /// Variante par ContentId haché, seule information dont dispose le menu
+    /// contextuel sur un joueur visé.
+    /// </summary>
+    internal static bool IsFriendByContentId(ulong contentId) =>
+        contentId != 0 && _friendHashes.Contains(HashContentId(contentId));
+
+    /// <summary>
+    /// SHA256 de l'identifiant, dans la même forme que le serveur (chaîne
+    /// décimale, hexadécimal minuscule). L'identifiant brut d'un tiers ne quitte
+    /// jamais la machine : seul son haché est transmis.
+    /// </summary>
+    internal static string HashContentId(ulong contentId)
+    {
+        var bytes = System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(contentId.ToString()));
+        return Convert.ToHexString(bytes).ToLowerInvariant();
+    }
+
+    /// <summary>Recharge la liste depuis le serveur, en gardant l'ancienne si l'appel échoue.</summary>
+    internal static void RefreshFriends(bool force = false)
+    {
+        if (CurrentCharacter is not { } character) return;
+
+        var key = Configuration.CharacterKey(character.Name, character.WorldId);
+        if (!force && _friendsLoadedFor == key) return;
+        _friendsLoadedFor = key;
+
+        Task.Run(async () =>
+        {
+            var friends = await Api.GetRpFriendsAsync();
+            if (friends == null) return; // échec réseau : on garde ce qu'on a
+
+            await Framework.RunOnFrameworkThread(() =>
+            {
+                Friends       = friends;
+                _friendIds    = [.. friends.Select(f => f.CharacterId)];
+                _friendHashes = [.. friends
+                    .Select(f => f.ContentIdHash)
+                    .Where(h => !string.IsNullOrEmpty(h))
+                    .Select(h => h!)];
+            });
+        });
+    }
+
+    /// <summary>
+    /// Ouvre sa fiche à un personnage, désigné par son identifiant serveur ou par
+    /// le haché de son ContentId.
+    ///
+    /// Le message de retour dit ce qui se passe vraiment : l'autre pourra voir
+    /// nos sections « amis ». Personne ne l'apprendra de notre part, et cela ne
+    /// nous donne aucun accès à sa fiche à lui.
+    /// </summary>
+    internal static void AddFriend(string? characterId, ulong contentId, string label)
+    {
+        if (CurrentCharacter is null)
+        {
+            ChatGui.PrintError($"[Eorzea Events] {L.RpAvailableNoCharacter}");
+            return;
+        }
+
+        var request = new Api.AddRpFriendRequest
+        {
+            CharacterId   = characterId is { Length: > 0 } ? characterId : null,
+            ContentIdHash = characterId is { Length: > 0 } || contentId == 0
+                                ? null
+                                : HashContentId(contentId),
+        };
+
+        if (request.CharacterId == null && request.ContentIdHash == null) return;
+
+        Task.Run(async () =>
+        {
+            var ok = await Api.AddRpFriendAsync(request);
+            await Framework.RunOnFrameworkThread(() =>
+            {
+                if (ok) ChatGui.Print(string.Format(L.RpFriendAdded, label));
+                else    ChatGui.PrintError($"[Eorzea Events] {L.RpFriendAddFailed}");
+
+                RefreshFriends(force: true);
+            });
+        });
+    }
+
+    /// <summary>
+    /// Aide-mémoire privé attaché à un ami. Personne d'autre ne le lit : ni la
+    /// personne concernée, ni le reste du site.
+    /// </summary>
+    internal static void SetFriendNote(string characterId, string? note)
+    {
+        Task.Run(async () =>
+        {
+            await Api.SetRpFriendNoteAsync(characterId, string.IsNullOrWhiteSpace(note) ? null : note.Trim());
+            await Framework.RunOnFrameworkThread(() => RefreshFriends(force: true));
+        });
+    }
+
+    /// <summary>Referme sa fiche à un personnage.</summary>
+    internal static void RemoveFriend(string characterId, string label)
+    {
+        Task.Run(async () =>
+        {
+            var ok = await Api.RemoveRpFriendAsync(characterId);
+            await Framework.RunOnFrameworkThread(() =>
+            {
+                if (ok) ChatGui.Print(string.Format(L.RpFriendRemoved, label));
+                else    ChatGui.PrintError($"[Eorzea Events] {L.RpFriendAddFailed}");
+
+                RefreshFriends(force: true);
+            });
+        });
+    }
+
     // ─── Workflow de couplage d'un personnage (web-link) ────────────────────
 
     /// <summary>
@@ -1010,6 +1145,10 @@ public sealed class Plugin : IDalamudPlugin
         }
 
         SyncRpAvailabilityDisplay(now);
+
+        // Liste d'accès : rechargée au premier passage et à chaque changement de
+        // personnage, jamais en boucle, puisque seul son propriétaire la modifie.
+        RefreshFriends();
 
         // Surveillance tag RP (chaque frame, lecture uint = négligeable)
         var rpPlayer = ObjectTable.LocalPlayer;
@@ -1404,14 +1543,38 @@ public sealed class Plugin : IDalamudPlugin
 
         // Même rapprochement nom + monde que les nameplates.
         var entry = FindAvailableEntry(target.TargetName, target.TargetHomeWorld.Value.Name.ToString());
-        if (entry == null) return;
 
+        if (entry != null)
+        {
+            args.AddMenuItem(new MenuItem
+            {
+                Name        = L.MenuViewRpProfile,
+                PrefixChar  = 'E',
+                PrefixColor = 52, // même teinte que le titre de nameplate
+                OnClicked   = _ => OpenRpProfileViewer(entry),
+            });
+        }
+
+        // Ajout en ami : contrairement à la consultation, il ne demande pas que
+        // le joueur soit déclaré disponible à cet instant. Le ContentId, lisible
+        // sur un joueur qu'on a sous les yeux, suffit au serveur pour retrouver
+        // un personnage dont la fiche est visible en jeu ; les autres cas
+        // reçoivent le même refus, sans dire s'ils ont un compte.
+        var contentId = target.TargetContentId;
+        var already   = IsFriendByContentId(contentId)
+                     || IsFriend(entry?.Profile?.CharacterId);
+
+        if (contentId == 0 || already) return;
+        if (CurrentCharacter is not { } self) return;
+        if (string.Equals(target.TargetName, self.Name, StringComparison.Ordinal)) return;
+
+        var label = target.TargetName;
         args.AddMenuItem(new MenuItem
         {
-            Name        = L.MenuViewRpProfile,
+            Name        = L.RpFriendAdd,
             PrefixChar  = 'E',
-            PrefixColor = 52, // même teinte que le titre de nameplate
-            OnClicked   = _ => OpenRpProfileViewer(entry),
+            PrefixColor = 52,
+            OnClicked   = _ => AddFriend(entry?.Profile?.CharacterId, contentId, label),
         });
     }
 

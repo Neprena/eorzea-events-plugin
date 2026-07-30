@@ -132,6 +132,24 @@ internal sealed class AroundPage
                          id: $"around_site_{entry.Id}"))
                 OpenSite($"/rp/{characterId}");
         }
+
+        // Ajouter quelqu'un ouvre SA PROPRE fiche à cette personne : rien de ce
+        // qui est affiché ici ne changera. L'infobulle le dit, sans quoi le geste
+        // se lit comme une demande d'amitié.
+        if (entry.Profile?.CharacterId is { Length: > 0 } friendId)
+        {
+            ImGui.SameLine(0f, Theme.S(Theme.GapS));
+
+            if (Plugin.IsFriend(friendId))
+            {
+                Chip.Draw(l.RpFriendChip, ChipTone.Accent, Icons.Friend);
+            }
+            else if (Btn.Draw(l.RpFriendAdd, BtnTone.Ghost, BtnSize.Medium, Icons.FriendAdd,
+                              tooltip: l.RpFriendAddHint, id: $"around_friend_{entry.Id}"))
+            {
+                Plugin.AddFriend(friendId, 0, entry.CharacterName);
+            }
+        }
     }
 
     private static void OpenSite(string path) =>

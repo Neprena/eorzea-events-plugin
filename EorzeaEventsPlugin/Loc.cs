@@ -308,6 +308,18 @@ internal sealed class Loc
     public required string RpProfileAppearance    { get; init; }
     public required string RpProfilePersonality   { get; init; }
     public required string RpProfileBackground    { get; init; }
+    public required string RpProfileContact        { get; init; }
+    public required string RpProfileContactDirect  { get; init; }
+    public required string RpProfileContactTell    { get; init; }
+    public required string RpProfileContactEither  { get; init; }
+    public required string RpProfileLengths        { get; init; }
+    public required string RpProfileLengthShort    { get; init; }
+    public required string RpProfileLengthMedium   { get; init; }
+    public required string RpProfileLengthLong     { get; init; }
+    public required string RpProfileThemeSong      { get; init; }
+    public required string RpProfileExternalLink   { get; init; }
+    public required string RpProfileLinks          { get; init; }
+    public required string RpProfileOpenLink       { get; init; }
     public required string RpProfileLimits        { get; init; }
 
     // Traits physiques, appartenances et mise en avant : éditables en jeu.
@@ -389,6 +401,29 @@ internal sealed class Loc
     public required string RpProfileNsfw       { get; init; }
     public required string RpProfileViewOnSite { get; init; }
     public required string MenuViewRpProfile   { get; init; }
+    public required string RpFriendAdd         { get; init; }
+    public required string RpFriendAddHint     { get; init; }
+    public required string RpFriendAdded       { get; init; }
+    public required string RpFriendRemoved     { get; init; }
+    public required string RpFriendAddFailed   { get; init; }
+    public required string RpFriendChip        { get; init; }
+    public required string RpFriendMutual      { get; init; }
+    public required string RpFriendRenamed     { get; init; }
+    public required string RpFriendNote        { get; init; }
+    public required string RpFriendRemove      { get; init; }
+    public required string RpFriendRemoveArm   { get; init; }
+    public required string TabFriends          { get; init; }
+    public required string RpFriendsTitle      { get; init; }
+    public required string RpFriendsNoticeBody { get; init; }
+    public required string RpFriendsEmpty      { get; init; }
+    public required string RpFriendsNoToken    { get; init; }
+    public required string RpFriendsGoVisibility   { get; init; }
+    public required string RpProfileAudienceFriend { get; init; }
+    public required string RpProfileVisFriendNote  { get; init; }
+    public required string RpProfilePresetFriends  { get; init; }
+    public required string RpProfilePresetFriendsHint { get; init; }
+    public required string RpProfilePreviewAsPublic   { get; init; }
+    public required string RpProfilePreviewAsFriend   { get; init; }
     public required string RpProfileZoom       { get; init; }
     public required string RpProfileZoomClose  { get; init; }
 
@@ -708,6 +743,18 @@ internal sealed class Loc
         RpProfileAppearance     = "Apparence",
         RpProfilePersonality    = "Personnalité",
         RpProfileBackground     = "Histoire",
+        RpProfileContact        = "Prise de contact",
+        RpProfileContactDirect  = "Direct",
+        RpProfileContactTell    = "Un /tell d'abord",
+        RpProfileContactEither  = "Peu importe",
+        RpProfileLengths        = "Durée des scènes",
+        RpProfileLengthShort    = "Courtes",
+        RpProfileLengthMedium   = "Moyennes",
+        RpProfileLengthLong     = "Longues",
+        RpProfileThemeSong      = "Thème musical",
+        RpProfileExternalLink   = "En savoir plus",
+        RpProfileLinks          = "Liens",
+        RpProfileOpenLink       = "Ouvrir",
         RpProfileLimits         = "Limites",
         RpProfileTraits         = "Traits physiques",
         RpProfileTraitsHint     = "Des repères rapides, en plus de l'apparence rédigée.",
@@ -780,6 +827,29 @@ internal sealed class Loc
         RpProfileNsfw       = "Contenu sensible",
         RpProfileViewOnSite = "Voir sur le site",
         MenuViewRpProfile   = "Voir la fiche RP",
+        RpFriendAdd         = "Ajouter comme ami RP",
+        RpFriendAddHint     = "Lui ouvre les sections de VOTRE fiche réservées aux amis. Ne vous donne rien sur la sienne, et il n'en sera pas informé.",
+        RpFriendAdded       = "[Eorzea Events] {0} peut désormais voir les sections de votre fiche réservées à vos amis.",
+        RpFriendRemoved     = "[Eorzea Events] {0} ne voit plus les sections réservées à vos amis.",
+        RpFriendAddFailed   = "La liste d'amis n'a pas pu être modifiée. Ce personnage n'a peut-être pas de fiche visible en jeu.",
+        RpFriendChip        = "Ami",
+        RpFriendMutual      = "Vous a ajouté aussi",
+        RpFriendRenamed     = "ajouté sous {0}",
+        RpFriendNote        = "Note privée",
+        RpFriendRemove      = "Retirer",
+        RpFriendRemoveArm   = "Confirmer le retrait",
+        TabFriends          = "Amis RP",
+        RpFriendsTitle      = "Qui voit vos sections « amis »",
+        RpFriendsNoticeBody = "Cette liste ouvre l'accès aux sections de VOTRE fiche réglées sur « Mes amis RP ». Elle ne vous donne accès à rien, et personne n'est prévenu d'y figurer.",
+        RpFriendsEmpty      = "Aucun ami pour l'instant. Clic droit sur un joueur en jeu, puis « Ajouter comme ami RP ».",
+        RpFriendsNoToken    = "Liez ce personnage pour gérer ses amis RP.",
+        RpFriendsGoVisibility   = "Régler mes sections",
+        RpProfileAudienceFriend = "Mes amis RP",
+        RpProfileVisFriendNote  = "« Mes amis RP » ne s'applique qu'en jeu : ces sections n'apparaissent ni dans la liste des joueurs disponibles, ni sur la page web. La liste se gère dans l'onglet Amis RP.",
+        RpProfilePresetFriends  = "Ouvrir à mes amis",
+        RpProfilePresetFriendsHint = "Passe toutes les sections réservées à « Mes amis RP ».",
+        RpProfilePreviewAsPublic   = "Vu par tous",
+        RpProfilePreviewAsFriend   = "Vu par un ami",
         RpProfileZoom       = "Cliquer pour agrandir le portrait",
         RpProfileZoomClose  = "Clic ou Échap pour fermer",
 
@@ -1096,6 +1166,18 @@ internal sealed class Loc
         RpProfileAppearance     = "Appearance",
         RpProfilePersonality    = "Personality",
         RpProfileBackground     = "Background",
+        RpProfileContact        = "Getting in touch",
+        RpProfileContactDirect  = "Direct",
+        RpProfileContactTell    = "A /tell first",
+        RpProfileContactEither  = "No preference",
+        RpProfileLengths        = "Scene length",
+        RpProfileLengthShort    = "Short",
+        RpProfileLengthMedium   = "Medium",
+        RpProfileLengthLong     = "Long",
+        RpProfileThemeSong      = "Theme song",
+        RpProfileExternalLink   = "Learn more",
+        RpProfileLinks          = "Links",
+        RpProfileOpenLink       = "Open",
         RpProfileLimits         = "Limits",
         RpProfileTraits         = "Physical traits",
         RpProfileTraitsHint     = "Quick cues, alongside the written appearance.",
@@ -1168,6 +1250,29 @@ internal sealed class Loc
         RpProfileNsfw       = "Sensitive content",
         RpProfileViewOnSite = "View on the website",
         MenuViewRpProfile   = "View RP profile",
+        RpFriendAdd         = "Add as RP friend",
+        RpFriendAddHint     = "Opens the sections of YOUR profile reserved for friends. Gives you nothing on theirs, and they will not be told.",
+        RpFriendAdded       = "[Eorzea Events] {0} can now see the sections of your profile reserved for your friends.",
+        RpFriendRemoved     = "[Eorzea Events] {0} no longer sees the sections reserved for your friends.",
+        RpFriendAddFailed   = "The friend list could not be changed. That character may not have a profile visible in game.",
+        RpFriendChip        = "Friend",
+        RpFriendMutual      = "Added you back",
+        RpFriendRenamed     = "added as {0}",
+        RpFriendNote        = "Private note",
+        RpFriendRemove      = "Remove",
+        RpFriendRemoveArm   = "Confirm removal",
+        TabFriends          = "RP friends",
+        RpFriendsTitle      = "Who sees your friends-only sections",
+        RpFriendsNoticeBody = "This list opens the sections of YOUR profile set to \"My RP friends\". It gives you access to nothing, and nobody is told they are on it.",
+        RpFriendsEmpty      = "No friends yet. Right-click a player in game, then \"Add as RP friend\".",
+        RpFriendsNoToken    = "Link this character to manage its RP friends.",
+        RpFriendsGoVisibility   = "Set up my sections",
+        RpProfileAudienceFriend = "My RP friends",
+        RpProfileVisFriendNote  = "\"My RP friends\" only applies in game: those sections appear neither in the available players list nor on the web page. The list is managed in the RP friends tab.",
+        RpProfilePresetFriends  = "Open to my friends",
+        RpProfilePresetFriendsHint = "Sets every reserved section to \"My RP friends\".",
+        RpProfilePreviewAsPublic   = "Seen by everyone",
+        RpProfilePreviewAsFriend   = "Seen by a friend",
         RpProfileZoom       = "Click to enlarge the portrait",
         RpProfileZoomClose  = "Click or press Esc to close",
 

@@ -11,25 +11,17 @@ using EorzeaEventsPlugin.Ui.Components;
 namespace EorzeaEventsPlugin.Windows;
 
 /// <summary>
-/// Dual-mode window:
-///   - Wizard mode: first-time setup of the user's own RP profile
-///   - Viewer mode: display another player's RP profile (read-only)
+/// Fiche RP d'un autre joueur, en lecture seule, et aperçu de la sienne.
+///
+/// Cette fenêtre portait aussi un assistant de première configuration, remplacé
+/// depuis par la page « Mon profil RP » de la coque. Il n'était plus atteignable,
+/// mais son enregistrement construisait une requête vierge dont les booléens
+/// partaient à leurs valeurs par défaut : le rouvrir aurait republié une fiche
+/// masquée, réactivé la page web et effacé le marquage sensible. Supprimé plutôt
+/// que laissé en embuscade.
 /// </summary>
 public class RpProfileWindow : ThemedWindow
 {
-    private enum Mode { Wizard, Viewer }
-
-    private readonly Configuration _config;
-    private Mode _mode = Mode.Wizard;
-
-    // Wizard state
-    private int  _levelIdx    = 1; // 0=beginner 1=casual 2=confirmed
-    private bool _langFr      = true;
-    private bool _langEn      = false;
-    private int  _approachIdx = 0; // 0=come_to_me 1=i_approach 2=either
-    private string _status    = string.Empty;
-    private bool _saving      = false;
-
     // Viewer state
     private RpAvailabilityEntryDto? _viewTarget;
 
@@ -49,10 +41,14 @@ public class RpProfileWindow : ThemedWindow
     /// <summary>La requête a répondu, sans fiche. Distingue « rien » de « pas encore ».</summary>
     private bool _viewFetchEmpty;
 
-    private static readonly string[] LevelKeys    = ["beginner", "casual", "confirmed"];
-    private static readonly string[] ApproachKeys = ["come_to_me", "i_approach", "either"];
+    /// <summary>
+    /// En aperçu, vue simulée : publique par défaut, ou celle d'un ami. Régler une
+    /// section sur « Mes amis RP » sans pouvoir en constater l'effet reviendrait à
+    /// demander de la confiance à l'aveugle.
+    /// </summary>
+    private bool _previewAsFriend;
 
-    public RpProfileWindow(Configuration config)
+    public RpProfileWindow()
         : base("##rpprofile")
     {
         // Redimensionnable, contrairement au wizard d'origine : une fiche
@@ -66,17 +62,6 @@ public class RpProfileWindow : ThemedWindow
             MinimumSize = new Vector2(600, 620),
             MaximumSize = new Vector2(800, 960),
         };
-        _config = config;
-    }
-
-    /// <summary>Open the wizard to set up the user's own profile.</summary>
-    public void OpenWizard()
-    {
-        _mode = Mode.Wizard;
-        _status = string.Empty;
-        LoadFromConfig();
-        WindowName = $"{Plugin.L.RpProfileWizardTitle}##rpprofile";
-        IsOpen = true;
     }
 
     /// <summary>
@@ -93,7 +78,6 @@ public class RpProfileWindow : ThemedWindow
     /// </summary>
     public void OpenPreview(string characterId, string characterName, string? server)
     {
-        _mode = Mode.Viewer;
         _isPreview  = true;
         _viewTarget = new RpAvailabilityEntryDto
         {
@@ -103,6 +87,7 @@ public class RpProfileWindow : ThemedWindow
         _viewFull        = null;
         _viewFetchEmpty  = false;
         _viewCharacterId = characterId;
+        _previewAsFriend = false;
 
         WindowName = $"{Plugin.L.RpProfilePreviewTitle}##rpprofile";
         IsOpen = true;
@@ -113,7 +98,6 @@ public class RpProfileWindow : ThemedWindow
     /// <summary>Open the viewer to display another player's profile.</summary>
     public void OpenViewer(RpAvailabilityEntryDto entry)
     {
-        _mode = Mode.Viewer;
         _isPreview  = false;
         _viewTarget = entry;
         _viewFull   = null;
@@ -128,143 +112,7 @@ public class RpProfileWindow : ThemedWindow
         if (_viewCharacterId is { Length: > 0 } characterId) FetchFullProfile(characterId);
     }
 
-    private void LoadFromConfig()
-    {
-        _levelIdx    = Array.IndexOf(LevelKeys,    _config.RpProfileLevel       ?? "casual");
-        _approachIdx = Array.IndexOf(ApproachKeys, _config.RpProfileApproachMode ?? "come_to_me");
-        if (_levelIdx    < 0) _levelIdx    = 1;
-        if (_approachIdx < 0) _approachIdx = 0;
-        var langs = _config.RpProfileLanguages ?? "[\"fr\"]";
-        _langFr = langs.Contains("\"fr\"");
-        _langEn = langs.Contains("\"en\"");
-        if (!_langFr && !_langEn) _langFr = true;
-    }
-
-    public override void Draw()
-    {
-        if (_mode == Mode.Viewer)
-            DrawViewer();
-        else
-            DrawWizard();
-    }
-
-    // ── Wizard ────────────────────────────────────────────────────────────────
-
-    private void DrawWizard()
-    {
-        var l = Plugin.L;
-
-        ImGui.TextWrapped(l.RpProfileWizardIntro);
-        ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
-
-        // ── RP Level ──
-        ImGui.TextUnformatted(l.RpProfileLevel);
-        ImGui.Spacing();
-        DrawRadio(l.RpProfileLevelBeginner,  ref _levelIdx, 0);
-        DrawRadio(l.RpProfileLevelCasual,    ref _levelIdx, 1);
-        DrawRadio(l.RpProfileLevelConfirmed, ref _levelIdx, 2);
-
-        ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
-
-        // ── Approach mode ──
-        ImGui.TextUnformatted(l.RpProfileApproach);
-        ImGui.Spacing();
-        DrawRadioWithHint(l.RpProfileApproachCome,   l.RpProfileApproachComeHint,   ref _approachIdx, 0);
-        DrawRadioWithHint(l.RpProfileApproachIGo,    l.RpProfileApproachIGoHint,    ref _approachIdx, 1);
-        DrawRadioWithHint(l.RpProfileApproachEither, l.RpProfileApproachEitherHint, ref _approachIdx, 2);
-
-        ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
-
-        // ── Languages ──
-        ImGui.TextUnformatted(l.RpProfileLanguages);
-        ImGui.Spacing();
-        ImGui.Checkbox("Français", ref _langFr);
-        ImGui.SameLine();
-        ImGui.Checkbox("English",  ref _langEn);
-        if (!_langFr && !_langEn) _langFr = true;
-
-        ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
-
-        if (!string.IsNullOrEmpty(_status))
-        {
-            ImGui.TextUnformatted(_status);
-            ImGui.SameLine();
-        }
-
-        var btnLabel = _saving ? l.Processing : l.Save;
-        if (ImGui.Button(btnLabel) && !_saving)
-            SaveProfileAsync();
-
-        ImGui.SameLine();
-        if (ImGui.Button(l.Cancel))
-            IsOpen = false;
-    }
-
-    private static void DrawRadio(string label, ref int current, int value)
-    {
-        var active = current == value;
-        if (ImGui.RadioButton(label, active))
-            current = value;
-    }
-
-    private static void DrawRadioWithHint(string label, string hint, ref int current, int value)
-    {
-        var active = current == value;
-        if (ImGui.RadioButton(label, active))
-            current = value;
-        ImGui.Indent(22f);
-        ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(1f, 1f, 1f, 0.45f));
-        ImGui.TextUnformatted(hint);
-        ImGui.PopStyleColor();
-        ImGui.Unindent(22f);
-    }
-
-    private void SaveProfileAsync()
-    {
-        _saving = true;
-        _status = string.Empty;
-
-        var langs = new List<string>();
-        if (_langFr) langs.Add("fr");
-        if (_langEn) langs.Add("en");
-
-        var req = new SaveRpProfileRequest
-        {
-            RpLevel      = LevelKeys[_levelIdx],
-            ApproachMode = ApproachKeys[_approachIdx],
-            Languages    = [.. langs],
-        };
-
-        // Cache local immédiat
-        _config.RpProfileLevel        = req.RpLevel;
-        _config.RpProfileApproachMode = req.ApproachMode;
-        _config.RpProfileLanguages    = System.Text.Json.JsonSerializer.Serialize(langs);
-        _config.RpProfileSetupDone    = true;
-        _config.Save();
-
-        Task.Run(async () =>
-        {
-            var result = await Plugin.Api.SaveRpProfileAsync(req);
-            await Plugin.Framework.RunOnFrameworkThread(() =>
-            {
-                _saving = false;
-                _status = result != null ? Plugin.L.RpProfileSaved : Plugin.L.RpProfileError;
-            });
-            if (result != null)
-            {
-                await Task.Delay(1200);
-                await Plugin.Framework.RunOnFrameworkThread(() => IsOpen = false);
-            }
-        });
-    }
+    public override void Draw() => DrawViewer();
 
     // ── Viewer ────────────────────────────────────────────────────────────────
 
@@ -289,7 +137,9 @@ public class RpProfileWindow : ThemedWindow
                                    l.RpProfilePreviewHint);
                 }
 
-                if (_isPreview && profile == null)
+                if (_isPreview) DrawPreviewTabs(l);
+
+            if (_isPreview && profile == null)
                 {
                     // Le serveur a répondu sans fiche : c'est un refus, pas une
                     // attente. En aperçu, cela veut dire que la fiche n'est pas
@@ -322,6 +172,24 @@ public class RpProfileWindow : ThemedWindow
                          id: "rpview_site"))
                 OpenSite($"/rp/{characterId}");
         }
+
+        // Pas d'ajout en aperçu : on ne s'ouvre pas sa propre fiche. Et l'ajout
+        // n'ouvre que la nôtre, ce que dit l'infobulle : cette fenêtre-ci ne
+        // montrera pas davantage après coup.
+        if (!_isPreview && _viewCharacterId is { Length: > 0 } friendId)
+        {
+            ImGui.SameLine(0f, Theme.S(Theme.GapS));
+
+            if (Plugin.IsFriend(friendId))
+            {
+                Chip.Draw(l.RpFriendChip, ChipTone.Accent, Icons.Friend);
+            }
+            else if (Btn.Draw(l.RpFriendAdd, BtnTone.Ghost, BtnSize.Medium, Icons.FriendAdd,
+                              tooltip: l.RpFriendAddHint, id: "rpview_friend"))
+            {
+                Plugin.AddFriend(friendId, 0, entry.CharacterName);
+            }
+        }
     }
 
     /// <summary>
@@ -332,12 +200,37 @@ public class RpProfileWindow : ThemedWindow
     /// déjà, le réseau ne fait que compléter. Un échec laisse donc la fiche
     /// partielle à l'écran plutôt qu'un écran vide.
     /// </summary>
+    private void DrawPreviewTabs(Loc l)
+    {
+        var asFriend = _previewAsFriend;
+
+        if (Btn.Draw(l.RpProfilePreviewAsPublic,
+                     asFriend ? BtnTone.Ghost : BtnTone.Primary,
+                     BtnSize.Medium, id: "rpview_as_public") && asFriend)
+        {
+            _previewAsFriend = false;
+            if (_viewCharacterId is { Length: > 0 } id) FetchFullProfile(id);
+        }
+
+        ImGui.SameLine(0f, Theme.S(Theme.GapS));
+
+        if (Btn.Draw(l.RpProfilePreviewAsFriend,
+                     asFriend ? BtnTone.Primary : BtnTone.Ghost,
+                     BtnSize.Medium, Icons.Friend, id: "rpview_as_friend") && !asFriend)
+        {
+            _previewAsFriend = true;
+            if (_viewCharacterId is { Length: > 0 } id) FetchFullProfile(id);
+        }
+
+        Layout.Spacer(Theme.GapS);
+    }
+
     private void FetchFullProfile(string characterId)
     {
         _viewFull = null;
         Task.Run(async () =>
         {
-            var full = await Plugin.Api.GetPublicRpProfileAsync(characterId);
+            var full = await Plugin.Api.GetPublicRpProfileAsync(characterId, _previewAsFriend);
 
             await Plugin.Framework.RunOnFrameworkThread(() =>
             {

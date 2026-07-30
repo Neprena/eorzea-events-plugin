@@ -72,6 +72,24 @@ public class RpProfileCache
     public bool Nsfw     { get; set; }
     public bool IsPublic { get; set; } = true;
 
+    /// <summary>
+    /// Reste de la confidentialité, mis en cache comme le reste de la fiche.
+    ///
+    /// Ces trois-là manquaient, si bien qu'une fiche reconstituée depuis le cache
+    /// affichait « page web active, indexation coupée, sections aux défauts »
+    /// quels qu'aient été les réglages réels. L'écran mentait, et un
+    /// enregistrement dans cet état les aurait imposés au serveur. Le null
+    /// distingue « jamais synchronisé » de « réglé ainsi ».
+    /// </summary>
+    public bool?   WebPageEnabled    { get; set; }
+    public bool?   SearchIndexable   { get; set; }
+    public string? SectionVisibility { get; set; }
+
+    /// <summary>Identifiant serveur du personnage, pour l'aperçu et les liens.</summary>
+    public string? CharacterId { get; set; }
+
+    public string? ThemeSongUrl { get; set; }
+
     /// <summary>Dernière synchronisation réussie avec le serveur.</summary>
     public DateTime FetchedAt { get; set; } = DateTime.MinValue;
 }

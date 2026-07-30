@@ -57,6 +57,7 @@ public class MainWindow : ThemedWindow, IDisposable
     private readonly SettingsPage  _settings;
     private readonly RpProfilePage _rpProfile;
     private readonly AroundPage    _around = new();
+    private readonly FriendsPage   _friends = new();
 
     // Le nom de la fenêtre est la clé de persistance de imgui.ini : le changer
     // réinitialiserait position et taille chez tous les utilisateurs.
@@ -105,6 +106,14 @@ public class MainWindow : ThemedWindow, IDisposable
                 Label = () => Plugin.L.TabAround,
                 Draw  = _around.Draw,
                 Badge = () => Plugin.AvailableEntries.Count,
+            },
+            new ShellPage
+            {
+                Id    = "friends",
+                Icon  = Icons.Friend,
+                Label = () => Plugin.L.TabFriends,
+                Draw  = _friends.Draw,
+                Badge = () => Plugin.Friends.Count,
             },
             new ShellPage
             {

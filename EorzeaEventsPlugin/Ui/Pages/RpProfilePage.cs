@@ -18,6 +18,19 @@ namespace EorzeaEventsPlugin.Ui.Pages;
 internal sealed class RpProfilePage(Configuration config)
 {
     private RpProfileDto? _profile;
+
+    /// <summary>
+    /// La fiche affichée vient du serveur, et non du cache local.
+    ///
+    /// Le cache ne porte ni la page web, ni l'indexation, ni l'audience par
+    /// section : reconstituée depuis lui, la fiche affiche les défauts du DTO,
+    /// c'est-à-dire une page web active et des sections ouvertes. Tant que le
+    /// réseau n'a pas répondu, ces réglages ne sont donc pas connus, et les
+    /// renvoyer les écraserait. Le cas n'a rien de théorique : il suffit que le
+    /// site soit injoignable au changement de personnage.
+    /// </summary>
+    private bool _profileFromNetwork;
+
     private string        _loadedFor = string.Empty;
     private bool          _loading;
     private bool          _saving;
@@ -51,17 +64,27 @@ internal sealed class RpProfilePage(Configuration config)
     private static readonly string[] ApproachKeys = ["come_to_me", "i_approach", "either"];
 
     private static readonly string[] SectionKeys =
-        ["identity", "hooks", "traits", "belonging", "description", "relations", "limits"];
-
-    private static readonly string[] AudienceKeys = ["public", "owner"];
+        ["identity", "hooks", "traits", "belonging", "description", "relations", "limits", "links"];
 
     /// <summary>
-    /// Défauts par section, dans l'ordre de <see cref="SectionKeys"/>. Ils doivent
-    /// rester alignés sur ceux du serveur (<c>RP_SECTIONS</c> dans
-    /// src/lib/rp-public-profile.ts) : identité et accroches publiques, le reste
-    /// réservé. Sinon cet écran afficherait un état qui n'est pas celui appliqué.
+    /// Audiences, de la plus large à la plus étroite, dans le même ordre que
+    /// <c>RP_AUDIENCES</c> côté serveur. L'ordre porte du sens : « ami » est un
+    /// échelon intermédiaire, pas une troisième option quelconque.
     /// </summary>
-    private static readonly int[] SectionDefaults = [0, 0, 1, 1, 1, 1, 1];
+    private static readonly string[] AudienceKeys = ["public", "friend", "owner"];
+
+    /// <summary>
+    /// Défauts par section, dans l'ordre de <see cref="SectionKeys"/>, exprimés
+    /// par clé et non par rang.
+    ///
+    /// Ils étaient écrits en indices dans <see cref="AudienceKeys"/>, ce qui
+    /// rendait toute insertion au milieu du vocabulaire silencieusement fausse :
+    /// ajouter « ami » décalait « moi seul » et affichait, puis enregistrait, une
+    /// audience plus large que celle voulue. Ils doivent rester alignés sur
+    /// <c>RP_SECTIONS</c> (src/lib/rp-vocabulary.ts).
+    /// </summary>
+    private static readonly string[] SectionDefaultKeys =
+        ["public", "public", "owner", "owner", "owner", "owner", "owner", "public"];
 
     /// <summary>
     /// Les Douze, dans l'ordre du serveur, précédés d'une entrée vide : l'index
@@ -106,6 +129,7 @@ internal sealed class RpProfilePage(Configuration config)
         DrawIdentity(l);
         DrawRelations(l);
         DrawStory(l);
+        if (_profile is { } linked) RpProfileView.DrawLinks(linked, l);
         DrawVisibility(l);
 
         // Respiration en fin de page. Sans elle, la dernière carte est collée au
@@ -123,6 +147,7 @@ internal sealed class RpProfilePage(Configuration config)
         // Le cache évite un écran vide au changement de personnage ; le réseau
         // le rafraîchit ensuite.
         _profile = config.RpProfiles.TryGetValue(key, out var cached) ? ToDto(cached) : null;
+        _profileFromNetwork = false;
         Reset();
 
         _loading = true;
@@ -135,6 +160,7 @@ internal sealed class RpProfilePage(Configuration config)
                 if (fetched == null) return;
 
                 _profile = fetched;
+                _profileFromNetwork = true;
                 config.RpProfiles[key] = FromDto(fetched);
                 config.Save();
                 Reset();
@@ -174,7 +200,9 @@ internal sealed class RpProfilePage(Configuration config)
         {
             var stored = audience.TryGetValue(SectionKeys[i], out var value) ? value : null;
             var index  = stored != null ? Array.IndexOf(AudienceKeys, stored) : -1;
-            _sectionAudience[i] = index >= 0 ? index : SectionDefaults[i];
+            _sectionAudience[i] = index >= 0
+                ? index
+                : Array.IndexOf(AudienceKeys, SectionDefaultKeys[i]);
         }
 
         _dirty = false;
@@ -472,7 +500,8 @@ internal sealed class RpProfilePage(Configuration config)
             ? l.RpProfileAudienceOwnerFem
             : l.RpProfileAudienceOwner;
 
-        var options = new[] { l.RpProfileAudiencePublic, ownerLabel };
+        // Ordre imposé par AudienceKeys : de la plus large à la plus étroite.
+        var options = new[] { l.RpProfileAudiencePublic, l.RpProfileAudienceFriend, ownerLabel };
         for (var i = 0; i < SectionKeys.Length; i++)
         {
             if (Inputs.Select($"##vis_{SectionKeys[i]}", SectionLabel(SectionKeys[i], l),
@@ -481,7 +510,25 @@ internal sealed class RpProfilePage(Configuration config)
         }
 
         Layout.Spacer(Theme.GapS);
+
+        // Le cas d'usage principal de l'audience « ami » est d'ouvrir d'un geste
+        // ce qu'on gardait pour soi. Sept listes déroulantes à dérouler une à une
+        // suffiraient à décourager.
+        var ownerIndex  = Array.IndexOf(AudienceKeys, "owner");
+        var friendIndex = Array.IndexOf(AudienceKeys, "friend");
+        if (_sectionAudience.Any(a => a == ownerIndex)
+            && Btn.Draw(l.RpProfilePresetFriends, BtnTone.Secondary, BtnSize.Medium, Icons.Friend,
+                        tooltip: l.RpProfilePresetFriendsHint, id: "rp_preset_friends"))
+        {
+            for (var i = 0; i < _sectionAudience.Length; i++)
+                if (_sectionAudience[i] == ownerIndex) _sectionAudience[i] = friendIndex;
+            _dirty = true;
+        }
+
+        Layout.Spacer(Theme.GapS);
         Text.Small(string.Format(l.RpProfileVisOwnerNote, ownerLabel));
+        Layout.Spacer(Theme.GapXs);
+        Text.Small(l.RpProfileVisFriendNote);
         Layout.Spacer(Theme.GapXs);
         Text.Small(l.RpProfileVisAlwaysPublic);
 
@@ -510,6 +557,7 @@ internal sealed class RpProfilePage(Configuration config)
         "description" => l.RpProfileDescription,
         "relations"   => l.RpProfileRelations,
         "limits"      => l.RpProfileLimits,
+        "links"       => l.RpProfileLinks,
         _             => section,
     };
 
@@ -566,12 +614,18 @@ internal sealed class RpProfilePage(Configuration config)
         // chaîne vide serait refusée par l'énumération.
         request.Deity = _deityIndex > 0 ? DeityKeys[_deityIndex] : null;
 
-        request.IsPublic        = _visInGame;
-        request.WebPageEnabled  = _visWebPage;
-        request.SearchIndexable = _visIndexable;
-        request.SectionVisibility = SectionKeys
-            .Select((section, i) => (section, audience: AudienceKeys[_sectionAudience[i]]))
-            .ToDictionary(entry => entry.section, entry => entry.audience);
+        // Confidentialité : envoyée seulement si elle a été lue du serveur.
+        // Laissés nuls, ces champs sont omis du corps et le serveur conserve les
+        // siens, plutôt que de se voir imposer les défauts du cache local.
+        if (_profileFromNetwork)
+        {
+            request.IsPublic        = _visInGame;
+            request.WebPageEnabled  = _visWebPage;
+            request.SearchIndexable = _visIndexable;
+            request.SectionVisibility = SectionKeys
+                .Select((section, i) => (section, audience: AudienceKeys[_sectionAudience[i]]))
+                .ToDictionary(entry => entry.section, entry => entry.audience);
+        }
 
         var key = _loadedFor;
         _ = Task.Run(async () =>
@@ -625,6 +679,14 @@ internal sealed class RpProfilePage(Configuration config)
         Marks        = p.Marks,         Voice        = p.Voice,
         FreeCompany  = p.FreeCompany,   Allegiance   = p.Allegiance,
         Deity        = p.Deity,         Quote        = p.Quote,
+        ThemeSongUrl = p.ThemeSongUrl,  CharacterId  = p.CharacterId,
+
+        // Confidentialité complète : sans elle, une fiche relue du cache
+        // repartait sur les défauts du DTO et pouvait les imposer au serveur.
+        WebPageEnabled    = p.WebPageEnabled,
+        SearchIndexable   = p.SearchIndexable,
+        SectionVisibility = p.SectionVisibility,
+
         FetchedAt    = DateTime.UtcNow,
     };
 
@@ -649,6 +711,15 @@ internal sealed class RpProfilePage(Configuration config)
         Marks        = c.Marks,         Voice        = c.Voice,
         FreeCompany  = c.FreeCompany,   Allegiance   = c.Allegiance,
         Deity        = c.Deity,         Quote        = c.Quote,
+        ThemeSongUrl = c.ThemeSongUrl,  CharacterId  = c.CharacterId ?? string.Empty,
+
+        // Un cache antérieur à ces champs les rend nuls : on retombe alors sur
+        // les mêmes défauts qu'avant, mais l'écran reste bloqué en écriture tant
+        // que le réseau n'a pas répondu (voir _profileFromNetwork).
+        WebPageEnabled    = c.WebPageEnabled  ?? true,
+        SearchIndexable   = c.SearchIndexable ?? false,
+        SectionVisibility = c.SectionVisibility,
+
         // Les relations ne sont pas mises en cache : elles ne servent qu'à
         // l'affichage et arrivent avec le premier rafraîchissement réseau.
     };

@@ -40,6 +40,7 @@ internal static class RpProfileView
         DrawBelonging(profile, l);
         DrawRelations(profile, l);
         DrawStory(profile, l);
+        DrawLinks(profile, l);
     }
 
     // ─── En-tête ──────────────────────────────────────────────────────────────
@@ -205,6 +206,13 @@ internal static class RpProfileView
         Row(l.RpProfileLevel,    LevelLabel(p.RpLevel, l));
         Row(l.RpProfileApproach, ApproachLabel(p.ApproachMode, l));
 
+        // Prise de contact et durée des scènes étaient servies par le serveur et
+        // renseignées sur le site, mais n'étaient affichées nulle part en jeu.
+        if (p.ContactMode is { Length: > 0 } contact)
+            Row(l.RpProfileContact, ContactLabel(contact, l));
+        if (p.SessionLength is { Length: > 0 } length)
+            Row(l.RpProfileLengths, SessionLengthLabel(length, l));
+
         if (p.Languages.Length > 0)
             Row(l.RpProfileLanguages, string.Join(" / ", p.Languages.Select(LanguageLabel)));
 
@@ -304,6 +312,57 @@ internal static class RpProfileView
         DrawTextBlock("rpview_limits",      l.RpProfileLimits,      p.Limits, Theme.Danger);
     }
 
+    /// <summary>
+    /// Thème musical et lien externe, jusqu'ici saisissables sur le site sans
+    /// jamais apparaître en jeu.
+    ///
+    /// L'adresse est affichée en toutes lettres à côté du bouton : ce sont des
+    /// liens écrits par un autre joueur, on doit voir où l'on va avant de sortir
+    /// du jeu.
+    /// </summary>
+    public static void DrawLinks(RpProfileDto p, Loc l)
+    {
+        var hasLinks = p.ThemeSongUrl is { Length: > 0 } || p.ExternalUrl is { Length: > 0 };
+        if (!hasLinks) return;
+
+        using var card = Card.Begin("rpview_links", interactive: false);
+        Layout.SectionHeader(l.RpProfileLinks, Icons.External);
+
+        if (p.ThemeSongUrl is { Length: > 0 } song)
+            DrawLink("rpview_song", l.RpProfileThemeSong, song, l);
+
+        if (p.ExternalUrl is { Length: > 0 } external)
+        {
+            if (p.ThemeSongUrl is { Length: > 0 }) Layout.Spacer(Theme.GapS);
+            DrawLink("rpview_ext", l.RpProfileExternalLink, external, l);
+        }
+    }
+
+    private static void DrawLink(string id, string label, string url, Loc l)
+    {
+        Text.Muted(label);
+        Layout.Spacer(Theme.GapXs);
+        Text.Small(url);
+        Layout.Spacer(Theme.GapXs);
+
+        if (Btn.Draw(l.RpProfileOpenLink, BtnTone.Ghost, BtnSize.Small, Icons.External, id: id))
+            OpenUrl(url);
+    }
+
+    /// <summary>
+    /// Ouvre une adresse dans le navigateur. Seuls http et https sont suivis :
+    /// l'adresse vient d'un autre joueur, et un schéma exotique ne doit pas
+    /// pouvoir lancer autre chose qu'une page web.
+    /// </summary>
+    private static void OpenUrl(string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return;
+        if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps) return;
+
+        System.Diagnostics.Process.Start(
+            new System.Diagnostics.ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true });
+    }
+
     public static void DrawTextBlock(string id, string title, string? body, Vector4? tone = null)
     {
         if (string.IsNullOrWhiteSpace(body)) return;
@@ -347,6 +406,22 @@ internal static class RpProfileView
         "i_approach" => l.RpProfileApproachIGo,
         "either"     => l.RpProfileApproachEither,
         _            => key,
+    };
+
+    public static string ContactLabel(string key, Loc l) => key switch
+    {
+        "direct"     => l.RpProfileContactDirect,
+        "tell_first" => l.RpProfileContactTell,
+        "either"     => l.RpProfileContactEither,
+        _            => key,
+    };
+
+    public static string SessionLengthLabel(string key, Loc l) => key switch
+    {
+        "short"  => l.RpProfileLengthShort,
+        "medium" => l.RpProfileLengthMedium,
+        "long"   => l.RpProfileLengthLong,
+        _        => key,
     };
 
     /// <summary>Les noms de langue s'écrivent dans leur propre langue.</summary>

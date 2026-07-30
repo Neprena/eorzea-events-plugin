@@ -186,6 +186,15 @@ public class RpProfileDto
     [JsonPropertyName("currentQuest")] public string?  CurrentQuest { get; set; }
     [JsonPropertyName("avoidThemes")]  public string[] AvoidThemes  { get; set; } = [];
     [JsonPropertyName("limits")]       public string?  Limits       { get; set; }
+    /// <summary>
+    /// Consentements et marquage : nullables à dessein.
+    ///
+    /// Un bool non nullable part toujours dans le corps, avec sa valeur par
+    /// défaut, et le serveur écrit tout champ présent. Une requête construite
+    /// sans les renseigner republiait donc une fiche masquée, réactivait la page
+    /// web et effaçait le marquage sensible. Nuls, ils sont omis, et le serveur
+    /// conserve ce qu'il a.
+    /// </summary>
     [JsonPropertyName("nsfw")]         public bool     Nsfw         { get; set; }
     [JsonPropertyName("availability")] public string?  Availability { get; set; }
     [JsonPropertyName("externalUrl")]  public string?  ExternalUrl  { get; set; }
@@ -253,6 +262,41 @@ public class RpAvailabilityEntryDto
     [JsonPropertyName("profile")]       public RpProfileDto? Profile      { get; set; }
 }
 
+/// <summary>
+/// Personnage à qui l'on a ouvert sa fiche.
+///
+/// La liste ne se lit que dans ce sens : le serveur ne dit jamais qui nous a
+/// ajouté, ce qui est précisément ce qui rend l'ajout inoffensif pour l'ajouté.
+/// <see cref="Mutual"/> fait exception, mais ne révèle l'ajout d'un tiers qu'à
+/// quelqu'un qui l'a déjà ajouté lui-même.
+/// </summary>
+public class RpFriendDto
+{
+    [JsonPropertyName("characterId")]   public string  CharacterId   { get; set; } = string.Empty;
+    [JsonPropertyName("contentIdHash")] public string? ContentIdHash { get; set; }
+    [JsonPropertyName("name")]          public string  Name          { get; set; } = string.Empty;
+    [JsonPropertyName("worldName")]     public string  WorldName     { get; set; } = string.Empty;
+
+    /// <summary>Nom et monde au moment de l'ajout, pour retrouver un renommé.</summary>
+    [JsonPropertyName("addedAsName")]  public string  AddedAsName  { get; set; } = string.Empty;
+    [JsonPropertyName("addedAsWorld")] public string  AddedAsWorld { get; set; } = string.Empty;
+
+    [JsonPropertyName("note")]    public string? Note    { get; set; }
+    [JsonPropertyName("addedAt")] public string  AddedAt { get; set; } = string.Empty;
+    [JsonPropertyName("mutual")]  public bool    Mutual  { get; set; }
+}
+
+/// <summary>
+/// Désignation d'un personnage à ajouter : son identifiant serveur quand on le
+/// connaît déjà, sinon le haché de son ContentId, lu sur un joueur qu'on a sous
+/// les yeux. L'identifiant brut d'un tiers ne quitte jamais la machine.
+/// </summary>
+public class AddRpFriendRequest
+{
+    [JsonPropertyName("characterId")]   public string? CharacterId   { get; set; }
+    [JsonPropertyName("contentIdHash")] public string? ContentIdHash { get; set; }
+}
+
 public class SetRpAvailableRequest
 {
     [JsonPropertyName("characterName")] public string  CharacterName { get; set; } = string.Empty;
@@ -299,10 +343,19 @@ public class SaveRpProfileRequest
     [JsonPropertyName("currentQuest")] public string?  CurrentQuest { get; set; }
     [JsonPropertyName("avoidThemes")]  public string[]? AvoidThemes { get; set; }
     [JsonPropertyName("limits")]       public string?  Limits       { get; set; }
-    [JsonPropertyName("nsfw")]         public bool     Nsfw         { get; set; }
+    /// <summary>
+    /// Consentements et marquage : nullables à dessein.
+    ///
+    /// Un bool non nullable part toujours dans le corps, avec sa valeur par
+    /// défaut, et le serveur écrit tout champ présent. Une requête construite
+    /// sans les renseigner republiait donc une fiche masquée, réactivait la page
+    /// web et effaçait le marquage sensible. Nuls, ils sont omis, et le serveur
+    /// conserve ce qu'il a.
+    /// </summary>
+    [JsonPropertyName("nsfw")]         public bool?    Nsfw         { get; set; }
     [JsonPropertyName("availability")] public string?  Availability { get; set; }
     [JsonPropertyName("externalUrl")]  public string?  ExternalUrl  { get; set; }
-    [JsonPropertyName("isPublic")]     public bool     IsPublic     { get; set; } = true;
+    [JsonPropertyName("isPublic")]     public bool?    IsPublic     { get; set; }
 
     [JsonPropertyName("portraitUrl")] public string? PortraitUrl { get; set; }
 
@@ -318,8 +371,8 @@ public class SaveRpProfileRequest
     [JsonPropertyName("quote")]        public string? Quote        { get; set; }
     [JsonPropertyName("themeSongUrl")] public string? ThemeSongUrl { get; set; }
 
-    [JsonPropertyName("webPageEnabled")]  public bool WebPageEnabled  { get; set; } = true;
-    [JsonPropertyName("searchIndexable")] public bool SearchIndexable { get; set; }
+    [JsonPropertyName("webPageEnabled")]  public bool? WebPageEnabled  { get; set; }
+    [JsonPropertyName("searchIndexable")] public bool? SearchIndexable { get; set; }
 
     /// <summary>
     /// Audience par section, en objet et non en chaîne : la route attend un
@@ -329,6 +382,17 @@ public class SaveRpProfileRequest
     /// </summary>
     [JsonPropertyName("sectionVisibility")]
     public Dictionary<string, string>? SectionVisibility { get; set; }
+
+    /// <summary>
+    /// Vocabulaire d'audience que cette version sait afficher.
+    ///
+    /// Le serveur ne laisse un client écraser que les valeurs qu'il connaît :
+    /// sans cette annonce, il tiendrait cet envoi pour celui d'une version
+    /// antérieure à l'audience « ami » et refuserait, à juste titre, de la
+    /// remplacer. À incrémenter au prochain échelon.
+    /// </summary>
+    [JsonPropertyName("audienceVocabulary")]
+    public int AudienceVocabulary { get; set; } = 2;
 
     // Les relations sont volontairement absentes : la route ne les remplace que
     // si la clé figure dans le corps, donc ne pas les envoyer les préserve.
@@ -830,22 +894,106 @@ public class ApiClient : IDisposable
     /// <summary>
     /// Fiche publique d'un autre personnage, plus complète que celle incluse dans
     /// la liste des disponibilités : biographie, relations, traits physiques et
-    /// appartenances. Passe par le client public, aucun jeton n'est nécessaire.
+    /// appartenances.
     ///
-    /// Retourne null si la fiche n'existe pas, n'est pas publique, ou si le site
-    /// est injoignable : l'appelant garde alors les champs déjà en mémoire.
+    /// Passe par le client authentifié : le jeton n'ouvre aucun droit par
+    /// lui-même, il permet au serveur de savoir si l'on figure dans la liste
+    /// d'amis de cette fiche, et donc de servir les sections réservées aux amis.
+    /// Sans jeton, la requête part sans en-tête et la réponse est la version
+    /// publique.
+    ///
+    /// Retourne null si la fiche n'existe pas, n'est pas visible en jeu, ou si le
+    /// site est injoignable : l'appelant garde alors les champs déjà en mémoire.
     /// </summary>
     public async Task<RpProfileDto?> GetPublicRpProfileAsync(string characterId,
+                                                             bool asFriend = false,
                                                              CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(characterId)) return null;
 
         try
         {
-            return await _publicHttp.GetFromJsonAsync<RpProfileDto>(
-                $"api/rp-profile/public/{Uri.EscapeDataString(characterId)}", JsonOptions, ct);
+            // `as=friend` n'est honoré que sur sa propre fiche : c'est l'aperçu,
+            // il ne donne aucun accès supplémentaire ailleurs.
+            var query = asFriend ? "?as=friend" : string.Empty;
+            var res = await _http.GetAsync(
+                $"api/rp-profile/public/{Uri.EscapeDataString(characterId)}{query}", ct);
+
+            // Une fiche absente ou masquée n'apprend rien sur le jeton : la
+            // traiter avant HandleAuthResponse évite qu'un 404 fasse passer pour
+            // valide un jeton révoqué.
+            if (res.StatusCode == System.Net.HttpStatusCode.NotFound) return null;
+
+            HandleAuthResponse(res);
+            if (!res.IsSuccessStatusCode) return null;
+
+            return await res.Content.ReadFromJsonAsync<RpProfileDto>(JsonOptions, ct);
         }
         catch { return null; }
+    }
+
+    // ─── Amis RP ─────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Personnages à qui l'on a ouvert sa fiche, ou <c>null</c> si la requête a
+    /// échoué. La distinction compte : une liste vide viderait l'écran et ferait
+    /// croire qu'on n'a plus d'amis.
+    /// </summary>
+    public async Task<List<RpFriendDto>?> GetRpFriendsAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var res = await _http.GetAsync("api/rp-friends", ct);
+            HandleAuthResponse(res);
+            if (!res.IsSuccessStatusCode) return null;
+
+            return await res.Content.ReadFromJsonAsync<List<RpFriendDto>>(JsonOptions, ct) ?? [];
+        }
+        catch { return null; }
+    }
+
+    /// <summary>Ouvre sa fiche à un personnage. Idempotent côté serveur.</summary>
+    public async Task<bool> AddRpFriendAsync(AddRpFriendRequest req, CancellationToken ct = default)
+    {
+        try
+        {
+            var res = await _http.PostAsJsonAsync("api/rp-friends", req, JsonOptions, ct);
+            HandleAuthResponse(res);
+            return res.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
+
+    /// <summary>Retire l'accès accordé à un personnage. Idempotent.</summary>
+    public async Task<bool> RemoveRpFriendAsync(string characterId, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(characterId)) return false;
+
+        try
+        {
+            var res = await _http.DeleteAsync(
+                $"api/rp-friends/{Uri.EscapeDataString(characterId)}", ct);
+            HandleAuthResponse(res);
+            return res.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
+
+    /// <summary>Aide-mémoire privé attaché à un ami.</summary>
+    public async Task<bool> SetRpFriendNoteAsync(string characterId, string? note,
+                                                 CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(characterId)) return false;
+
+        try
+        {
+            var res = await _http.PatchAsJsonAsync(
+                $"api/rp-friends/{Uri.EscapeDataString(characterId)}",
+                new { note }, JsonOptions, ct);
+            HandleAuthResponse(res);
+            return res.IsSuccessStatusCode;
+        }
+        catch { return false; }
     }
 
     // ─── RP Availability ─────────────────────────────────────────────────────

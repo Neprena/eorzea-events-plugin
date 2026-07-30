@@ -57,6 +57,10 @@ internal static class Icons
     public const FontAwesomeIcon Diamond = FontAwesomeIcon.Gem;
     public const FontAwesomeIcon Chevron = FontAwesomeIcon.ChevronRight;
 
+    // ─── Amis RP ──────────────────────────────────────────────────────────────
+    public const FontAwesomeIcon Friend    = FontAwesomeIcon.UserFriends;
+    public const FontAwesomeIcon FriendAdd = FontAwesomeIcon.UserPlus;
+
     /// <summary>
     /// Toutes les icônes réellement utilisées. Sert à ne fusionner dans l'atlas
     /// que la trentaine de glyphes nécessaires au lieu des ~2000 de FontAwesome.
@@ -69,6 +73,7 @@ internal static class Icons
         Location, Character, Housing, Map, World, Clock, Recurring, Language,
         Search, Refresh, External, Close, Hide, Show, Copy, Edit, Plus, Trash, Travel,
         Warning, Info, Check, Blocked, Sparkle, Diamond, Chevron,
+        Friend, FriendAdd,
     ];
 
     /// <summary>Glyphe prêt à être passé à ImGui.</summary>

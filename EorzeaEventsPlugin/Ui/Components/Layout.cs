@@ -80,6 +80,21 @@ internal static class Layout
     public static void Spacer(float height = Theme.GapM) =>
         ImGui.Dummy(new Vector2(0f, Theme.S(height)));
 
+    /// <summary>
+    /// Hauteur à réserver pour un pied de fenêtre fait d'un <see cref="Divider"/>
+    /// suivi d'une ligne de boutons, à retrancher de la zone défilante.
+    ///
+    /// Le calcul compte chaque espacement d'item : les deux marges du Divider et
+    /// son séparateur en portent un chacun, le bouton aussi. Sous-évaluer cette
+    /// hauteur fait dépasser la fenêtre de quelques pixels, qui se dote alors
+    /// d'une seconde barre de défilement en plus de celle de la zone défilante.
+    /// </summary>
+    public static float FooterHeight(float marginY = Theme.GapS)
+    {
+        var spacing = ImGui.GetStyle().ItemSpacing.Y;
+        return ImGui.GetFrameHeight() + 4f * spacing + 2f * Theme.S(marginY) + 2f;
+    }
+
     // ─── Alignements ──────────────────────────────────────────────────────────
 
     /// <summary>

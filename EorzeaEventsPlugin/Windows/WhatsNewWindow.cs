@@ -92,7 +92,7 @@ internal sealed class WhatsNewWindow : ThemedWindow
 
         // Le bouton reste hors de la zone défilante : c'est la seule sortie de
         // la fenêtre, il ne doit jamais quitter le champ de vision.
-        var footer = ImGui.GetFrameHeightWithSpacing() + Theme.S(Theme.GapS * 2f + 6f);
+        var footer = Layout.FooterHeight(Theme.GapS);
 
         Text.Title(l.WhatsNewTitle);
         ImGui.SameLine(0f, Theme.S(Theme.GapM));

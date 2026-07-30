@@ -97,6 +97,7 @@ internal sealed class RpProfilePage(Configuration config)
             return;
         }
 
+        DrawWebNotice(l);
         DrawAvailability(l);
         DrawHooks(l);
         DrawTraits(l);
@@ -207,6 +208,13 @@ internal sealed class RpProfilePage(Configuration config)
         ImGui.SameLine(0f, Theme.S(Theme.GapM));
 
         ImGui.BeginGroup();
+
+        // Le portrait mange une bonne part de la largeur, et ces textes ne se
+        // replient pas d'eux-mêmes : sans borne, un nom RP ou une citation un peu
+        // longue sort de la carte.
+        ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + ImGui.GetContentRegionAvail().X
+                              - Card.RightInset);
+
         Text.Title(_profile?.RpName is { Length: > 0 } rpName ? rpName : character.Name);
         if (_profile?.Nickname is { Length: > 0 } nickname) Text.Small($"« {nickname} »");
         if (_profile?.Quote is { Length: > 0 } quote)
@@ -214,14 +222,34 @@ internal sealed class RpProfilePage(Configuration config)
             Layout.Spacer(Theme.GapXs);
             Text.Small($"« {quote} »", Theme.Accent);
         }
+
+        ImGui.PopTextWrapPos();
         ImGui.EndGroup();
 
-        var width = Btn.Measure(l.RpProfileEditOnline, Icons.External);
-        ImGui.SameLine();
-        Layout.RightAlign(width);
-        if (Btn.Draw(l.RpProfileEditOnline, BtnTone.Ghost, BtnSize.Medium, Icons.External,
-                     tooltip: l.RpProfileEditOnlineHint))
-            OpenSite("/dashboard/profil-rp");
+        // Le lien vers l'éditeur en ligne vit maintenant dans le bandeau
+        // explicatif juste en dessous : deux boutons identiques à l'écran, dont un
+        // sans son explication, n'apportaient rien.
+    }
+
+    /// <summary>
+    /// Rappelle noir sur blanc le partage des rôles avec le site, et porte le lien
+    /// vers l'éditeur en ligne.
+    ///
+    /// L'information tenait dans l'infobulle d'un bouton du bandeau de titre :
+    /// autant dire qu'elle n'était lue par personne, et rien à l'écran n'expliquait
+    /// pourquoi l'identité, les relations ou l'histoire s'affichent sans pouvoir
+    /// être modifiées.
+    /// </summary>
+    private void DrawWebNotice(Loc l)
+    {
+        Feedback.Alert(Theme.Accent, Icons.Info, l.RpProfileWebNoticeTitle,
+                       l.RpProfileWebNoticeBody,
+                       () =>
+                       {
+                           if (Btn.Draw(l.RpProfileEditOnline, BtnTone.Primary, BtnSize.Medium,
+                                        Icons.External, id: "rp_editonline"))
+                               OpenSite("/dashboard/profil-rp");
+                       });
     }
 
     private void DrawAvailability(Loc l)
@@ -231,10 +259,7 @@ internal sealed class RpProfilePage(Configuration config)
 
         var available = Plugin.CurrentCharacterAvailable;
         if (Inputs.ToggleRow(l.RpAvailableEnable, ref available, l.RpAvailableEnableHint, Icons.RpLive))
-        {
-            Plugin.CurrentCharacterAvailable = available;
-            Plugin.PublishAvailability(available);
-        }
+            Plugin.SetRpAvailability(available);
     }
 
     private void DrawHooks(Loc l)

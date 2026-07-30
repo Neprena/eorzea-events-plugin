@@ -153,32 +153,11 @@ internal static class Card
     private static void DrawBanner(ImDrawListPtr dl, Vector2 origin, float width,
                                    float height, IDalamudTextureWrap texture)
     {
-        var imageAspect = texture.Width / (float)texture.Height;
-        var frameAspect = width / height;
-
-        float u0, v0, u1, v1;
-        if (imageAspect >= frameAspect)
-        {
-            // Image plus large que le cadre : on rogne les côtés.
-            var span = frameAspect / imageAspect;
-            u0 = (1f - span) * 0.5f;
-            u1 = 1f - u0;
-            v0 = 0f;
-            v1 = 1f;
-        }
-        else
-        {
-            // Image plus haute : on rogne en haut et en bas.
-            var span = imageAspect / frameAspect;
-            v0 = (1f - span) * 0.5f;
-            v1 = 1f - v0;
-            u0 = 0f;
-            u1 = 1f;
-        }
+        var (uv0, uv1) = Surface.CoverUv(texture.Width, texture.Height, width, height);
 
         var end = new Vector2(origin.X + width, origin.Y + height);
         dl.AddImageRounded(texture.Handle, origin, end,
-            new Vector2(u0, v0), new Vector2(u1, v1),
+            uv0, uv1,
             ImGui.GetColorU32(Vector4.One),
             Theme.S(Theme.RadiusCard),
             ImDrawFlags.RoundCornersTop);

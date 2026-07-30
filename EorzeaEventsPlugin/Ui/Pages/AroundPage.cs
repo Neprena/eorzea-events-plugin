@@ -87,8 +87,10 @@ internal sealed class AroundPage
     {
         using var card = Card.Begin($"around_{entry.Id}", interactive: false, accent: Theme.Online);
 
+        // Plus petit que sur la fiche : une carte de liste doit rester compacte,
+        // mais 64 rendait le portrait illisible.
         RpProfileView.DrawPortrait(entry.Profile?.PortraitUrl, entry.CharacterName,
-                                   height: 64f, status: Theme.Online);
+                                   height: 128f, status: Theme.Online, id: entry.Id);
         ImGui.SameLine(0f, Theme.S(Theme.GapM));
 
         ImGui.BeginGroup();

@@ -413,13 +413,13 @@ public class MainWindow : ThemedWindow, IDisposable
                     UiStyle.SuccessNormal, UiStyle.SuccessHovered, UiStyle.SuccessActive))
                 {
                     Plugin.DismissLoginPrompt();
-                    Plugin.ActivateRpAvailability();
+                    Plugin.SetRpAvailability(true);
                 }
                 ImGui.SameLine(0, 6);
                 if (ImGui.Button(l.RpLoginDisable + "##disable", Vector2.Zero))
                 {
                     Plugin.DismissLoginPrompt();
-                    _ = Task.Run(Plugin.ClearRpAvailabilityAsync);
+                    Plugin.SetRpAvailability(false);
                 }
             });
         }
@@ -447,10 +447,7 @@ public class MainWindow : ThemedWindow, IDisposable
         {
             var available = Plugin.CurrentCharacterAvailable;
             if (ImGui.Checkbox(l.RpAvailableEnable + "##rpavailabletoggle", ref available))
-            {
-                if (available) Plugin.ActivateRpAvailability();
-                else           _ = Task.Run(Plugin.ClearRpAvailabilityAsync);
-            }
+                Plugin.SetRpAvailability(available);
         }
 
         ImGui.Spacing();

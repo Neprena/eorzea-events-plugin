@@ -235,10 +235,11 @@ internal sealed class SettingsPage(Configuration config)
 
         Layout.SectionHeader(l.CfgRpProfileHeader, Icons.Profile);
 
-        // La disponibilité se propage au serveur, en plus d'être enregistrée.
-        Row(l.RpAvailableEnable, null,
+        // Même chemin que la fiche RP et la barre de statut : publication,
+        // rétablissement si le serveur refuse, et barre de statut remise à jour.
+        Row(l.RpAvailableEnable, l.RpAvailableEnableHint,
             () => Plugin.CurrentCharacterAvailable,
-            v => { Plugin.CurrentCharacterAvailable = v; Plugin.PublishAvailability(v); });
+            Plugin.SetRpAvailability);
 
         Row(l.CfgRpIndicator, null,
             () => config.ShowRpAvailableIndicator, v => config.ShowRpAvailableIndicator = v);

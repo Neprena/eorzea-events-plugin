@@ -69,6 +69,37 @@ internal static class Surface
     }
 
     /// <summary>
+    /// Coordonnées de texture d'un recadrage « couvrir » : l'image remplit le
+    /// cadre sans jamais être déformée, le débord étant rogné au centre.
+    ///
+    /// Partagé par la bannière des cartes et le portrait des fiches RP : sans ce
+    /// calcul, des UV 0→1 étirent toute image dont le ratio diffère du cadre, ce
+    /// qui devient franchement visible sur un grand portrait.
+    /// </summary>
+    public static (Vector2 Uv0, Vector2 Uv1) CoverUv(int textureWidth, int textureHeight,
+                                                     float frameWidth, float frameHeight)
+    {
+        if (textureWidth <= 0 || textureHeight <= 0 || frameWidth <= 0f || frameHeight <= 0f)
+            return (Vector2.Zero, Vector2.One);
+
+        var imageAspect = textureWidth / (float)textureHeight;
+        var frameAspect = frameWidth / frameHeight;
+
+        if (imageAspect >= frameAspect)
+        {
+            // Image plus large que le cadre : on rogne les côtés.
+            var span = frameAspect / imageAspect;
+            var u0   = (1f - span) * 0.5f;
+            return (new Vector2(u0, 0f), new Vector2(1f - u0, 1f));
+        }
+
+        // Image plus haute : on rogne en haut et en bas.
+        var vSpan = imageAspect / frameAspect;
+        var v0    = (1f - vSpan) * 0.5f;
+        return (new Vector2(0f, v0), new Vector2(1f, 1f - v0));
+    }
+
+    /// <summary>
     /// Barre d'accent verticale collée au bord gauche d'une surface, arrondie
     /// du même rayon pour épouser le coin.
     /// </summary>

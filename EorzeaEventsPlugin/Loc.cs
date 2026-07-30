@@ -259,6 +259,9 @@ internal sealed class Loc
     public required string DtrRpTooltip         { get; init; }
     public required string DtrEventsTooltip     { get; init; }
     public required string DtrRpAvailTooltip    { get; init; }
+    public required string DtrRpAvailLabel      { get; init; }
+    public required string DtrRpLabel           { get; init; }
+    public required string DtrEventsLabel       { get; init; }
     public required string CfgDtrRpAvail        { get; init; }
     public required string PlayersOnline        { get; init; }   // {0} = count
     public required string MoreInfo             { get; init; }
@@ -277,13 +280,16 @@ internal sealed class Loc
     public required string RpAvailableDur120       { get; init; }
     public required string RpAvailableActiveStatus { get; init; }   // {0} = minutes restantes
     public required string RpAvailableNoToken      { get; init; }
+    public required string RpAvailableNoCharacter  { get; init; }
+    public required string RpAvailableFailed       { get; init; }
     public required string RpProfileSetup          { get; init; }
     public required string RpProfileWizardTitle    { get; init; }
     public required string RpProfileWizardIntro    { get; init; }
     public required string RpProfileTitle         { get; init; }
     public required string RpProfileNoCharacter   { get; init; }
     public required string RpProfileEditOnline    { get; init; }
-    public required string RpProfileEditOnlineHint{ get; init; }
+    public required string RpProfileWebNoticeTitle { get; init; }
+    public required string RpProfileWebNoticeBody  { get; init; }
     public required string RpAvailableEnableHint  { get; init; }
     public required string RpProfileHooks         { get; init; }
     public required string RpProfileHooksHint     { get; init; }
@@ -383,6 +389,8 @@ internal sealed class Loc
     public required string RpProfileNsfw       { get; init; }
     public required string RpProfileViewOnSite { get; init; }
     public required string MenuViewRpProfile   { get; init; }
+    public required string RpProfileZoom       { get; init; }
+    public required string RpProfileZoomClose  { get; init; }
 
     // ── Visibilité de la fiche ────────────────────────────────────────────────
     public required string RpProfileVisibility       { get; init; }
@@ -654,12 +662,15 @@ internal sealed class Loc
         NotifEventStartChat  = "Événement en cours : {0}",
         DtrRpTooltip      = "Sessions RP ouvertes en cours\nCliquez pour ouvrir",
         DtrEventsTooltip  = "Événements en cours\nCliquez pour ouvrir",
-        DtrRpAvailTooltip = "Disponibilité RP sauvage\nCliquez pour activer / désactiver",
+        DtrRpAvailTooltip = "Disponibilité pour du RP spontané\nCliquez pour vous déclarer disponible ou non",
+        DtrRpAvailLabel   = "Dispo RP",
+        DtrRpLabel        = "RP",
+        DtrEventsLabel    = "Événements",
         CfgDtrRpAvail     = "Afficher le statut de disponibilité RP",
         PlayersOnline     = "{0} joueur(s) en ligne",
 
-        RpAvailableDesc         = "Signale aux autres rôlistes que tu es disponible pour du RP improvisé. Un titre coloré apparaît sous ton nom sur les nameplates des joueurs avec le plugin : « Dispo RP - Timide » si tu préfères qu'on vienne vers toi, « Dispo RP - Avenant·e » si tu peux faire le premier pas.",
-        RpAvailableTitle        = "Disponibles pour du RP sauvage",
+        RpAvailableDesc         = "Signale aux autres rôlistes que tu es disponible pour du RP spontané. Un titre coloré apparaît sous ton nom sur les nameplates des joueurs avec le plugin : « Dispo RP - Timide » si tu préfères qu'on vienne vers toi, « Dispo RP - Avenant·e » si tu peux faire le premier pas.",
+        RpAvailableTitle        = "Disponibles pour du RP spontané",
         RpAvailableEmpty        = "Personne de disponible dans cette zone",
         RpAvailableInZone       = "{0} disponible(s) pour du RP dans votre zone",
         RpAvailableEnable       = "Je suis disponible",
@@ -669,13 +680,16 @@ internal sealed class Loc
         RpAvailableDur120       = "2h",
         RpAvailableActiveStatus = "Disponible pour du RP",
         RpAvailableNoToken      = "Liez ce personnage pour activer la disponibilité RP.",
+        RpAvailableNoCharacter  = "Aucun personnage connecté : impossible de changer votre disponibilité.",
+        RpAvailableFailed       = "La disponibilité n'a pas pu être enregistrée. Vérifiez votre connexion, puis réessayez.",
         RpProfileSetup          = "Configurer mon profil RP",
         RpProfileWizardTitle    = "Mon profil RP",
         RpProfileWizardIntro    = "Quelques questions rapides pour que les autres joueurs sachent à quoi s'attendre avant de t'approcher.",
         RpProfileTitle          = "Mon profil RP",
         RpProfileNoCharacter    = "Connectez-vous en jeu pour voir la fiche de votre personnage.",
         RpProfileEditOnline     = "Modifier sur le site",
-        RpProfileEditOnlineHint = "Identité, description et limites se rédigent au clavier, sur le site.",
+        RpProfileWebNoticeTitle = "La fiche complète se remplit sur le site",
+        RpProfileWebNoticeBody  = "En jeu se règle ce qui change souvent en jouant : disponibilité, accroches, traits physiques, appartenances, préférences et visibilité.\n\nLe portrait, l'identité (race, âge, pronoms, origine, métier), les thèmes recherchés et évités, les relations, l'apparence, la personnalité, l'histoire et les limites ne se modifient que sur le site. Ils s'affichent ici en lecture seule.",
         RpAvailableEnableHint   = "Les autres rôlistes vous voient dans la liste des joueurs disponibles.",
         RpProfileHooks          = "Accroches",
         RpProfileHooksHint      = "Ce qui donne envie de venir vous parler.",
@@ -748,7 +762,7 @@ internal sealed class Loc
 
         AnnouncementTitle       = "Nouveau — Profil RP & Disponibilité",
         AnnouncementBadge       = "Mise à jour",
-        AnnouncementBody        = "Tu peux maintenant indiquer que tu es disponible pour du RP improvisé.\n\nLes autres joueurs verront un losange à droite de ton nom dans le jeu, et pourront voir ton profil (niveau, mode d'approche, langue) avant de t'aborder.\n\nConfigure ton profil en quelques secondes — tu pourras le modifier à tout moment dans les paramètres.",
+        AnnouncementBody        = "Tu peux maintenant indiquer que tu es disponible pour du RP spontané.\n\nLes autres joueurs verront un losange à droite de ton nom dans le jeu, et pourront voir ton profil (niveau, mode d'approche, langue) avant de t'aborder.\n\nConfigure ton profil en quelques secondes — tu pourras le modifier à tout moment dans les paramètres.",
         AnnouncementConfigure   = "Configurer mon profil RP",
         AnnouncementLater       = "Plus tard",
         AnnouncementIndicator   = "L'indicateur sur les nameplates peut être désactivé dans Paramètres.",
@@ -766,6 +780,8 @@ internal sealed class Loc
         RpProfileNsfw       = "Contenu sensible",
         RpProfileViewOnSite = "Voir sur le site",
         MenuViewRpProfile   = "Voir la fiche RP",
+        RpProfileZoom       = "Cliquer pour agrandir le portrait",
+        RpProfileZoomClose  = "Clic ou Échap pour fermer",
 
         RpProfileVisibility       = "Visibilité",
         RpProfileVisWhere         = "Où ma fiche apparaît",
@@ -1034,7 +1050,10 @@ internal sealed class Loc
         NotifEventStartChat  = "Event is live: {0}",
         DtrRpTooltip      = "Active open RP sessions\nClick to open",
         DtrEventsTooltip  = "Ongoing events\nClick to open",
-        DtrRpAvailTooltip = "Spontaneous RP availability\nClick to toggle",
+        DtrRpAvailTooltip = "Availability for spontaneous RP\nClick to mark yourself available or not",
+        DtrRpAvailLabel   = "RP avail.",
+        DtrRpLabel        = "RP",
+        DtrEventsLabel    = "Events",
         CfgDtrRpAvail     = "Show RP availability status",
         PlayersOnline     = "{0} player(s) online",
 
@@ -1049,13 +1068,16 @@ internal sealed class Loc
         RpAvailableDur120       = "2h",
         RpAvailableActiveStatus = "Available for RP",
         RpAvailableNoToken      = "Link this character to enable RP availability.",
+        RpAvailableNoCharacter  = "No character logged in: your availability can't be changed.",
+        RpAvailableFailed       = "Your availability could not be saved. Check your connection and try again.",
         RpProfileSetup          = "Set up my RP profile",
         RpProfileWizardTitle    = "My RP Profile",
         RpProfileWizardIntro    = "A few quick questions so other players know what to expect before approaching you.",
         RpProfileTitle          = "My RP profile",
         RpProfileNoCharacter    = "Log in to the game to see your character's profile.",
         RpProfileEditOnline     = "Edit on the website",
-        RpProfileEditOnlineHint = "Identity, description and limits are written on the website.",
+        RpProfileWebNoticeTitle = "The full profile is filled in on the website",
+        RpProfileWebNoticeBody  = "In game you set what changes often while playing: availability, hooks, physical traits, allegiances, preferences and visibility.\n\nThe portrait, identity (race, age, pronouns, origin, occupation), sought and avoided themes, relationships, appearance, personality, background and limits can only be edited on the website. They are shown here read-only.",
         RpAvailableEnableHint   = "Other roleplayers will see you in the available players list.",
         RpProfileHooks          = "Hooks",
         RpProfileHooksHint      = "What makes people want to come and talk to you.",
@@ -1146,6 +1168,8 @@ internal sealed class Loc
         RpProfileNsfw       = "Sensitive content",
         RpProfileViewOnSite = "View on the website",
         MenuViewRpProfile   = "View RP profile",
+        RpProfileZoom       = "Click to enlarge the portrait",
+        RpProfileZoomClose  = "Click or press Esc to close",
 
         RpProfileVisibility       = "Visibility",
         RpProfileVisWhere         = "Where my profile appears",

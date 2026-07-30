@@ -52,6 +52,13 @@ internal static class RpProfileView
         ImGui.SameLine(0f, Theme.S(Theme.GapM));
 
         ImGui.BeginGroup();
+
+        // Le portrait mange une bonne part de la largeur : sans repli, un nom RP
+        // ou une citation un peu longue sort de la carte, ces textes ne bouclant
+        // pas d'eux-mêmes.
+        ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + ImGui.GetContentRegionAvail().X
+                              - Card.RightInset);
+
         Text.Title(profile?.RpName is { Length: > 0 } rpName ? rpName : characterName);
 
         if (!string.IsNullOrWhiteSpace(server))
@@ -76,35 +83,98 @@ internal static class RpProfileView
             Layout.Spacer(Theme.GapXs);
             Chip.Draw(l.RpProfileNsfw, ChipTone.Danger, Icons.Warning);
         }
+
+        ImGui.PopTextWrapPos();
         ImGui.EndGroup();
     }
 
     /// <summary>
-    /// Portrait téléversé depuis le site, cadré en 3:4. Tant qu'il n'est pas
-    /// arrivé, ou s'il n'y en a pas, les initiales tiennent la place : le bloc
-    /// garde ainsi la même largeur et le texte à droite ne se déplace pas.
+    /// Portrait téléversé depuis le site, cadré en 3:4 et recadré en mode
+    /// « couvrir » : la source fait 480×640, tout autre ratio serait déformé.
+    ///
+    /// Tant que l'image n'est pas arrivée, ou s'il n'y en a pas, un cadre aux
+    /// initiales tient la place. Il réserve exactement les mêmes dimensions, sans
+    /// quoi la carte grandit quand la texture arrive : le cercle de
+    /// <see cref="Layout.Avatar"/> ne réservait qu'un carré, soit un quart de
+    /// hauteur en moins.
+    ///
+    /// Un clic ouvre le portrait en grand, seul moyen de le voir à sa résolution
+    /// réelle sans passer par le site.
     /// </summary>
     public static void DrawPortrait(string? portraitUrl, string characterName,
-                                    float height = 84f, Vector4? status = null)
+                                    float height = 200f, Vector4? status = null,
+                                    string? id = null, bool zoomable = true)
     {
-        var width = height * 3f / 4f;
-
-        var texture = Textures.Get(portraitUrl);
-        if (texture == null)
-        {
-            Layout.Avatar(characterName, width, status);
-            return;
-        }
-
+        var width  = height * 3f / 4f;
         var size   = new Vector2(Theme.S(width), Theme.S(height));
         var origin = ImGui.GetCursorScreenPos();
+        var dl     = ImGui.GetWindowDrawList();
+        var radius = Theme.S(Theme.RadiusCard);
 
-        ImGui.GetWindowDrawList().AddImageRounded(
-            texture.Handle, origin, origin + size,
-            Vector2.Zero, Vector2.One,
-            ImGui.GetColorU32(Vector4.One), Theme.S(Theme.RadiusCard));
+        var texture = Textures.Get(portraitUrl);
 
-        ImGui.Dummy(size);
+        if (texture != null)
+        {
+            var (uv0, uv1) = Surface.CoverUv(texture.Width, texture.Height, size.X, size.Y);
+            dl.AddImageRounded(texture.Handle, origin, origin + size, uv0, uv1,
+                               ImGui.GetColorU32(Vector4.One), radius);
+        }
+        else
+        {
+            DrawInitialsFrame(dl, origin, size, characterName, radius);
+        }
+
+        // Un bouton invisible plutôt qu'un Dummy : mêmes dimensions réservées,
+        // mais le survol et le clic deviennent détectables. Le retour vaut au
+        // relâchement, ce qui évite d'ouvrir l'agrandissement en déplaçant la
+        // fenêtre depuis le portrait.
+        var key     = id is { Length: > 0 } ? id : characterName;
+        var clicked = ImGui.InvisibleButton($"##portrait_{key}", size);
+
+        var interactive = zoomable && texture != null;
+        if (interactive && ImGui.IsItemHovered())
+        {
+            ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
+            dl.AddRect(origin, origin + size, ImGui.GetColorU32(Theme.BorderLight),
+                       radius, ImDrawFlags.None, Theme.S(1.5f));
+            Feedback.Tooltip(Plugin.L.RpProfileZoom);
+        }
+
+        if (status is { } dot) DrawStatusDot(dl, origin, size, dot);
+
+        if (interactive && clicked)
+            Plugin.OpenPortraitZoom(portraitUrl!, characterName);
+    }
+
+    /// <summary>Cadre 3:4 aux initiales, en attente du portrait ou à défaut.</summary>
+    private static void DrawInitialsFrame(ImDrawListPtr dl, Vector2 origin, Vector2 size,
+                                          string characterName, float radius)
+    {
+        var background = Theme.FromName(characterName);
+        dl.AddRectFilled(origin, origin + size, ImGui.GetColorU32(background), radius);
+
+        var initials = Layout.Initials(characterName);
+        // Sur un grand cadre, deux lettres en petite police se perdent au milieu.
+        using var font = size.X >= Theme.S(96f) ? Fonts.PushTitle() : Fonts.PushSmall();
+        var textSize = ImGui.CalcTextSize(initials);
+        dl.AddText(origin + (size - textSize) * 0.5f,
+                   ImGui.GetColorU32(Theme.TextOn(background)), initials);
+    }
+
+    /// <summary>
+    /// Pastille de présence dans l'angle du portrait. Dessinée dans les deux cas :
+    /// tant qu'elle ne l'était que sur le cadre d'initiales, le point « en ligne »
+    /// disparaissait dès que l'image finissait de charger.
+    /// </summary>
+    private static void DrawStatusDot(ImDrawListPtr dl, Vector2 origin, Vector2 size,
+                                      Vector4 color)
+    {
+        var radius = MathF.Max(Theme.S(4f), size.X * 0.09f);
+        var inset  = radius + Theme.S(4f);
+        var center = new Vector2(origin.X + size.X - inset, origin.Y + size.Y - inset);
+
+        dl.AddCircleFilled(center, radius + Theme.S(1.5f), ImGui.GetColorU32(Theme.BgSurface));
+        dl.AddCircleFilled(center, radius, ImGui.GetColorU32(color));
     }
 
     // ─── Sections ─────────────────────────────────────────────────────────────

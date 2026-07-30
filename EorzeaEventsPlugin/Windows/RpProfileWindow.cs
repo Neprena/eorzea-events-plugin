@@ -58,10 +58,13 @@ public class RpProfileWindow : ThemedWindow
         // Redimensionnable, contrairement au wizard d'origine : une fiche
         // complète porte une biographie et des relations qui ne tiennent pas
         // dans une hauteur figée.
+        // Minimum relevé avec le portrait : à 600 de large, la colonne de texte de
+        // l'en-tête retrouve la place qu'elle avait à 500 avec une vignette de 63,
+        // et la hauteur absorbe un en-tête passé de 106 à 222 px.
         LogicalSizeConstraints = new WindowSizeConstraints
         {
-            MinimumSize = new Vector2(500, 490),
-            MaximumSize = new Vector2(760, 900),
+            MinimumSize = new Vector2(600, 620),
+            MaximumSize = new Vector2(800, 960),
         };
         _config = config;
     }
@@ -275,7 +278,7 @@ public class RpProfileWindow : ThemedWindow
         // En aperçu il n'y a pas d'amorce locale : on attend la réponse du serveur.
         var profile = _viewFull ?? (_isPreview ? null : entry.Profile);
 
-        var footer = ImGui.GetFrameHeightWithSpacing() + Theme.S(Theme.GapS * 2f + 6f);
+        var footer = Layout.FooterHeight(Theme.GapS);
         using (var body = ImRaii.Child("##rpviewbody", new Vector2(-1f, -footer)))
         {
             if (body)

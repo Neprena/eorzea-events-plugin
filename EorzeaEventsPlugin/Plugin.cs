@@ -80,6 +80,7 @@ public sealed class Plugin : IDalamudPlugin
     private static   RpProfileWindow?      _rpProfileWindow;
     private static   RpAnnouncementWindow? _announcementWindow;
     private static   WhatsNewWindow?       _whatsNewWindow;
+    private static   PortraitZoomWindow?   _portraitZoomWindow;
 
     /// <summary>Voyage assisté vers une parcelle, si Lifestream est présent.</summary>
     internal static Ipc.LifestreamIpc Lifestream { get; private set; } = null!;
@@ -185,19 +186,36 @@ public sealed class Plugin : IDalamudPlugin
     }
 
     /// <summary>
-    /// Publie la disponibilité du personnage connecté auprès du serveur.
-    /// Appelé depuis les réglages comme depuis la fiche RP.
+    /// Déclare ou retire la disponibilité RP du personnage connecté.
+    ///
+    /// Seul chemin d'écriture : la barre de statut, la fiche RP, les réglages et
+    /// la fenêtre principale passent tous par ici. Ils avaient chacun leur
+    /// version, avec trois comportements différents, et surtout deux d'entre eux
+    /// oubliaient de rafraîchir la barre de statut : elle affichait donc l'état
+    /// précédent, et le clic suivant faisait l'inverse de ce qu'on croyait.
+    ///
+    /// L'état local est écrit tout de suite pour que l'interface réagisse au
+    /// geste, puis rétabli si le serveur refuse. Les échecs sont dits dans le
+    /// chat : sans personnage lié, la requête part en 401 et il ne se passait
+    /// rien, sans un mot.
+    ///
+    /// À appeler depuis le framework thread : lit le joueur local.
     /// </summary>
-    internal static void PublishAvailability(bool available)
+    internal static void SetRpAvailability(bool available)
     {
-        if (!available)
+        var player = ObjectTable.LocalPlayer;
+        if (player == null || CurrentCharacter is not { } character)
         {
-            _ = Task.Run(async () => await Api.ClearRpAvailabilityAsync());
+            ChatGui.PrintError($"[Eorzea Events] {L.RpAvailableNoCharacter}");
             return;
         }
 
-        var player = ObjectTable.LocalPlayer;
-        if (player == null) return;
+        if (Config.FindCharacterToken(character.Name, character.WorldId) == null
+            && string.IsNullOrWhiteSpace(Config.ApiToken))
+        {
+            ChatGui.PrintError($"[Eorzea Events] {L.RpAvailableNoToken}");
+            return;
+        }
 
         var request = new Api.SetRpAvailableRequest
         {
@@ -208,7 +226,37 @@ public sealed class Plugin : IDalamudPlugin
                                 ? (int)ClientState.TerritoryType
                                 : null,
         };
-        _ = Task.Run(async () => await Api.SetRpAvailableAsync(request));
+
+        var previous = CurrentCharacterAvailable;
+        CurrentCharacterAvailable = available;
+        _availabilityTouchedAt    = DateTime.UtcNow;
+        UpdateDtrRpAvail();
+
+        // Aucune synchronisation de fiche ici. Se déclarer disponible envoyait
+        // jusqu'ici un PUT de fiche construit à partir de la seule config locale,
+        // or ce PUT remplace la fiche entière côté serveur : tout ce qui ne se
+        // règle pas en jeu (portrait, identité, apparence, personnalité, histoire,
+        // limites, thèmes) repartait à vide. Le serveur a déjà le niveau et le
+        // mode d'approche, il n'a pas besoin qu'on les lui redonne.
+        Task.Run(async () =>
+        {
+            var ok = available
+                ? await Api.SetRpAvailableAsync(request)
+                : await Api.ClearRpAvailabilityAsync();
+
+            await Framework.RunOnFrameworkThread(() =>
+            {
+                // Réaffirmé même en cas de succès : la réponse arrive après le
+                // clic, et l'état ne doit pas dépendre de ce que la liste publique
+                // savait entre les deux.
+                CurrentCharacterAvailable = ok ? available : previous;
+                _availabilityTouchedAt    = DateTime.UtcNow;
+
+                if (!ok) ChatGui.PrintError($"[Eorzea Events] {L.RpAvailableFailed}");
+
+                UpdateDtrRpAvail();
+            });
+        });
     }
 
     internal static bool IsLocalPlayerAvailable()
@@ -226,6 +274,30 @@ public sealed class Plugin : IDalamudPlugin
     private static IDtrBarEntry? _dtrRp;
     private static IDtrBarEntry? _dtrEvents;
     private static IDtrBarEntry? _dtrRpAvail;
+
+    /// <summary>
+    /// État et personnage sur lesquels l'entrée de disponibilité a été peinte.
+    ///
+    /// Le constructeur du plugin tourne hors du thread de jeu, où
+    /// <see cref="CurrentCharacter"/> vaut toujours null : l'entrée démarrait donc
+    /// systématiquement sur « indisponible », et rien ne la reprenait ensuite. Ces
+    /// deux témoins permettent de la redessiner dès que l'état réel diffère,
+    /// changement de personnage compris.
+    /// </summary>
+    private static bool?                  _dtrRpAvailShown;
+    private static (string Name, int WorldId)? _dtrRpAvailCharacter;
+
+    /// <summary>
+    /// Dernier changement de disponibilité demandé par le joueur, et dernière
+    /// liste publique reçue.
+    ///
+    /// La liste ne devient une source de vérité qu'une fois établie après le
+    /// changement : sinon, la frame qui suit le clic voit un personnage encore
+    /// absent de la liste et défait aussitôt ce que le joueur vient de demander,
+    /// l'état ne se posant qu'au rafraîchissement suivant.
+    /// </summary>
+    private static DateTime _availabilityTouchedAt = DateTime.MinValue;
+    private static DateTime _availabilityListAt    = DateTime.MinValue;
 
     // Notification + DTR polling
     private HashSet<string> _knownSessionIds  = [];
@@ -299,6 +371,7 @@ public sealed class Plugin : IDalamudPlugin
         _rpProfileWindow    = new RpProfileWindow(Config);
         _announcementWindow = new RpAnnouncementWindow(Config);
         _whatsNewWindow     = new WhatsNewWindow(Config);
+        _portraitZoomWindow = new PortraitZoomWindow();
         _windowSystem.AddWindow(_mainWindow);
         _windowSystem.AddWindow(_sessionWindow);
         _windowSystem.AddWindow(_setupWindow);
@@ -306,6 +379,7 @@ public sealed class Plugin : IDalamudPlugin
         _windowSystem.AddWindow(_rpProfileWindow);
         _windowSystem.AddWindow(_announcementWindow);
         _windowSystem.AddWindow(_whatsNewWindow);
+        _windowSystem.AddWindow(_portraitZoomWindow);
 
         CommandManager.AddHandler(CommandMain, new CommandInfo(OnCommand)
         {
@@ -336,35 +410,9 @@ public sealed class Plugin : IDalamudPlugin
 
         _dtrRpAvail = DtrBar.Get("EorzeaEvents_RpAvail");
         _dtrRpAvail.Tooltip = new SeStringBuilder().AddText(L.DtrRpAvailTooltip).Build();
-        _dtrRpAvail.OnClick = e =>
-        {
-            if (CurrentCharacterAvailable)
-            {
-                Task.Run(ClearRpAvailabilityAsync);
-                return;
-            }
-
-            // Capturer les données du joueur sur le framework thread avant Task.Run
-            var player = ObjectTable.LocalPlayer;
-            if (player == null) return;
-            var req = new Api.SetRpAvailableRequest
-            {
-                CharacterName = player.Name.TextValue,
-                Server        = player.HomeWorld.Value.Name.ToString(),
-                Zone          = CurrentZone,
-                TerritoryId   = (int)ClientState.TerritoryType > 0 ? (int?)ClientState.TerritoryType : null,
-            };
-            Task.Run(async () =>
-            {
-                var ok = await Api.SetRpAvailableAsync(req);
-                if (ok)
-                {
-                    CurrentCharacterAvailable = true;
-                    Config.Save();
-                    _ = Framework.RunOnFrameworkThread(UpdateDtrRpAvail);
-                }
-            });
-        };
+        // Même chemin que le toggle de la fiche RP et des réglages, gardes et
+        // messages d'erreur compris.
+        _dtrRpAvail.OnClick = _ => SetRpAvailability(!CurrentCharacterAvailable);
         _dtrRpAvail.Shown = Config.ShowDtrRpAvail;
         UpdateDtrRpAvail();
 
@@ -498,6 +546,13 @@ public sealed class Plugin : IDalamudPlugin
         _rpProfileWindow?.OpenViewer(entry);
     }
 
+    /// <summary>
+    /// Portrait RP en grand. Pas de garde <see cref="IsBlocked"/> ici : la fenêtre
+    /// n'affiche qu'une image déjà chargée et n'ouvre aucun accès à l'API.
+    /// </summary>
+    internal static void OpenPortraitZoom(string portraitUrl, string characterName) =>
+        _portraitZoomWindow?.Open(portraitUrl, characterName);
+
     internal static void OpenSetup(bool tokenInvalid = false, bool migration = false)
     {
         if (IsBlocked)
@@ -528,23 +583,28 @@ public sealed class Plugin : IDalamudPlugin
         if (_dtrRpAvail != null) _dtrRpAvail.Shown = Config.ShowDtrRpAvail;
     }
 
+    /// <summary>
+    /// Losange et libellé de l'entrée « disponibilité » de la barre de statut.
+    ///
+    /// Le libellé accompagne le symbole : seul, le losange n'apprenait rien sans
+    /// passer la souris dessus, et il ne rappelait pas le vocabulaire du plugin.
+    /// </summary>
     internal static void UpdateDtrRpAvail()
     {
         if (_dtrRpAvail == null) return;
-        var sb = new SeStringBuilder();
-        if (CurrentCharacterAvailable)
-        {
-            sb.AddUiGlow(52);
-            sb.AddText("♦");
-            sb.AddUiGlowOff();
-        }
-        else
-        {
-            sb.AddUiGlow(GlowIdle);
-            sb.AddText("◇");
-            sb.AddUiGlowOff();
-        }
+
+        var available = CurrentCharacterAvailable;
+        var sb        = new SeStringBuilder();
+
+        sb.AddUiGlow(available ? (ushort)52 : GlowIdle);
+        sb.AddText(available ? "♦ " : "◇ ");
+        sb.AddText(L.DtrRpAvailLabel);
+        sb.AddUiGlowOff();
+
         _dtrRpAvail.Text = sb.Build();
+
+        _dtrRpAvailShown     = available;
+        _dtrRpAvailCharacter = CurrentCharacter;
     }
 
     internal static void RebuildApiClient()
@@ -822,7 +882,7 @@ public sealed class Plugin : IDalamudPlugin
     {
         if (_dtrRp == null) return;
         var sb = new SeStringBuilder();
-        sb.AddText("RP: ");
+        sb.AddText($"{L.DtrRpLabel}: ");
         sb.AddUiGlow(count > 0 ? GlowActive : GlowIdle);
         sb.AddText(count.ToString());
         sb.AddUiGlowOff();
@@ -833,7 +893,7 @@ public sealed class Plugin : IDalamudPlugin
     {
         if (_dtrEvents == null) return;
         var sb = new SeStringBuilder();
-        sb.AddText("Events: ");
+        sb.AddText($"{L.DtrEventsLabel}: ");
         sb.AddUiGlow(count > 0 ? GlowActive : GlowIdle);
         sb.AddText(count.ToString());
         sb.AddUiGlowOff();
@@ -948,6 +1008,8 @@ public sealed class Plugin : IDalamudPlugin
             _lastAvailabilityCheck = now;
             Task.Run(async () => await RefreshAvailablePlayersAsync());
         }
+
+        SyncRpAvailabilityDisplay(now);
 
         // Surveillance tag RP (chaque frame, lecture uint = négligeable)
         var rpPlayer = ObjectTable.LocalPlayer;
@@ -1231,11 +1293,63 @@ public sealed class Plugin : IDalamudPlugin
 
     // ── RP Availability nameplate ─────────────────────────────────────────────
 
+    /// <summary>
+    /// Garde l'entrée de la barre de statut en phase avec l'état réel, et remet
+    /// l'état local d'aplomb quand la liste publique le contredit.
+    ///
+    /// Deux situations que rien ne rattrapait : l'entrée peinte au chargement du
+    /// plugin, hors du thread de jeu, où aucun personnage n'est visible ; et une
+    /// disponibilité retirée depuis le site ou tombée avec le heartbeat, qui
+    /// laissait le plugin afficher « disponible » sans l'être.
+    ///
+    /// Appelé à chaque frame : deux comparaisons, aucun coût. Le redessin n'a lieu
+    /// que si l'état affiché ne correspond plus.
+    /// </summary>
+    private void SyncRpAvailabilityDisplay(DateTime now)
+    {
+        var character = CurrentCharacter;
+        var local     = CurrentCharacterAvailable;
+
+        if (character is { } c
+            && (Config.FindCharacterToken(c.Name, c.WorldId) != null
+                || !string.IsNullOrWhiteSpace(Config.ApiToken)))
+        {
+            var onServer = IsLocalPlayerAvailable();
+
+            // La liste ne tranche que si elle a été reçue après le dernier
+            // changement demandé, publication comprise. Sans cette condition, la
+            // frame qui suit le clic défait le clic.
+            var listIsAuthoritative =
+                _availabilityListAt > _availabilityTouchedAt + TimeSpan.FromSeconds(2);
+
+            // Et une absence de la liste ne compte que si le serveur a de nos
+            // nouvelles : il en écarte les présences sans heartbeat depuis cinq
+            // minutes, et la liste est rafraîchie sans lien avec le heartbeat.
+            var sinceHeartbeat = now - _lastHeartbeat;
+            var trustAbsence   = sinceHeartbeat > TimeSpan.FromSeconds(15)
+                              && sinceHeartbeat < TimeSpan.FromMinutes(4);
+
+            if (listIsAuthoritative && onServer != local && (onServer || trustAbsence))
+            {
+                CurrentCharacterAvailable = onServer;
+                local                     = onServer;
+            }
+        }
+
+        if (_dtrRpAvailShown != local || _dtrRpAvailCharacter != character)
+            UpdateDtrRpAvail();
+    }
+
     private static async Task RefreshAvailablePlayersAsync()
     {
         try
         {
             var entries = await Api.GetRpAvailabilitiesAsync();
+
+            // Requête en échec : garder la liste précédente. La remplacer par une
+            // liste vide viderait « Autour de moi » et les nameplates, et ferait
+            // conclure à tort que le personnage n'est plus déclaré disponible.
+            if (entries == null) return;
 
             // La liste brute est conservée : les nameplates n'ont besoin que du
             // niveau et du mode d'approche, mais la page « Autour de moi » et le
@@ -1250,6 +1364,8 @@ public sealed class Plugin : IDalamudPlugin
                 .ToDictionary(
                     g => g.Key,
                     g => (g.First().Profile?.RpLevel, g.First().Profile?.ApproachMode));
+
+            _availabilityListAt = DateTime.UtcNow;
         }
         catch { /* silencieux */ }
     }
@@ -1337,71 +1453,6 @@ public sealed class Plugin : IDalamudPlugin
             handler.DisplayTitle  = true;
             handler.IsPrefixTitle = false;
         }
-    }
-
-    // ── RP Availability helpers ───────────────────────────────────────────────
-
-    /// <summary>
-    /// Doit être appelé sur le framework thread — lit LocalPlayer puis lance la tâche.
-    /// </summary>
-    internal static void ActivateRpAvailability()
-    {
-        var player = ObjectTable.LocalPlayer;
-        if (player == null) return;
-        var req = new Api.SetRpAvailableRequest
-        {
-            CharacterName = player.Name.TextValue,
-            Server        = player.HomeWorld.Value.Name.ToString(),
-            Zone          = CurrentZone,
-            TerritoryId   = (int)ClientState.TerritoryType > 0 ? (int?)ClientState.TerritoryType : null,
-        };
-        // Capturer le profil local pour le synchro simultanément
-        Api.SaveRpProfileRequest? profileReq = null;
-        if (!string.IsNullOrEmpty(Config.RpProfileLevel) && !string.IsNullOrEmpty(Config.RpProfileApproachMode))
-        {
-            var langs = new List<string>();
-            if (Config.RpProfileLanguages?.Contains("\"fr\"") == true) langs.Add("fr");
-            if (Config.RpProfileLanguages?.Contains("\"en\"") == true) langs.Add("en");
-            if (langs.Count == 0) langs.Add("fr");
-
-            profileReq = new Api.SaveRpProfileRequest
-            {
-                RpLevel       = Config.RpProfileLevel,
-                ApproachMode  = Config.RpProfileApproachMode,
-                Languages     = [.. langs],
-                ContactMode   = Config.RpProfileContactMode,
-                SessionLength = Config.RpProfileSessionLength,
-            };
-        }
-
-        Task.Run(async () =>
-        {
-            // Synchro profil avant activation pour que le GET retourne les données complètes
-            if (profileReq != null)
-                await Api.SaveRpProfileAsync(profileReq);
-
-            var ok = await Api.SetRpAvailableAsync(req);
-            if (ok)
-            {
-                CurrentCharacterAvailable = true;
-                Config.Save();
-                _ = Framework.RunOnFrameworkThread(UpdateDtrRpAvail);
-            }
-        });
-    }
-
-    // Gardé pour compat avec les appels Task.Run existants dans ConfigWindow
-    internal static async Task SetRpAvailableFromLocalPlayerAsync()
-    {
-        await Framework.RunOnFrameworkThread(ActivateRpAvailability);
-    }
-
-    internal static async Task ClearRpAvailabilityAsync()
-    {
-        await Api.ClearRpAvailabilityAsync();
-        CurrentCharacterAvailable = false;
-        Config.Save();
-        _ = Framework.RunOnFrameworkThread(UpdateDtrRpAvail);
     }
 
     internal static void DismissLoginPrompt() => LoginPromptPending = false;

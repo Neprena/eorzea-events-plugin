@@ -35,7 +35,15 @@ internal static class Textures
     {
         if (string.IsNullOrEmpty(url)) return null;
 
-        if (!Cache.TryGetValue(url, out var task))
+        if (Cache.TryGetValue(url, out var task))
+        {
+            // Remonter l'URL en fin de file : sans ça l'éviction porte sur la plus
+            // anciennement insérée, et une image affichée à chaque frame pouvait
+            // être libérée juste après que son handle est entré dans la draw list.
+            Order.Remove(url);
+            Order.Add(url);
+        }
+        else
         {
             task = LoadAsync(url);
             Cache[url] = task;

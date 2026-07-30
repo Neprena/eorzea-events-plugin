@@ -841,14 +841,21 @@ public class ApiClient : IDisposable
 
     // ─── RP Availability ─────────────────────────────────────────────────────
 
-    public async Task<List<RpAvailabilityEntryDto>> GetRpAvailabilitiesAsync(CancellationToken ct = default)
+    /// <summary>
+    /// Disponibilités publiques, ou <c>null</c> si la requête a échoué. Une liste
+    /// vide et un échec réseau ne veulent pas dire la même chose : confondre les
+    /// deux vidait la page « Autour de moi » au moindre hoquet de connexion, et
+    /// ferait maintenant croire au plugin qu'il n'est plus déclaré disponible.
+    /// </summary>
+    public async Task<List<RpAvailabilityEntryDto>?> GetRpAvailabilitiesAsync(CancellationToken ct = default)
     {
         try
         {
-            var res = await _publicHttp.GetFromJsonAsync<List<RpAvailabilityEntryDto>>("api/rp-availability", JsonOptions, ct);
-            return res ?? [];
+            return await _publicHttp.GetFromJsonAsync<List<RpAvailabilityEntryDto>>(
+                       "api/rp-availability", JsonOptions, ct)
+                   ?? [];
         }
-        catch { return []; }
+        catch { return null; }
     }
 
     public async Task<bool> SetRpAvailableAsync(SetRpAvailableRequest req, CancellationToken ct = default)

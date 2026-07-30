@@ -3,6 +3,7 @@
   "Author": "Neprena",
   "Description": "Gérez vos sessions RP Eorzea Events directement depuis le jeu.",
   "Punchline": "Sessions RP Eorzea Events en un clic.",
+  "Changelog": "Nouvelle interface à navigation latérale, agenda des événements par jour, bouton « Y aller » via Lifestream, fiche RP par personnage avec portrait.\nPage « Autour de moi » et clic droit sur un joueur pour consulter sa fiche RP, avec une page partageable sur le site.\nConfidentialité : tu choisis section par section ce que tu montres, et le référencement par les moteurs de recherche est désactivé par défaut.\nOuvre le plugin pour l'historique complet des nouveautés.",
   "InternalName": "EorzeaEventsPlugin",
   "RepoUrl": "https://github.com/Neprena/eorzea-events-plugin",
   "Tags": ["rp", "roleplay"],

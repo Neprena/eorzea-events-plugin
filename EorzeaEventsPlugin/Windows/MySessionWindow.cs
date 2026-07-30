@@ -1,4 +1,7 @@
 using Dalamud.Interface.Windowing;
+using EorzeaEventsPlugin.Ui;
+using EorzeaEventsPlugin.Ui.Components;
+using EorzeaEventsPlugin.Ui.Shell;
 using EorzeaEventsPlugin.Api;
 using Dalamud.Bindings.ImGui;
 using Lumina.Excel.Sheets;
@@ -7,7 +10,7 @@ using FFXIVClientStructs.FFXIV.Client.Game;
 
 namespace EorzeaEventsPlugin.Windows;
 
-public class MySessionWindow : Window
+public class MySessionWindow : ThemedWindow
 {
     private readonly Configuration _config;
 
@@ -55,7 +58,7 @@ public class MySessionWindow : Window
     public MySessionWindow(Configuration config)
         : base("My RP Session##mysession")
     {
-        SizeConstraints = new WindowSizeConstraints
+        LogicalSizeConstraints = new WindowSizeConstraints
         {
             MinimumSize = new Vector2(600, 380),
             MaximumSize = new Vector2(950, 700),
@@ -427,15 +430,12 @@ public class MySessionWindow : Window
         if (!Plugin.Api.HasToken || !Plugin.Api.IsTokenValid)
         {
             var tokenMissing = !Plugin.Api.HasToken;
-            ImGui.Spacing();
-            ImGui.TextColored(new Vector4(1, 0.6f, 0, 1),
-                tokenMissing ? l.ErrTokenMissing : "⚠  " + l.TokenInvalidLine1);
-            ImGui.Spacing();
-            ImGui.TextWrapped(tokenMissing ? l.MySessionTokenMissingDesc : l.MySessionTokenInvalidDesc);
-            ImGui.Spacing();
-            if (UiPrimitives.ColorButton(tokenMissing ? l.BtnConfigureNow : l.TokenReconfigure, UiStyle.PrimaryButton,
-                UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive))
-                Plugin.OpenSetup(tokenInvalid: !tokenMissing);
+
+            Feedback.EmptyState(Icons.Warning,
+                tokenMissing ? l.ErrTokenMissing : l.TokenInvalidLine1,
+                tokenMissing ? l.MySessionTokenMissingDesc : l.MySessionTokenInvalidDesc,
+                tokenMissing ? l.BtnConfigureNow : l.TokenReconfigure,
+                () => Plugin.OpenSetup(tokenInvalid: !tokenMissing));
             return;
         }
 
@@ -444,8 +444,9 @@ public class MySessionWindow : Window
 
         if (!string.IsNullOrWhiteSpace(_statusMsg))
         {
-            ImGui.Spacing();
-            ImGui.TextColored(_statusIsError ? new Vector4(1, 0.35f, 0.35f, 1) : UiStyle.StatusOpen, _statusMsg);
+            Layout.Spacer(Theme.GapS);
+            ImGui.TextColored(_statusIsError ? Theme.Danger : Theme.Online,
+                              $"{(_statusIsError ? Icons.Warning : Icons.Check).S()}  {_statusMsg}");
         }
     }
 
@@ -454,59 +455,10 @@ public class MySessionWindow : Window
     private void DrawCreateForm()
     {
         var l = Plugin.L;
-        ImGui.Spacing();
-        ImGui.TextColored(UiStyle.TextSection, l.SessionCreate.ToUpper());
-        ImGui.Separator();
-        ImGui.Spacing();
 
-        if (_pendingRpTagActivePrompt)
-            UiPrimitives.DrawAlert(UiStyle.StatusOpen, l.AlertRpTagActivTitle, l.AlertRpTagActivDesc, () =>
-            {
-                if (ImGui.Button(l.Ignore + "##rptag_active", UiStyle.SmallButton))
-                    { _pendingRpTagActivePrompt = false; IsOpen = false; }
-            });
+        Layout.SectionHeader(l.SessionCreate, Icons.Plus);
 
-        if (_pendingActiveEventWarning)
-            UiPrimitives.DrawAlert(new Vector4(1f, 0.75f, 0.1f, 1f),
-                l.AlertActiveEventTitle,
-                string.Format(l.AlertActiveEventDesc, _conflictEventTitle, _conflictEstabName),
-                () =>
-                {
-                    if (UiPrimitives.ColorButton(l.BtnCreateAnyway + "##activeevent", UiStyle.WideButton,
-                        UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive))
-                        { _pendingActiveEventWarning = false; StartSession(force: true); }
-                    ImGui.SameLine();
-                    if (ImGui.Button(l.Cancel + "##activeevent", UiStyle.SmallButton))
-                        _pendingActiveEventWarning = false;
-                });
-
-        if (_pendingActiveRpWarning)
-            UiPrimitives.DrawAlert(new Vector4(1f, 0.75f, 0.1f, 1f),
-                l.AlertActiveRpTitle,
-                string.Format(l.AlertActiveRpDesc, _conflictRpSessionTitle, _conflictRpAuthorName),
-                () =>
-                {
-                    if (UiPrimitives.ColorButton(l.BtnCreateAnyway + "##activerp", UiStyle.WideButton,
-                        UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive))
-                        { _pendingActiveRpWarning = false; StartSession(force: true); }
-                    ImGui.SameLine();
-                    if (ImGui.Button(l.Cancel + "##activerp", UiStyle.SmallButton))
-                        _pendingActiveRpWarning = false;
-                });
-
-        // Blocage dur (IA) : promo d'un évènement déjà annoncé → PAS de bouton "forcer".
-        if (_pendingEventPromoBlock)
-            UiPrimitives.DrawAlert(new Vector4(0.9f, 0.25f, 0.25f, 1f),
-                l.AlertEventPromoTitle,
-                string.Format(l.AlertEventPromoDesc, _promoEventTitle, _promoEstabName)
-                    + (string.IsNullOrEmpty(_promoReason)
-                        ? string.Empty
-                        : "\n\n" + string.Format(l.AlertEventPromoReason, _promoReason)),
-                () =>
-                {
-                    if (ImGui.Button(l.Cancel + "##eventpromo", UiStyle.SmallButton))
-                        _pendingEventPromoBlock = false;
-                });
+        DrawPendingAlerts(l);
 
         if (!ImGui.BeginTable("##createform", 2, ImGuiTableFlags.None)) return;
         ImGui.TableSetupColumn("ctx",  ImGuiTableColumnFlags.WidthStretch, 0.38f);
@@ -515,69 +467,118 @@ public class MySessionWindow : Window
 
         // Contexte détecté (gauche)
         ImGui.TableSetColumnIndex(0);
-        var pos     = GetCurrentPosition();
-        var housing = GetCurrentHousing();
-        var wing    = housing != null ? ResolveWing(Plugin.ClientState.MapId, housing.RawPlot) : null;
-
-        UiPrimitives.DrawCard(() =>
-        {
-            ImGui.TextColored(UiStyle.TextSection, l.FieldLocation.ToUpper());
-            ImGui.Spacing();
-            UiPrimitives.DrawIcon("");
-            ImGui.SameLine(0, 4);
-            ImGui.TextColored(UiStyle.TextMuted, GetCurrentZone());
-            ImGui.TextColored(UiStyle.TextSubtle, $"  {GetCurrentWorld()}");
-            if (housing != null)
-            {
-                UiPrimitives.DrawIcon("");
-                ImGui.SameLine(0, 4);
-                ImGui.TextColored(UiStyle.TextMuted, FormatHousingLabel(housing.Ward, housing.Plot, housing.Room, wing));
-            }
-            if (pos.HasValue)
-            {
-                var c = MapHelper.GetLocalPlayerMapCoords()
-                     ?? MapHelper.WorldToCurrentMapCoords(pos.Value.x, pos.Value.z);
-                UiPrimitives.DrawIcon("");
-                ImGui.SameLine(0, 4);
-                ImGui.TextColored(UiStyle.TextSubtle, c.HasValue
-                    ? $"X {c.Value.x:F1}   Y {c.Value.y:F1}"
-                    : $"X {pos.Value.x:F1}   Y {pos.Value.z:F1}");
-            }
-        });
+        DrawDetectedContext(l);
 
         // Formulaire (droite)
         ImGui.TableSetColumnIndex(1);
 
-        ImGui.TextColored(UiStyle.TextTitle, "✦ " + l.FieldTitle + " *");
-        ImGui.SetNextItemWidth(-1);
-        ImGui.InputText("##title", ref _title, 100);
+        Inputs.Field("##title", l.FieldTitle + " *", ref _title, 100, showCounter: true);
 
-        ImGui.Spacing();
-        // Nom du perso non modifiable : toujours le personnage actuellement connecté
-        // (lié à la clé API). Affichage en lecture seule.
+        Layout.Spacer(Theme.GapS);
+        // Nom du perso non modifiable : toujours le personnage actuellement
+        // connecté, lié à la clé API. Affichage en lecture seule.
         _characterName = GetCharacterName();
-        ImGui.TextColored(UiStyle.TextMuted, l.FieldCharName);
-        ImGui.TextColored(UiStyle.TextTitle, _characterName);
+        Text.Muted(l.FieldCharName);
+        Text.WithIcon(Icons.Character, _characterName, Theme.Text, Theme.TextMuted);
 
-        ImGui.Spacing();
-        ImGui.TextColored(UiStyle.TextSubtle, l.FieldDesc + " (opt.)");
-        ImGui.SetNextItemWidth(-1);
-        ImGui.InputTextMultiline("##desc", ref _description, 500, new Vector2(-1, 60));
+        Layout.Spacer(Theme.GapS);
+        Inputs.Field("##desc", l.FieldDesc, ref _description, 500,
+                     multiline: true, height: 70f);
 
-        ImGui.Spacing();
-        ImGui.TextColored(UiStyle.TextMuted, l.FieldDuration);
-        ImGui.SetNextItemWidth(-1);
+        Layout.Spacer(Theme.GapS);
+        Text.Muted(l.FieldDuration);
+        ImGui.SetNextItemWidth(Card.FullWidth);
         ImGui.SliderInt("##duration", ref _duration, 1, 8);
 
-        ImGui.Spacing();
-        var canStart = !_busy && !string.IsNullOrWhiteSpace(_title);
-        if (!canStart) ImGui.BeginDisabled();
-        if (UiPrimitives.ColorButton(_busy ? l.StatusCreating : l.RpNewSession, new Vector2(-1, 0),
-            UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive))
+        Layout.Spacer(Theme.GapM);
+        if (Btn.Draw(_busy ? l.StatusCreating : l.RpNewSession, BtnTone.Primary, BtnSize.Block,
+                     Icons.RpLive, disabled: _busy || string.IsNullOrWhiteSpace(_title)))
             StartSession();
-        if (!canStart) ImGui.EndDisabled();
 
         ImGui.EndTable();
+    }
+
+    /// <summary>Position, monde et logement lus dans le jeu, avant publication.</summary>
+    private void DrawDetectedContext(Loc l)
+    {
+        var pos     = GetCurrentPosition();
+        var housing = GetCurrentHousing();
+        var wing    = housing != null ? ResolveWing(Plugin.ClientState.MapId, housing.RawPlot) : null;
+
+        using var card = Card.Begin("session_ctx", interactive: false);
+
+        Layout.SectionHeader(l.FieldLocation, Icons.Location);
+
+        Text.WithIcon(Icons.World, $"{GetCurrentZone()}  ·  {GetCurrentWorld()}",
+                      Theme.TextMuted, Theme.TextFaint, wrap: true);
+
+        if (housing != null)
+            Text.WithIcon(Icons.Housing,
+                          FormatHousingLabel(housing.Ward, housing.Plot, housing.Room, wing),
+                          Theme.TextMuted, Theme.TextFaint, wrap: true);
+
+        if (!pos.HasValue) return;
+
+        var c = MapHelper.GetLocalPlayerMapCoords()
+             ?? MapHelper.WorldToCurrentMapCoords(pos.Value.x, pos.Value.z);
+
+        Text.WithIcon(Icons.Map,
+                      c.HasValue ? $"X {c.Value.x:F1}   Y {c.Value.y:F1}"
+                                 : $"X {pos.Value.x:F1}   Y {pos.Value.z:F1}",
+                      Theme.TextFaint, Theme.TextFaint);
+    }
+
+    /// <summary>
+    /// Bandeaux de confirmation avant création. Le blocage pour promotion d'un
+    /// événement déjà annoncé n'offre volontairement pas de « créer quand
+    /// même » : c'est un refus, pas un avertissement.
+    ///
+    /// Les boutons de ces bandeaux sont en tonalité <c>Secondary</c> et non
+    /// <c>Ghost</c>. Un bouton fantôme a un fond transparent, invisible sur la
+    /// carte teintée que peint <c>Feedback.Alert</c> : quand il est seul dans
+    /// l'encart, rien ne signale qu'il y a un contrôle avant de le survoler.
+    /// </summary>
+    private void DrawPendingAlerts(Loc l)
+    {
+        if (_pendingRpTagActivePrompt)
+            Feedback.Alert(Theme.Online, Icons.Check, l.AlertRpTagActivTitle, l.AlertRpTagActivDesc, () =>
+            {
+                if (Btn.Draw(l.Ignore, BtnTone.Secondary, BtnSize.Small, id: "rptag_active"))
+                    { _pendingRpTagActivePrompt = false; IsOpen = false; }
+            });
+
+        if (_pendingActiveEventWarning)
+            Feedback.Alert(Theme.Idle, Icons.Warning, l.AlertActiveEventTitle,
+                string.Format(l.AlertActiveEventDesc, _conflictEventTitle, _conflictEstabName),
+                () => ConfirmOrCancel("activeevent", () => _pendingActiveEventWarning = false));
+
+        if (_pendingActiveRpWarning)
+            Feedback.Alert(Theme.Idle, Icons.Warning, l.AlertActiveRpTitle,
+                string.Format(l.AlertActiveRpDesc, _conflictRpSessionTitle, _conflictRpAuthorName),
+                () => ConfirmOrCancel("activerp", () => _pendingActiveRpWarning = false));
+
+        if (_pendingEventPromoBlock)
+            Feedback.Alert(Theme.Danger, Icons.Blocked, l.AlertEventPromoTitle,
+                string.Format(l.AlertEventPromoDesc, _promoEventTitle, _promoEstabName)
+                    + (string.IsNullOrEmpty(_promoReason)
+                        ? string.Empty
+                        : "\n\n" + string.Format(l.AlertEventPromoReason, _promoReason)),
+                () =>
+                {
+                    if (Btn.Draw(l.Cancel, BtnTone.Ghost, BtnSize.Small, id: "eventpromo"))
+                        _pendingEventPromoBlock = false;
+                });
+
+        // System.Action explicite : Lumina expose aussi un type « Action ».
+        void ConfirmOrCancel(string id, System.Action dismiss)
+        {
+            if (Btn.Draw(l.BtnCreateAnyway, BtnTone.Primary, BtnSize.Medium, id: $"force_{id}"))
+                { dismiss(); StartSession(force: true); }
+
+            ImGui.SameLine(0f, Theme.S(Theme.GapS));
+            if (Btn.Draw(l.Cancel, BtnTone.Ghost, BtnSize.Small, id: $"cancel_{id}"))
+                dismiss();
+        }
     }
 
     // ─── Session active : alertes + info (gauche 58%) | actions (droite 42%) ─
@@ -585,30 +586,28 @@ public class MySessionWindow : Window
     private void DrawActiveSession()
     {
         var l = Plugin.L;
-        ImGui.Spacing();
-        ImGui.TextColored(UiStyle.StatusOpen, l.SessionActive.ToUpper());
-        ImGui.Separator();
-        ImGui.Spacing();
+
+        Layout.SectionHeader(l.SessionActive, Icons.RpLive, tone: Theme.Online);
 
         if (_pendingZonePrompt)
-            UiPrimitives.DrawAlert(new Vector4(1f, 0.75f, 0.1f, 1f), l.AlertZoneChangedTitle, l.AlertZoneChangedDesc, () =>
+            Feedback.Alert(Theme.Idle, Icons.Location, l.AlertZoneChangedTitle, l.AlertZoneChangedDesc, () =>
             {
-                if (UiPrimitives.ColorButton(l.BtnUpdatePos + "##zone", UiStyle.WideButton,
-                    UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive))
+                if (Btn.Draw(l.BtnUpdatePos, BtnTone.Primary, BtnSize.Medium, Icons.Refresh, id: "zone_upd"))
                     { _pendingZonePrompt = false; RefreshPosition(); }
-                ImGui.SameLine();
-                if (ImGui.Button(l.Ignore + "##zone", UiStyle.SmallButton))
+
+                ImGui.SameLine(0f, Theme.S(Theme.GapS));
+                if (Btn.Draw(l.Ignore, BtnTone.Secondary, BtnSize.Small, id: "zone_ign"))
                     { _pendingZonePrompt = false; IsOpen = false; }
             });
 
         if (_pendingRpTagPrompt)
-            UiPrimitives.DrawAlert(new Vector4(0.75f, 0.5f, 1f, 1f), l.AlertRpTagRemovedTitle, l.AlertRpTagRemovedDesc, () =>
+            Feedback.Alert(Theme.Link, Icons.Warning, l.AlertRpTagRemovedTitle, l.AlertRpTagRemovedDesc, () =>
             {
-                if (UiPrimitives.ColorButton(l.BtnEnd + "##rptag", UiStyle.MediumButton,
-                    UiStyle.DangerNormal, UiStyle.DangerHovered, UiStyle.DangerActive))
+                if (Btn.Draw(l.BtnEnd, BtnTone.Danger, BtnSize.Medium, id: "rptag_end"))
                     { _pendingRpTagPrompt = false; EndSession(); }
-                ImGui.SameLine();
-                if (ImGui.Button(l.Ignore + "##rptag", UiStyle.SmallButton))
+
+                ImGui.SameLine(0f, Theme.S(Theme.GapS));
+                if (Btn.Draw(l.Ignore, BtnTone.Secondary, BtnSize.Small, id: "rptag_ign"))
                     _pendingRpTagPrompt = false;
             });
 
@@ -616,17 +615,17 @@ public class MySessionWindow : Window
             && DateTime.TryParse(_activeSession.ExpiresAt, null, System.Globalization.DateTimeStyles.RoundtripKind, out var expiresAt))
         {
             var mins = Math.Max(1, (int)Math.Ceiling((expiresAt - DateTime.UtcNow).TotalMinutes));
-            UiPrimitives.DrawAlert(new Vector4(1f, 0.55f, 0.15f, 1f), l.AlertExpiryTitle, string.Format(l.AlertExpiryDesc, mins), () =>
+            Feedback.Alert(Theme.Idle, Icons.Clock, l.AlertExpiryTitle, string.Format(l.AlertExpiryDesc, mins), () =>
             {
-                if (UiPrimitives.ColorButton(l.BtnExtend + "##expiry", UiStyle.WideButton,
-                    UiStyle.SuccessNormal, UiStyle.SuccessHovered, UiStyle.SuccessActive))
+                if (Btn.Draw(l.BtnExtend, BtnTone.Primary, BtnSize.Medium, Icons.Plus, id: "exp_ext"))
                     { _pendingExpiryPrompt = false; ExtendSession(1); }
-                ImGui.SameLine();
-                if (UiPrimitives.ColorButton(l.BtnStop + "##expiry_stop", UiStyle.MediumButton,
-                    UiStyle.DangerNormal, UiStyle.DangerHovered, UiStyle.DangerActive))
+
+                ImGui.SameLine(0f, Theme.S(Theme.GapS));
+                if (Btn.Draw(l.BtnStop, BtnTone.Danger, BtnSize.Medium, id: "exp_stop"))
                     { _pendingExpiryPrompt = false; EndSession(); }
-                ImGui.SameLine();
-                if (ImGui.Button(l.Ignore + "##expiry", UiStyle.SmallButton))
+
+                ImGui.SameLine(0f, Theme.S(Theme.GapS));
+                if (Btn.Draw(l.Ignore, BtnTone.Secondary, BtnSize.Small, id: "exp_ign"))
                     { _pendingExpiryPrompt = false; _expiryDismissed = true; }
             });
         }
@@ -640,92 +639,88 @@ public class MySessionWindow : Window
 
         // Info session (gauche)
         ImGui.TableSetColumnIndex(0);
-        UiPrimitives.DrawCard(() =>
-        {
-            ImGui.TextColored(UiStyle.TextTitle, _activeSession!.Title);
-            ImGui.Spacing();
-            UiPrimitives.DrawIcon("");
-            ImGui.SameLine(0, 4);
-            ImGui.TextColored(UiStyle.TextMuted, $"{_activeSession.Location}  •  {_activeSession.Server}");
-            if (!string.IsNullOrEmpty(_activeSession.CharacterName))
-            {
-                UiPrimitives.DrawIcon("");
-                ImGui.SameLine(0, 4);
-                ImGui.TextColored(UiStyle.TextMuted, _activeSession.CharacterName);
-            }
-            if (_activeSession.Ward.HasValue)
-            {
-                UiPrimitives.DrawIcon("");
-                ImGui.SameLine(0, 4);
-                ImGui.TextColored(UiStyle.TextMuted,
-                    FormatHousingLabel(_activeSession.Ward.Value, _activeSession.Plot, _activeSession.Room, _activeSession.Wing));
-            }
-            var livePos = GetCurrentPosition();
-            if (livePos.HasValue)
-            {
-                var coords = MapHelper.GetLocalPlayerMapCoords()
-                          ?? MapHelper.WorldToCurrentMapCoords(livePos.Value.x, livePos.Value.z);
-                if (coords.HasValue)
-                {
-                    UiPrimitives.DrawIcon("");
-                    ImGui.SameLine(0, 4);
-                    ImGui.TextColored(UiStyle.TextSubtle, $"X {coords.Value.x:F1}   Y {coords.Value.y:F1}");
-                }
-            }
-        });
+        DrawActiveSessionCard();
 
         // Actions (droite)
         ImGui.TableSetColumnIndex(1);
         if (_busy)
         {
-            ImGui.TextColored(UiStyle.TextSubtle, Plugin.L.Processing);
+            Text.Muted(l.Processing);
         }
         else
         {
-            if (ImGui.Button(l.BtnModify, new Vector2(-1, 0)))
+            if (Btn.Draw(l.BtnModify, BtnTone.Secondary, BtnSize.Block, Icons.Edit))
                 { _editTitle = _activeSession!.Title; _editDesc = string.Empty; _editing = true; }
-            ImGui.Spacing();
-            if (ImGui.Button(l.BtnUpdatePos, new Vector2(-1, 0))) RefreshPosition();
-            ImGui.Spacing();
-            if (UiPrimitives.ColorButton(l.BtnExtend, new Vector2(-1, 0),
-                UiStyle.SuccessNormal, UiStyle.SuccessHovered, UiStyle.SuccessActive))
+
+            Layout.Spacer(Theme.GapXs);
+            if (Btn.Draw(l.BtnUpdatePos, BtnTone.Secondary, BtnSize.Block, Icons.Location))
+                RefreshPosition();
+
+            Layout.Spacer(Theme.GapXs);
+            if (Btn.Draw(l.BtnExtend, BtnTone.Primary, BtnSize.Block, Icons.Plus))
                 ExtendSession(1);
-            ImGui.Spacing();
-            if (ImGui.Button(l.ViewOnline, new Vector2(-1, 0)))
+
+            Layout.Spacer(Theme.GapXs);
+            if (Btn.Draw(l.ViewOnline, BtnTone.Ghost, BtnSize.Block, Icons.External))
                 OpenUrl(_config.BaseUrl + "/rp-live");
-            ImGui.Spacing();
-            ImGui.Separator();
-            ImGui.Spacing();
-            if (UiPrimitives.ColorButton(l.BtnEnd, new Vector2(-1, 0),
-                UiStyle.DangerNormal, UiStyle.DangerHovered, UiStyle.DangerActive))
+
+            Layout.Divider(Theme.GapS);
+            if (Btn.Draw(l.BtnEnd, BtnTone.Danger, BtnSize.Block, Icons.Close))
                 EndSession();
         }
 
         ImGui.EndTable();
     }
 
+    /// <summary>Récapitulatif de la session publiée, tel que les autres la voient.</summary>
+    private void DrawActiveSessionCard()
+    {
+        using var card = Card.Begin("session_active", interactive: false);
+
+        Text.H2(_activeSession!.Title);
+        Layout.Spacer(Theme.GapS);
+
+        Text.WithIcon(Icons.Location, $"{_activeSession.Location}  ·  {_activeSession.Server}",
+                      Theme.TextMuted, Theme.TextFaint, wrap: true);
+
+        if (!string.IsNullOrEmpty(_activeSession.CharacterName))
+            Text.WithIcon(Icons.Character, _activeSession.CharacterName,
+                          Theme.TextMuted, Theme.TextFaint);
+
+        if (_activeSession.Ward.HasValue)
+            Text.WithIcon(Icons.Housing,
+                          FormatHousingLabel(_activeSession.Ward.Value, _activeSession.Plot,
+                                             _activeSession.Room, _activeSession.Wing),
+                          Theme.TextMuted, Theme.TextFaint);
+
+        var livePos = GetCurrentPosition();
+        if (livePos is not { } position) return;
+
+        var coords = MapHelper.GetLocalPlayerMapCoords()
+                  ?? MapHelper.WorldToCurrentMapCoords(position.x, position.z);
+        if (coords is not { } c) return;
+
+        Text.WithIcon(Icons.Map, $"X {c.x:F1}   Y {c.y:F1}", Theme.TextFaint, Theme.TextFaint);
+    }
+
     private void DrawEditForm()
     {
         var l = Plugin.L;
-        ImGui.Spacing();
-        UiPrimitives.DrawCard(() =>
-        {
-            ImGui.TextColored(UiStyle.TextTitle, "✦ " + l.FieldTitle + " *");
-            ImGui.SetNextItemWidth(-1);
-            ImGui.InputText("##edittitle", ref _editTitle, 100);
-            ImGui.Spacing();
-            ImGui.TextColored(UiStyle.TextSubtle, l.FieldDesc + " (opt.)");
-            ImGui.SetNextItemWidth(-1);
-            ImGui.InputTextMultiline("##editdesc", ref _editDesc, 500, new Vector2(-1, 60));
-            ImGui.Spacing();
-            var canSave = !_busy && !string.IsNullOrWhiteSpace(_editTitle);
-            if (!canSave) ImGui.BeginDisabled();
-            if (UiPrimitives.ColorButton(l.Save, UiStyle.MediumButton,
-                UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive))
-                UpdateSession();
-            if (!canSave) ImGui.EndDisabled();
-            ImGui.SameLine();
-            if (ImGui.Button(l.Cancel, UiStyle.SmallButton)) _editing = false;
-        });
+
+        using var card = Card.Begin("session_edit", interactive: false);
+
+        Inputs.Field("##edittitle", l.FieldTitle + " *", ref _editTitle, 100, showCounter: true);
+
+        Layout.Spacer(Theme.GapS);
+        Inputs.Field("##editdesc", l.FieldDesc, ref _editDesc, 500,
+                     multiline: true, height: 70f);
+
+        Layout.Spacer(Theme.GapM);
+        if (Btn.Draw(l.Save, BtnTone.Primary, BtnSize.Medium, Icons.Check,
+                     disabled: _busy || string.IsNullOrWhiteSpace(_editTitle)))
+            UpdateSession();
+
+        ImGui.SameLine(0f, Theme.S(Theme.GapS));
+        if (Btn.Draw(l.Cancel, BtnTone.Ghost, BtnSize.Small)) _editing = false;
     }
 }

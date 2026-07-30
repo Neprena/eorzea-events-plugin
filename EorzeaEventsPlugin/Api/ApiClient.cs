@@ -69,6 +69,12 @@ public class EventDto
     [JsonPropertyName("isOfficial")]    public bool                    IsOfficial    { get; set; }
     [JsonPropertyName("cancelled")]     public bool                    Cancelled     { get; set; }
     [JsonPropertyName("establishment")] public EstablishmentSummaryDto? Establishment { get; set; }
+
+    /// <summary>Affiche propre à l'événement, distincte de la bannière du lieu.</summary>
+    [JsonPropertyName("image")] public string? Image { get; set; }
+
+    /// <summary>Bloc iCalendar : « DTSTART:… » puis « RRULE:FREQ=WEEKLY;BYDAY=WE ».</summary>
+    [JsonPropertyName("recurrenceRule")] public string? RecurrenceRule { get; set; }
 }
 
 public class OnlineCountDto
@@ -102,18 +108,138 @@ public class EstablishmentDto
     [JsonPropertyName("syncshells")]      public string  Syncshells      { get; set; } = "[]";
     [JsonPropertyName("discordInvite")]   public string? DiscordInvite   { get; set; }
     [JsonPropertyName("banner")]          public string? Banner          { get; set; }
+
+    [JsonPropertyName("rpType")]      public string? RpType      { get; set; } // "full_rp" | "semi_rp"
+    [JsonPropertyName("language")]    public string? Language    { get; set; } // "fr" | "en"
+    [JsonPropertyName("isNsfw")]      public bool    IsNsfw      { get; set; }
+    [JsonPropertyName("isFeatured")]  public bool    IsFeatured  { get; set; }
+    [JsonPropertyName("accentColor")] public string? AccentColor { get; set; } // "#RRGGBB"
+    [JsonPropertyName("website")]     public string? Website     { get; set; }
+
+    [JsonPropertyName("categories")] public List<EstablishmentCategoryDto>? Categories { get; set; }
+    [JsonPropertyName("_count")]     public EstablishmentCountsDto?         Counts     { get; set; }
+}
+
+/// <summary>Lien entre un établissement et une catégorie.</summary>
+public class EstablishmentCategoryDto
+{
+    [JsonPropertyName("category")] public CategoryDto? Category { get; set; }
+}
+
+public class CategoryDto
+{
+    [JsonPropertyName("name")]  public string  Name  { get; set; } = string.Empty;
+    [JsonPropertyName("emoji")] public string? Emoji { get; set; }
+    [JsonPropertyName("color")] public string? Color { get; set; } // "#RRGGBB"
+    [JsonPropertyName("group")] public string? Group { get; set; }
+}
+
+public class EstablishmentCountsDto
+{
+    [JsonPropertyName("events")] public int Events { get; set; }
 }
 
 // ─── RP Profile & Availability ────────────────────────────────────────────────
 
+/// <summary>
+/// Fiche RP d'un personnage.
+///
+/// Les champs ajoutés avec la fiche par personnage sont tous facultatifs : un
+/// serveur antérieur ne les renvoie pas, et le plugin doit rester utilisable
+/// dans ce cas.
+/// </summary>
 public class RpProfileDto
 {
+    /// <summary>
+    /// Personnage propriétaire de la fiche. Renseigné par les réponses publiques
+    /// (<c>/api/rp-availability</c> et <c>/api/rp-profile/public/...</c>) : il
+    /// permet de recharger la fiche complète et de construire son URL sur le
+    /// site, sans jamais chercher un joueur par son nom.
+    /// </summary>
+    [JsonPropertyName("characterId")]   public string?  CharacterId   { get; set; }
+
+    /// <summary>
+    /// La fiche a une page sur le site. Consentement distinct de la visibilité
+    /// en jeu : proposer le lien sans vérifier mènerait à une page en 404.
+    /// Absent des réponses de la liste des disponibilités, d'où le défaut false.
+    /// </summary>
+    [JsonPropertyName("hasWebPage")]    public bool     HasWebPage    { get; set; }
+
     [JsonPropertyName("rpLevel")]       public string   RpLevel       { get; set; } = string.Empty;
     [JsonPropertyName("approachMode")]  public string   ApproachMode  { get; set; } = string.Empty;
     [JsonPropertyName("languages")]     public string[] Languages     { get; set; } = [];
     [JsonPropertyName("contactMode")]   public string?  ContactMode   { get; set; }
     [JsonPropertyName("sessionLength")] public string?  SessionLength { get; set; }
     [JsonPropertyName("themes")]        public string[] Themes        { get; set; } = [];
+
+    [JsonPropertyName("rpName")]       public string?  RpName       { get; set; }
+    [JsonPropertyName("nickname")]     public string?  Nickname     { get; set; }
+    [JsonPropertyName("pronouns")]     public string?  Pronouns     { get; set; }
+    [JsonPropertyName("race")]         public string?  Race         { get; set; }
+    [JsonPropertyName("age")]          public string?  Age          { get; set; }
+    [JsonPropertyName("origin")]       public string?  Origin       { get; set; }
+    [JsonPropertyName("occupation")]   public string?  Occupation   { get; set; }
+    [JsonPropertyName("appearance")]   public string?  Appearance   { get; set; }
+    [JsonPropertyName("personality")]  public string?  Personality  { get; set; }
+    [JsonPropertyName("background")]   public string?  Background   { get; set; }
+    [JsonPropertyName("hooks")]        public string[] Hooks        { get; set; } = [];
+    [JsonPropertyName("currentQuest")] public string?  CurrentQuest { get; set; }
+    [JsonPropertyName("avoidThemes")]  public string[] AvoidThemes  { get; set; } = [];
+    [JsonPropertyName("limits")]       public string?  Limits       { get; set; }
+    [JsonPropertyName("nsfw")]         public bool     Nsfw         { get; set; }
+    [JsonPropertyName("availability")] public string?  Availability { get; set; }
+    [JsonPropertyName("externalUrl")]  public string?  ExternalUrl  { get; set; }
+
+    // ─── Visibilité ───────────────────────────────────────────────────────────
+    //
+    // Trois consentements indépendants, plus l'audience par section. Renseignés
+    // par la lecture authentifiée de sa propre fiche (`api/rp-profile`), absents
+    // des réponses publiques.
+
+    /// <summary>Visible en jeu : liste des disponibilités, viewer, menu contextuel.</summary>
+    [JsonPropertyName("isPublic")] public bool IsPublic { get; set; } = true;
+
+    /// <summary>La fiche a une page sur le site.</summary>
+    [JsonPropertyName("webPageEnabled")] public bool WebPageEnabled { get; set; } = true;
+
+    /// <summary>La fiche accepte de figurer dans les moteurs de recherche.</summary>
+    [JsonPropertyName("searchIndexable")] public bool SearchIndexable { get; set; }
+
+    /// <summary>
+    /// Audience par section, sous la forme brute stockée : un objet JSON
+    /// { "&lt;section&gt;": "public" | "owner" }. Une clé absente vaut le défaut de sa
+    /// section, défini côté serveur.
+    /// </summary>
+    [JsonPropertyName("sectionVisibility")] public string? SectionVisibility { get; set; }
+
+    /// <summary>Portrait téléversé depuis le site, cadré en 3:4.</summary>
+    [JsonPropertyName("portraitUrl")] public string? PortraitUrl { get; set; }
+
+    [JsonPropertyName("height")] public string? Height { get; set; }
+    [JsonPropertyName("build")]  public string? Build  { get; set; }
+    [JsonPropertyName("marks")]  public string? Marks  { get; set; }
+    [JsonPropertyName("voice")]  public string? Voice  { get; set; }
+
+    [JsonPropertyName("freeCompany")] public string? FreeCompany { get; set; }
+    [JsonPropertyName("allegiance")]  public string? Allegiance  { get; set; }
+    [JsonPropertyName("deity")]       public string? Deity       { get; set; }
+
+    [JsonPropertyName("quote")]        public string? Quote        { get; set; }
+    [JsonPropertyName("themeSongUrl")] public string? ThemeSongUrl { get; set; }
+
+    /// <summary>Relations, en lecture seule ici : elles s'éditent sur le site.</summary>
+    [JsonPropertyName("relations")] public RpRelationDto[] Relations { get; set; } = [];
+}
+
+/// <summary>Lien vers un autre personnage ou un PNJ.</summary>
+public class RpRelationDto
+{
+    [JsonPropertyName("targetName")] public string  TargetName { get; set; } = string.Empty;
+    [JsonPropertyName("kind")]       public string  Kind       { get; set; } = string.Empty;
+    [JsonPropertyName("note")]       public string? Note       { get; set; }
+
+    /// <summary>Renseigné par le serveur quand la cible a une fiche publique.</summary>
+    [JsonPropertyName("targetCharacterId")] public string? TargetCharacterId { get; set; }
 }
 
 public class RpAvailabilityEntryDto
@@ -135,6 +261,12 @@ public class SetRpAvailableRequest
     [JsonPropertyName("territoryId")]   public int?    TerritoryId   { get; set; }
 }
 
+/// <summary>
+/// Corps de mise à jour d'une fiche.
+///
+/// Les champs que le plugin n'édite pas sont renvoyés tels qu'ils ont été lus :
+/// l'enregistrement remplace la fiche entière, les omettre les effacerait.
+/// </summary>
 public class SaveRpProfileRequest
 {
     [JsonPropertyName("rpLevel")]       public string   RpLevel       { get; set; } = string.Empty;
@@ -143,6 +275,95 @@ public class SaveRpProfileRequest
     [JsonPropertyName("contactMode")]   public string?  ContactMode   { get; set; }
     [JsonPropertyName("sessionLength")] public string?  SessionLength { get; set; }
     [JsonPropertyName("themes")]        public string[] Themes        { get; set; } = [];
+
+    [JsonPropertyName("rpName")]       public string?  RpName       { get; set; }
+    [JsonPropertyName("nickname")]     public string?  Nickname     { get; set; }
+    [JsonPropertyName("pronouns")]     public string?  Pronouns     { get; set; }
+    [JsonPropertyName("race")]         public string?  Race         { get; set; }
+    [JsonPropertyName("age")]          public string?  Age          { get; set; }
+    [JsonPropertyName("origin")]       public string?  Origin       { get; set; }
+    [JsonPropertyName("occupation")]   public string?  Occupation   { get; set; }
+    [JsonPropertyName("appearance")]   public string?  Appearance   { get; set; }
+    [JsonPropertyName("personality")]  public string?  Personality  { get; set; }
+    [JsonPropertyName("background")]   public string?  Background   { get; set; }
+    [JsonPropertyName("hooks")]        public string[] Hooks        { get; set; } = [];
+    [JsonPropertyName("currentQuest")] public string?  CurrentQuest { get; set; }
+    [JsonPropertyName("avoidThemes")]  public string[] AvoidThemes  { get; set; } = [];
+    [JsonPropertyName("limits")]       public string?  Limits       { get; set; }
+    [JsonPropertyName("nsfw")]         public bool     Nsfw         { get; set; }
+    [JsonPropertyName("availability")] public string?  Availability { get; set; }
+    [JsonPropertyName("externalUrl")]  public string?  ExternalUrl  { get; set; }
+    [JsonPropertyName("isPublic")]     public bool     IsPublic     { get; set; } = true;
+
+    [JsonPropertyName("portraitUrl")] public string? PortraitUrl { get; set; }
+
+    [JsonPropertyName("height")] public string? Height { get; set; }
+    [JsonPropertyName("build")]  public string? Build  { get; set; }
+    [JsonPropertyName("marks")]  public string? Marks  { get; set; }
+    [JsonPropertyName("voice")]  public string? Voice  { get; set; }
+
+    [JsonPropertyName("freeCompany")] public string? FreeCompany { get; set; }
+    [JsonPropertyName("allegiance")]  public string? Allegiance  { get; set; }
+    [JsonPropertyName("deity")]       public string? Deity       { get; set; }
+
+    [JsonPropertyName("quote")]        public string? Quote        { get; set; }
+    [JsonPropertyName("themeSongUrl")] public string? ThemeSongUrl { get; set; }
+
+    [JsonPropertyName("webPageEnabled")]  public bool WebPageEnabled  { get; set; } = true;
+    [JsonPropertyName("searchIndexable")] public bool SearchIndexable { get; set; }
+
+    /// <summary>
+    /// Audience par section, en objet et non en chaîne : la route attend un
+    /// dictionnaire. Laissé null, il est omis du corps (les options de
+    /// sérialisation ignorent les nulls) et le serveur ne réécrit alors pas la
+    /// colonne.
+    /// </summary>
+    [JsonPropertyName("sectionVisibility")]
+    public Dictionary<string, string>? SectionVisibility { get; set; }
+
+    // Les relations sont volontairement absentes : la route ne les remplace que
+    // si la clé figure dans le corps, donc ne pas les envoyer les préserve.
+    // Les inclure ici ferait effacer côté site tout ce que le jeu ignore.
+
+    /// <summary>
+    /// Reprend une fiche lue, pour ne pas effacer ce qui n'est pas édité en jeu.
+    /// Tout champ ajouté au modèle doit être recopié ici, sans quoi le premier
+    /// enregistrement depuis le jeu le remet à zéro.
+    /// </summary>
+    public static SaveRpProfileRequest From(RpProfileDto p) => new()
+    {
+        RpLevel = p.RpLevel, ApproachMode = p.ApproachMode, Languages = p.Languages,
+        ContactMode = p.ContactMode, SessionLength = p.SessionLength, Themes = p.Themes,
+        RpName = p.RpName, Nickname = p.Nickname, Pronouns = p.Pronouns, Race = p.Race,
+        Age = p.Age, Origin = p.Origin, Occupation = p.Occupation,
+        Appearance = p.Appearance, Personality = p.Personality, Background = p.Background,
+        Hooks = p.Hooks, CurrentQuest = p.CurrentQuest, AvoidThemes = p.AvoidThemes,
+        Limits = p.Limits, Nsfw = p.Nsfw, Availability = p.Availability,
+        ExternalUrl = p.ExternalUrl, IsPublic = p.IsPublic,
+        PortraitUrl = p.PortraitUrl,
+        Height = p.Height, Build = p.Build, Marks = p.Marks, Voice = p.Voice,
+        FreeCompany = p.FreeCompany, Allegiance = p.Allegiance, Deity = p.Deity,
+        Quote = p.Quote, ThemeSongUrl = p.ThemeSongUrl,
+        WebPageEnabled = p.WebPageEnabled, SearchIndexable = p.SearchIndexable,
+        SectionVisibility = ParseSectionVisibility(p.SectionVisibility),
+    };
+
+    /// <summary>
+    /// Convertit la chaîne JSON lue en dictionnaire à renvoyer. Une valeur
+    /// absente ou illisible donne null, donc la clé est omise du corps et le
+    /// serveur conserve ce qu'il a : mieux vaut ne rien dire que d'écraser les
+    /// choix de l'utilisateur avec une valeur qu'on n'a pas su relire.
+    /// </summary>
+    private static Dictionary<string, string>? ParseSectionVisibility(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            var parsed = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+            return parsed is { Count: > 0 } ? parsed : null;
+        }
+        catch { return null; }
+    }
 }
 
 // ─── Workflow de couplage plugin ↔ compte (web-link) ─────────────────────────
@@ -593,6 +814,27 @@ public class ApiClient : IDisposable
             HandleAuthResponse(res.StatusCode);
             if (!res.IsSuccessStatusCode) return null;
             return await res.Content.ReadFromJsonAsync<RpProfileDto>(JsonOptions, ct);
+        }
+        catch { return null; }
+    }
+
+    /// <summary>
+    /// Fiche publique d'un autre personnage, plus complète que celle incluse dans
+    /// la liste des disponibilités : biographie, relations, traits physiques et
+    /// appartenances. Passe par le client public, aucun jeton n'est nécessaire.
+    ///
+    /// Retourne null si la fiche n'existe pas, n'est pas publique, ou si le site
+    /// est injoignable : l'appelant garde alors les champs déjà en mémoire.
+    /// </summary>
+    public async Task<RpProfileDto?> GetPublicRpProfileAsync(string characterId,
+                                                             CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(characterId)) return null;
+
+        try
+        {
+            return await _publicHttp.GetFromJsonAsync<RpProfileDto>(
+                $"api/rp-profile/public/{Uri.EscapeDataString(characterId)}", JsonOptions, ct);
         }
         catch { return null; }
     }

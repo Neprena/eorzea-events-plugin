@@ -1,6 +1,6 @@
 <Project Sdk="Dalamud.NET.Sdk/15.0.0">
   <PropertyGroup>
-    <Version>2.2.11</Version>
+    <Version>2.3.0</Version>
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
@@ -8,5 +8,11 @@
     <None Include="banner.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <!-- LogicalName explicite : sans lui MSBuild préfixe avec le namespace par
+         défaut et le nom de dossier, ce qui casse silencieusement le chargement. -->
+    <EmbeddedResource Include="Assets\Fonts\Inter-Regular.ttf"  LogicalName="Fonts.Inter-Regular.ttf" />
+    <EmbeddedResource Include="Assets\Fonts\Inter-SemiBold.ttf" LogicalName="Fonts.Inter-SemiBold.ttf" />
   </ItemGroup>
 </Project>

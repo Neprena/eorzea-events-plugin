@@ -1,6 +1,9 @@
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Textures.TextureWraps;
 using Dalamud.Interface.Windowing;
+using EorzeaEventsPlugin.Ui;
+using EorzeaEventsPlugin.Ui.Components;
+using EorzeaEventsPlugin.Ui.Shell;
 using EorzeaEventsPlugin.Api;
 using System;
 using System.Collections.Generic;
@@ -11,12 +14,10 @@ using System.Threading.Tasks;
 
 namespace EorzeaEventsPlugin.Windows;
 
-public class EstabDetailWindow : Window, IDisposable
+public class EstabDetailWindow : ThemedWindow, IDisposable
 {
     private readonly Configuration              _config;
-    private readonly HttpClient                 _http = new();
     private          EstablishmentDto?          _estab;
-    private          Task<IDalamudTextureWrap?>? _bannerTask;
     private          string                     _copiedKey   = string.Empty;
     private          DateTime                   _copiedUntil = DateTime.MinValue;
     private readonly HashSet<int>               _revealed    = new();
@@ -24,7 +25,7 @@ public class EstabDetailWindow : Window, IDisposable
     public EstabDetailWindow(Configuration config)
         : base("##estabdetail", ImGuiWindowFlags.None)
     {
-        SizeConstraints = new WindowSizeConstraints
+        LogicalSizeConstraints = new WindowSizeConstraints
         {
             MinimumSize = new Vector2(460, 320),
             MaximumSize = new Vector2(800, 720),
@@ -60,27 +61,11 @@ public class EstabDetailWindow : Window, IDisposable
 
     public void Open(EstablishmentDto estab)
     {
-        if (_estab?.Id != estab.Id)
-        {
-            if (_bannerTask?.IsCompletedSuccessfully == true)
-                _bannerTask.Result?.Dispose();
-            _bannerTask  = string.IsNullOrEmpty(estab.Banner) ? null : LoadBannerAsync(estab.Banner);
-            _revealed.Clear();
-        }
-        _estab      = estab;
-        WindowName  = estab.Name + "##estabdetail";
-        IsOpen      = true;
-    }
+        if (_estab?.Id != estab.Id) _revealed.Clear();
 
-    private async Task<IDalamudTextureWrap?> LoadBannerAsync(string url)
-    {
-        try
-        {
-            var bytes = await _http.GetByteArrayAsync(url);
-            return await Plugin.TextureProvider.CreateFromImageAsync(
-                new ReadOnlyMemory<byte>(bytes), null, default);
-        }
-        catch { return null; }
+        _estab      = estab;
+        WindowName  = Glyphs.Safe(estab.Name) + "##estabdetail";
+        IsOpen      = true;
     }
 
     public override void Draw()
@@ -89,19 +74,19 @@ public class EstabDetailWindow : Window, IDisposable
         var l = Plugin.L;
 
         // ── Bannière ──────────────────────────────────────────────────────────
-        var wrap = _bannerTask?.IsCompletedSuccessfully == true ? _bannerTask.Result : null;
+        // Le cache partagé la garde d'une ouverture à l'autre : rouvrir une
+        // fiche déjà consultée n'entraîne plus de retéléchargement.
+        var wrap = Textures.Get(_estab.Banner);
         if (wrap != null) DrawBanner(wrap);
 
         // ── Nom ───────────────────────────────────────────────────────────────
-        ImGui.TextColored(UiStyle.TextTitle, _estab.Name);
+        Text.Title(_estab.Name, Theme.Accent);
         ImGui.Spacing();
 
         // ── Description ───────────────────────────────────────────────────────
         if (!string.IsNullOrEmpty(_estab.Description))
         {
-            ImGui.PushTextWrapPos(0f);
-            ImGui.TextColored(UiStyle.TextMuted, _estab.Description);
-            ImGui.PopTextWrapPos();
+            MarkdownView.Draw(_estab.Description, Theme.TextMuted);
             ImGui.Spacing();
         }
 
@@ -148,6 +133,12 @@ public class EstabDetailWindow : Window, IDisposable
                 UiStyle.SecondaryNormal, UiStyle.SecondaryHovered, UiStyle.SecondaryActive))
                 OpenUrl(_config.BaseUrl + "/etablissements/" + _estab.Slug);
         }
+
+        // La fiche complète est la seule à connaître l'aile et le numéro
+        // d'appartement, donc le seul endroit où un voyage vers un appartement
+        // peut être proposé sans deviner.
+        TravelButton.Draw(_estab, $"estab_{_estab.Id}", sameLine: true);
+
         ImGui.Spacing();
 
         // ── Syncshells ────────────────────────────────────────────────────────
@@ -267,10 +258,9 @@ public class EstabDetailWindow : Window, IDisposable
         System.Diagnostics.Process.Start(
             new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
 
-    public void Dispose()
-    {
-        if (_bannerTask?.IsCompletedSuccessfully == true)
-            _bannerTask.Result?.Dispose();
-        _http.Dispose();
-    }
+    /// <summary>
+    /// Les images appartiennent désormais à <see cref="Textures"/> : cette
+    /// fenêtre ne détient plus de ressource à libérer.
+    /// </summary>
+    public void Dispose() => GC.SuppressFinalize(this);
 }

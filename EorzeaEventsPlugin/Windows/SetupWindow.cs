@@ -2,11 +2,14 @@ using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Textures;
 using Dalamud.Interface.Textures.TextureWraps;
 using Dalamud.Interface.Windowing;
+using EorzeaEventsPlugin.Ui.Shell;
 using System.Numerics;
+
+using EorzeaEventsPlugin.Ui;
 
 namespace EorzeaEventsPlugin.Windows;
 
-public class SetupWindow : Window
+public class SetupWindow : ThemedWindow
 {
     private readonly Configuration            _config;
     private          ISharedImmediateTexture? _banner;
@@ -27,7 +30,7 @@ public class SetupWindow : Window
     public SetupWindow(Configuration config)
         : base("Eorzea Events — Configuration##setup", ImGuiWindowFlags.NoScrollbar)
     {
-        SizeConstraints = new WindowSizeConstraints
+        LogicalSizeConstraints = new WindowSizeConstraints
         {
             MinimumSize = new Vector2(620, 400),
             MaximumSize = new Vector2(900, 640),
@@ -114,7 +117,7 @@ public class SetupWindow : Window
         // Bannières contextuelles (au plus une à la fois)
         if (_isMigration)
             UiPrimitives.DrawAlert(new Vector4(0.3f, 0.7f, 1f, 1f),
-                "✦  " + l.SetupMigrationTitle, l.SetupMigrationDesc, () =>
+                l.SetupMigrationTitle, l.SetupMigrationDesc, () =>
                 {
                     if (ImGui.SmallButton(l.SetupMigrationMore + "##moreinfo"))
                         OpenUrl(_config.BaseUrl.TrimEnd('/') + "/plugin/character-tokens");
@@ -143,7 +146,7 @@ public class SetupWindow : Window
             ImGui.TextColored(UiStyle.TextSection, "EN ATTENTE DE CONFIRMATION");
             ImGui.Spacing();
             ImGui.PushTextWrapPos(0);
-            ImGui.TextColored(UiStyle.TextMuted, $"{link!.CharacterName} @ {link.WorldName}");
+            ImGui.TextColored(UiStyle.TextMuted, Glyphs.Safe($"{link!.CharacterName} @ {link.WorldName}"));
             ImGui.Spacing();
             ImGui.TextColored(UiStyle.TextSubtle,
                 "Une page de confirmation est ouverte dans votre navigateur. " +
@@ -166,7 +169,7 @@ public class SetupWindow : Window
             ImGui.PushTextWrapPos(0);
             ImGui.TextColored(new Vector4(1f, 0.6f, 0.2f, 1f),
                 link.Status == "expired"
-                    ? "⏱  Session expirée. Relancez la procédure."
+                    ? "Session expirée. Relancez la procédure."
                     : "✗  Échec du couplage. Relancez la procédure.");
             ImGui.PopTextWrapPos();
             ImGui.Spacing();

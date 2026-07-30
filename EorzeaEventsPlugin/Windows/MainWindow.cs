@@ -2,8 +2,13 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using Dalamud.Interface.Textures.TextureWraps;
 using Dalamud.Interface.Windowing;
+using EorzeaEventsPlugin.Ui;
+using EorzeaEventsPlugin.Ui.Components;
+using EorzeaEventsPlugin.Ui.Pages;
+using EorzeaEventsPlugin.Ui.Shell;
 using EorzeaEventsPlugin.Api;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Game.Text.SeStringHandling.Payloads;
 using Lumina.Excel.Sheets;
@@ -13,7 +18,7 @@ using System.Globalization;
 
 namespace EorzeaEventsPlugin.Windows;
 
-public class MainWindow : Window
+public class MainWindow : ThemedWindow, IDisposable
 {
     private readonly Configuration _config;
 
@@ -29,19 +34,18 @@ public class MainWindow : Window
     private bool           _eventsLoading   = false;
     private DateTime       _eventsLastFetch = DateTime.MinValue;
 
+    /// <summary>Filtres de l'agenda, appliqués côté client : l'API ne pagine pas.</summary>
+    private string      _eventsQuery  = string.Empty;
+    private EventOrigin _eventsOrigin = EventOrigin.All;
+
+    private enum EventOrigin { All, Official, Community }
+
     // ─── Établissements ───────────────────────────────────────────────────────
 
     private List<EstablishmentDto>                              _estabList           = [];
     private bool                                                _estabLoading        = false;
     private bool                                                _estabInitialLoaded  = false;
     private string                                              _estabSearchInput    = string.Empty;
-    private readonly Dictionary<string, Task<IDalamudTextureWrap?>> _estabBannerTasks = new();
-    private readonly HttpClient                                 _bannerHttp       = new();
-
-    // ─── Online count ─────────────────────────────────────────────────────────
-
-    private int      _onlineCount      = 0;
-    private DateTime _onlineLastFetch  = DateTime.MinValue;
 
 #if DEBUG
     private string _debugStatus = string.Empty;
@@ -49,16 +53,109 @@ public class MainWindow : Window
 
     // ─────────────────────────────────────────────────────────────────────────
 
+    private readonly AppShell     _shell;
+    private readonly SettingsPage  _settings;
+    private readonly RpProfilePage _rpProfile;
+    private readonly AroundPage    _around = new();
+
+    // Le nom de la fenêtre est la clé de persistance de imgui.ini : le changer
+    // réinitialiserait position et taille chez tous les utilisateurs.
     public MainWindow(Configuration config)
-        : base("Eorzea Events##main", ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse)
+        : base("Eorzea Events##main",
+               ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoCollapse |
+               ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse)
     {
-        SizeConstraints = new WindowSizeConstraints
+        ShowCloseButton = false; // la barre de titre maison porte la fermeture
+        LogicalSizeConstraints = new WindowSizeConstraints
         {
-            MinimumSize = new Vector2(520, 500),
-            MaximumSize = new Vector2(900, 900),
+            MinimumSize = new Vector2(780, 560),
+            MaximumSize = new Vector2(1100, 1000),
         };
-        _config = config;
+        _config   = config;
+        _settings = new SettingsPage(config);
+        _rpProfile = new RpProfilePage(config);
+
+        _shell = new AppShell(
+        [
+            new ShellPage
+            {
+                Id    = "rp",
+                Icon  = Icons.RpLive,
+                Label = () => Plugin.L.TabRp,
+                Draw  = DrawOpenRpTab,
+                // Les sessions terminées restent dans la liste jusqu'au
+                // rafraîchissement suivant : les compter laissait une pastille
+                // sur une page vide.
+                Badge = () => _sessionsList.Count(s => s.EndedAt == null),
+            },
+            // Sa propre fiche vient tôt : c'est la page qu'on ouvre le plus
+            // souvent après « RP ouvert », et celle qui porte les réglages de
+            // confidentialité.
+            new ShellPage
+            {
+                Id    = "profile",
+                Icon  = Icons.Profile,
+                Label = () => Plugin.L.RpProfileTitle,
+                Draw  = _rpProfile.Draw,
+            },
+            new ShellPage
+            {
+                Id    = "around",
+                Icon  = Icons.Around,
+                Label = () => Plugin.L.TabAround,
+                Draw  = _around.Draw,
+                Badge = () => Plugin.AvailableEntries.Count,
+            },
+            new ShellPage
+            {
+                Id    = "events",
+                Icon  = Icons.Events,
+                Label = () => Plugin.L.TabEvents,
+                Draw  = DrawEventsTab,
+            },
+            new ShellPage
+            {
+                Id    = "venues",
+                Icon  = Icons.Venues,
+                Label = () => Plugin.L.TabEstabs,
+                Draw  = DrawEstabTab,
+            },
+#if DEBUG
+            new ShellPage
+            {
+                Id     = "debug",
+                Icon   = Icons.Debug,
+                Label  = () => Plugin.L.TabDebug,
+                Draw   = DrawDebugTab,
+                Pinned = true,
+            },
+#endif
+            new ShellPage
+            {
+                Id     = "settings",
+                Icon   = Icons.Settings,
+                Label  = () => Plugin.L.TabSettings,
+                Draw   = _settings.Draw,
+                Pinned = true,
+            },
+        ], initialId: "rp");
     }
+
+    /// <summary>
+    /// Les images sont désormais détenues par <see cref="Textures"/>, libéré au
+    /// déchargement du plugin : cette fenêtre n'a plus rien à libérer.
+    /// </summary>
+    public void Dispose() => GC.SuppressFinalize(this);
+
+    /// <summary>Ouvre la fenêtre sur une page donnée.</summary>
+    public void OpenAt(string pageId)
+    {
+        _shell.Navigate(pageId);
+        IsOpen = true;
+    }
+
+    /// <summary>La coque peint elle-même les bords, sans marge de fenêtre.</summary>
+    protected override bool Chromeless => true;
 
     private static void OpenUrl(string url) =>
         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
@@ -81,76 +178,37 @@ public class MainWindow : Window
         return labels.TryGetValue(slug, out var label) ? label : slug;
     }
 
+    /// <summary>
+    /// Adresse compacte : quartier et parcelle pour une maison, quartier et
+    /// numéro pour un appartement.
+    /// </summary>
+    private static string FormatAddress(EstablishmentDto e, Loc l)
+    {
+        var ward = e.Ward.HasValue ? string.Format(l.HousingWard, e.Ward) : string.Empty;
+
+        if (e.ApartmentNumber.HasValue)
+            return $"{ward}  ·  {l.EstabApartment} {e.ApartmentNumber}".TrimStart(' ', '·');
+
+        if (e.Plot.HasValue)
+            return $"{ward}  ·  {l.FieldPlot} {e.Plot}".TrimStart(' ', '·');
+
+        return ward.Length > 0 ? ward : l.EstabApartment;
+    }
+
     // ─── Draw ─────────────────────────────────────────────────────────────────
 
     public override void Draw()
     {
-        var l = Plugin.L;
+        // Les écrans bloquants court-circuitent la navigation, mais conservent
+        // la barre de titre : sans elle, la fenêtre ne serait ni déplaçable ni
+        // refermable.
+        System.Action? fullScreen =
+            Plugin.IsBlocked                                ? DrawBlockedScreen
+          : Plugin.Api.HasToken && !Plugin.Api.IsTokenValid ? DrawTokenInvalidScreen
+          : null;
 
-        if (Plugin.IsBlocked)
-        {
-            DrawBlockedScreen();
-            return;
-        }
-
-        if (Plugin.Api.HasToken && !Plugin.Api.IsTokenValid)
-        {
-            DrawTokenInvalidScreen();
-            return;
-        }
-
-        if (!ImGui.BeginTabBar("##maintabs")) return;
-
-        if (ImGui.BeginTabItem(l.TabRp))
-        {
-            DrawOpenRpTab();
-            ImGui.EndTabItem();
-        }
-        if (ImGui.BeginTabItem(l.TabEvents))
-        {
-            DrawEventsTab();
-            ImGui.EndTabItem();
-        }
-        if (ImGui.BeginTabItem(l.TabEstabs))
-        {
-            DrawEstabTab();
-            ImGui.EndTabItem();
-        }
-#if DEBUG
-        if (ImGui.BeginTabItem(l.TabDebug))
-        {
-            DrawDebugTab();
-            ImGui.EndTabItem();
-        }
-#endif
-
-        if (ImGui.TabItemButton(l.TabSettings, ImGuiTabItemFlags.Trailing | ImGuiTabItemFlags.NoTooltip))
-            Plugin.OpenConfig();
-
-        ImGui.EndTabBar();
-
-        DrawOnlineFooter();
-    }
-
-    private void DrawOnlineFooter()
-    {
-        if ((DateTime.UtcNow - _onlineLastFetch).TotalSeconds > 60)
-        {
-            _onlineLastFetch = DateTime.UtcNow;
-            _ = Task.Run(async () =>
-            {
-                _onlineCount = await Plugin.Api.GetOnlineCountAsync();
-            });
-        }
-
-        if (_onlineCount <= 0) return;
-
-        ImGui.Separator();
-        ImGui.Spacing();
-        var text = string.Format(Plugin.L.PlayersOnline, _onlineCount);
-        ImGui.SetCursorPosX(ImGui.GetWindowWidth() - ImGui.CalcTextSize(text).X - ImGui.GetStyle().WindowPadding.X);
-        ImGui.TextColored(UiStyle.TextSubtle, text);
-        ImGui.Spacing();
+        _shell.Draw(out var close, fullScreen);
+        if (close) IsOpen = false;
     }
 
     // ─── Tab: RP Ouvert ───────────────────────────────────────────────────────
@@ -387,7 +445,7 @@ public class MainWindow : Window
         }
         else
         {
-            var available = Plugin.Config.RpAvailabilityActive;
+            var available = Plugin.CurrentCharacterAvailable;
             if (ImGui.Checkbox(l.RpAvailableEnable + "##rpavailabletoggle", ref available))
             {
                 if (available) Plugin.ActivateRpAvailability();
@@ -427,12 +485,12 @@ public class MainWindow : Window
         UiPrimitives.DrawCard(() =>
         {
             // Titre (or chaud)
-            ImGui.TextColored(UiStyle.TextTitle, s.Title);
+            ImGui.TextColored(UiStyle.TextTitle, Glyphs.Safe(s.Title));
 
             // Zone • Serveur + bouton carte aligné à droite
-            UiPrimitives.DrawIcon("");
+            UiPrimitives.DrawIcon(Icons.Location);
             ImGui.SameLine(0, 4);
-            ImGui.TextColored(UiStyle.TextMuted, $"{s.Location}  •  {s.Server}");
+            ImGui.TextColored(UiStyle.TextMuted, Glyphs.Safe($"{s.Location}  •  {s.Server}"));
             if (s.TerritoryId.HasValue && s.MapId.HasValue && s.PosX.HasValue && s.PosZ.HasValue)
             {
                 var btnX = ImGui.GetWindowWidth()
@@ -448,9 +506,9 @@ public class MainWindow : Window
             // Personnage
             if (!string.IsNullOrEmpty(s.CharacterName))
             {
-                UiPrimitives.DrawIcon("");
+                UiPrimitives.DrawIcon(Icons.Character);
                 ImGui.SameLine(0, 4);
-                ImGui.TextColored(UiStyle.TextMuted, s.CharacterName);
+                ImGui.TextColored(UiStyle.TextMuted, Glyphs.Safe(s.CharacterName));
             }
 
             // Housing
@@ -461,7 +519,7 @@ public class MainWindow : Window
                     : s.Plot.HasValue
                         ? string.Format(l.HousingWardPlot, s.Ward, s.Plot)
                         : string.Format(l.HousingWard, s.Ward);
-                UiPrimitives.DrawIcon("");
+                UiPrimitives.DrawIcon(Icons.Housing);
                 ImGui.SameLine(0, 4);
                 ImGui.TextColored(UiStyle.TextMuted, housingInfo);
             }
@@ -470,7 +528,7 @@ public class MainWindow : Window
             if (!string.IsNullOrEmpty(s.Description))
             {
                 ImGui.PushTextWrapPos(0);
-                ImGui.TextColored(UiStyle.TextSubtle, s.Description);
+                ImGui.TextColored(UiStyle.TextSubtle, Glyphs.Safe(s.Description));
                 ImGui.PopTextWrapPos();
             }
 
@@ -483,8 +541,6 @@ public class MainWindow : Window
                     Plugin.ClaimSession(s);
             }
         });
-
-        ImGui.Dummy(new Vector2(0, UiStyle.CardSpacing));
     }
 
     // ─── Tab: Événements ──────────────────────────────────────────────────────
@@ -496,97 +552,188 @@ public class MainWindow : Window
         if (!_eventsLoading && (_eventsLastFetch == DateTime.MinValue || (DateTime.UtcNow - _eventsLastFetch).TotalMinutes > 5))
             FetchEvents();
 
-        ImGui.Spacing();
-        if (ImGui.Button(l.Refresh + "##events", UiStyle.SmallButton))
-            FetchEvents();
-        ImGui.SameLine();
-        if (ImGui.Button(l.ViewOnline + "##events", UiStyle.WideButton))
-            OpenUrl(_config.BaseUrl + "/");
-        ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
-        ImGui.TextColored(UiStyle.TextSubtle, l.EventsHideHint);
-        ImGui.Spacing();
+        DrawEventsToolbar(l);
 
-        if (_eventsLoading) { ImGui.TextColored(UiStyle.TextSubtle, l.Loading); return; }
+        if (_eventsLoading) { Feedback.SkeletonCards(3); return; }
 
         var visibleEvents = GetVisibleEvents();
 
         if (visibleEvents.Count == 0)
         {
-            ImGui.TextColored(UiStyle.TextSubtle, l.EventsNoEvents);
+            Feedback.EmptyState(Icons.Events, l.EventsNoEvents, l.EventsHideHint,
+                                l.ViewOnline, () => OpenUrl(_config.BaseUrl + "/"));
             DrawHiddenItemsSummary();
             return;
         }
 
-        var nowCount     = DateTime.UtcNow;
-        var ongoingCount = visibleEvents.Count(e => IsOngoing(e, nowCount) && !e.Cancelled);
-        if (ongoingCount > 0)
-        {
-            ImGui.TextColored(UiStyle.StatusOpen, string.Format(l.EventsOngoing, ongoingCount));
-            ImGui.SameLine(0, 8);
-            ImGui.TextColored(UiStyle.TextSubtle, string.Format(l.EventsTotal, visibleEvents.Count));
-        }
-        else
-            ImGui.TextColored(UiStyle.TextSubtle, string.Format(l.EventsCount, visibleEvents.Count));
-        ImGui.Spacing();
+        var matching = FilterEvents(visibleEvents);
 
-        var now        = DateTime.UtcNow;
-        var soonLimit  = now.AddHours(24);
-        var ongoingEvents  = visibleEvents.Where(e => IsOngoing(e, now)).OrderBy(e => e.StartDate).ToList();
-        var upcomingEvents = visibleEvents
-            .Where(e => !IsOngoing(e, now) && GetStartDate(e) is DateTime start && start <= soonLimit)
-            .OrderBy(e => e.StartDate)
-            .ToList();
-        var laterEvents = visibleEvents.Except(ongoingEvents).Except(upcomingEvents).OrderBy(e => e.StartDate).ToList();
+        if (matching.Count == 0)
+        {
+            Feedback.EmptyState(Icons.Search, l.EventsNoMatch, null,
+                                l.EventsClearFilter, () =>
+                                {
+                                    _eventsQuery  = string.Empty;
+                                    _eventsOrigin = EventOrigin.All;
+                                });
+            return;
+        }
 
         if (!ImGui.BeginChild("##eventsscroll", new Vector2(-1, -1), false)) return;
 
-        DrawEventGroup(l.Ongoing,   ongoingEvents,  UiStyle.StatusOpen,  UiStyle.ChipBgOpen);
-        DrawEventGroup("À venir",   upcomingEvents, UiStyle.StatusSoon,  UiStyle.ChipBgSoon);
-        DrawEventGroup("Plus tard", laterEvents,    UiStyle.StatusLater, UiStyle.ChipBgLater);
+        var now = DateTime.UtcNow;
+
+        // Les événements déjà commencés n'ont pas leur place dans le jour où ils
+        // ont débuté : ce qui compte est qu'on peut les rejoindre maintenant.
+        var ongoing = matching.Where(e => IsOngoing(e, now)).OrderBy(e => e.StartDate).ToList();
+        DrawEventGroup(l.Ongoing, ongoing, UiStyle.StatusOpen, Icons.RpLive);
+
+        var byDay = matching
+            .Where(e => !IsOngoing(e, now))
+            .Select(e => (Event: e, Start: GetStartDate(e)))
+            .Where(x => x.Start.HasValue)
+            .GroupBy(x => x.Start!.Value.ToLocalTime().Date)
+            .OrderBy(g => g.Key);
+
+        foreach (var day in byDay)
+        {
+            DrawEventGroup(DayLabel(day.Key, l),
+                           day.OrderBy(x => x.Start).Select(x => x.Event).ToList(),
+                           DayTone(day.Key), Icons.Events);
+        }
 
         DrawHiddenItemsSummary();
         ImGui.EndChild();
     }
 
-    private void DrawEventGroup(string title, List<EventDto> events, Vector4 headerColor, Vector4 chipBg)
+    /// <summary>
+    /// Barre de l'agenda : recherche, provenance et actions. Les filtres portent
+    /// sur la liste déjà chargée, aucun appel réseau n'en découle.
+    /// </summary>
+    private void DrawEventsToolbar(Loc l)
+    {
+        var refreshWidth = Btn.Measure(l.Refresh, Icons.Refresh);
+        var onlineWidth  = Btn.Measure(l.ViewOnline, Icons.External);
+        var actionsWidth = refreshWidth + onlineWidth + Theme.S(Theme.GapS);
+
+        Inputs.SearchBar("##eventsearch", ref _eventsQuery, l.EventsSearchHint,
+                         ImGui.GetContentRegionAvail().X - Card.RightInset
+                         - actionsWidth - Theme.S(Theme.GapM));
+
+        ImGui.SameLine(0f, Theme.S(Theme.GapM));
+        if (Btn.Draw(l.Refresh, BtnTone.Secondary, BtnSize.Medium, Icons.Refresh, id: "ev_refresh"))
+            FetchEvents();
+
+        ImGui.SameLine(0f, Theme.S(Theme.GapS));
+        if (Btn.Draw(l.ViewOnline, BtnTone.Ghost, BtnSize.Medium, Icons.External, id: "ev_online"))
+            OpenUrl(_config.BaseUrl + "/");
+
+        Layout.Spacer(Theme.GapS);
+
+        OriginFilter(l.EventsFilterAll,  EventOrigin.All);
+        ImGui.SameLine(0f, Theme.S(Theme.GapXs));
+        OriginFilter(l.EventsOfficial,   EventOrigin.Official);
+        ImGui.SameLine(0f, Theme.S(Theme.GapXs));
+        OriginFilter(l.EventsCommunity,  EventOrigin.Community);
+
+        DrawEventsCounter(l);
+        Layout.Divider(Theme.GapS);
+
+        void OriginFilter(string label, EventOrigin origin)
+        {
+            var active = _eventsOrigin == origin;
+            if (Btn.Draw(label, active ? BtnTone.Primary : BtnTone.Ghost, BtnSize.Small,
+                         id: $"ev_origin_{origin}"))
+                _eventsOrigin = origin;
+        }
+    }
+
+    /// <summary>
+    /// Décompte aligné à droite de la barre de filtres. Il porte sur la liste
+    /// visible complète, pas sur le résultat filtré : c'est un repère stable.
+    /// </summary>
+    private void DrawEventsCounter(Loc l)
+    {
+        var total   = GetVisibleEvents();
+        var ongoing = total.Count(e => IsOngoing(e, DateTime.UtcNow) && !e.Cancelled);
+
+        var text = ongoing > 0
+            ? $"{string.Format(l.EventsOngoing, ongoing)}  {string.Format(l.EventsTotal, total.Count)}"
+            : string.Format(l.EventsCount, total.Count);
+
+        using var font = Fonts.PushSmall();
+
+        var width = ImGui.CalcTextSize(text).X;
+        if (ImGui.GetContentRegionAvail().X - Card.RightInset <= width) return;
+
+        ImGui.SameLine();
+        Layout.RightAlign(width);
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextColored(Theme.TextFaint, text);
+    }
+
+    /// <summary>Applique recherche et provenance à la liste déjà visible.</summary>
+    private List<EventDto> FilterEvents(List<EventDto> events)
+    {
+        var query = _eventsQuery.Trim();
+
+        return events.Where(e =>
+        {
+            if (_eventsOrigin == EventOrigin.Official  && !e.IsOfficial) return false;
+            if (_eventsOrigin == EventOrigin.Community &&  e.IsOfficial) return false;
+
+            if (query.Length == 0) return true;
+
+            return Contains(e.Title) || Contains(e.Description) || Contains(e.Establishment?.Name);
+        }).ToList();
+
+        bool Contains(string? haystack) =>
+            haystack != null && haystack.Contains(query, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>« Aujourd'hui », « Demain », puis la date en toutes lettres.</summary>
+    private static string DayLabel(DateTime day, Loc l)
+    {
+        var today = DateTime.Now.Date;
+
+        if (day == today)             return l.EventsToday;
+        if (day == today.AddDays(1))  return l.EventsTomorrow;
+
+        var label = day.ToString("dddd d MMMM", l.Culture);
+        return char.ToUpper(label[0], l.Culture) + label[1..];
+    }
+
+    /// <summary>Les deux jours à venir se démarquent du reste de la semaine.</summary>
+    private static Vector4 DayTone(DateTime day)
+    {
+        var today = DateTime.Now.Date;
+        return day <= today.AddDays(1) ? UiStyle.StatusSoon : UiStyle.StatusLater;
+    }
+
+    private void DrawEventGroup(string title, List<EventDto> events, Vector4 headerColor,
+                                FontAwesomeIcon icon)
     {
         if (events.Count == 0)
             return;
 
-        ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
-
-        ImGui.TextColored(headerColor, title.ToUpper());
-        ImGui.SameLine(0, 8);
-        UiPrimitives.DrawChip(events.Count.ToString(), chipBg);
-        ImGui.Spacing();
+        Layout.Spacer(Theme.GapL);
+        Layout.SectionHeader(title, icon, events.Count, headerColor);
 
         foreach (var ev in events)
             DrawEventEntry(ev, headerColor);
-
-        ImGui.Spacing();
     }
 
     private void DrawEventEntry(EventDto ev, Vector4 titleColor)
     {
         var l = Plugin.L;
 
-        UiPrimitives.DrawCard(() =>
+        DrawEventCard(ev, () =>
         {
-            // Icône récurrence + titre coloré selon groupe
-            if (ev.IsRecurring)
-            {
-                UiPrimitives.DrawIcon("", titleColor);
-                ImGui.SameLine(0, 4);
-            }
-            // Date au-dessus du titre
+            // Horaire, au-dessus du titre. Le jour est porté par l'en-tête de
+            // groupe de l'agenda : le répéter sur chaque carte serait du bruit.
             if (DateTime.TryParse(ev.StartDate, null, System.Globalization.DateTimeStyles.RoundtripKind, out var start))
             {
                 var localStart = start.ToLocalTime();
-                var dayStr     = localStart.ToString("ddd dd MMM").ToUpper();
                 string timeStr;
 
                 if (!string.IsNullOrEmpty(ev.EndDate) && DateTime.TryParse(ev.EndDate, null, System.Globalization.DateTimeStyles.RoundtripKind, out var end))
@@ -594,76 +741,111 @@ public class MainWindow : Window
                     var endLocal = end.ToLocalTime();
                     timeStr = endLocal.Date == localStart.Date
                         ? localStart.ToString("HH:mm") + "  →  " + endLocal.ToString("HH:mm")
-                        : localStart.ToString("HH:mm") + "  →  " + endLocal.ToString("ddd dd MMM HH:mm").ToUpper();
+                        : localStart.ToString("HH:mm") + "  →  " + endLocal.ToString("ddd d MMM HH:mm", l.Culture);
                 }
                 else
                 {
                     timeStr = localStart.ToString("HH:mm");
                 }
 
-                UiPrimitives.DrawChip($"{dayStr}  {timeStr}", UiStyle.ChipBgAccent);
+                Chip.Draw(timeStr, ChipTone.Accent, Icons.Clock);
+
+                if (ev.IsOfficial)
+                {
+                    ImGui.SameLine(0f, Theme.S(Theme.GapXs));
+                    Chip.Draw(l.EventsOfficial, ChipTone.Gold, Icons.Sparkle);
+                }
+
                 if (ev.Cancelled)
                 {
-                    ImGui.SameLine(0, UiStyle.InlineSpacing);
-                    UiPrimitives.DrawChip(l.EventCancelled, new Vector4(0.75f, 0.2f, 0.2f, 0.45f));
+                    ImGui.SameLine(0f, Theme.S(Theme.GapXs));
+                    Chip.Draw(l.EventCancelled, ChipTone.Danger);
                 }
                 else if (ev.IsRecurring)
                 {
-                    ImGui.SameLine(0, UiStyle.InlineSpacing);
-                    UiPrimitives.DrawChip(l.Recurring, UiStyle.ChipBgOpen);
+                    // La règle iCalendar dit « chaque mercredi » là où le
+                    // libellé générique ne disait que « récurrent ».
+                    ImGui.SameLine(0f, Theme.S(Theme.GapXs));
+                    Chip.Draw(Recurrence.Describe(ev.RecurrenceRule, l.Recurring),
+                              ChipTone.Success, Icons.Recurring);
                 }
                 ImGui.Spacing();
             }
             else if (ev.Cancelled)
             {
-                UiPrimitives.DrawChip(l.EventCancelled, new Vector4(0.75f, 0.2f, 0.2f, 0.45f));
+                Chip.Draw(l.EventCancelled, ChipTone.Danger);
                 ImGui.Spacing();
             }
             else if (ev.IsRecurring)
             {
-                UiPrimitives.DrawChip(l.Recurring, UiStyle.ChipBgOpen);
+                Chip.Draw(Recurrence.Describe(ev.RecurrenceRule, l.Recurring),
+                          ChipTone.Success, Icons.Recurring);
                 ImGui.Spacing();
             }
 
+            // Titre de l'événement : niveau de titre, pas du corps de texte.
             var displayColor = ev.Cancelled ? UiStyle.TextSubtle : titleColor;
-            var titlePos = ImGui.GetCursorScreenPos();
-            ImGui.TextColored(displayColor, ev.Title);
-            if (ev.Cancelled)
+            using (Fonts.PushH2())
             {
-                var textSize = ImGui.CalcTextSize(ev.Title);
-                ImGui.GetWindowDrawList().AddLine(
-                    new System.Numerics.Vector2(titlePos.X, titlePos.Y + textSize.Y * 0.5f),
-                    new System.Numerics.Vector2(titlePos.X + textSize.X, titlePos.Y + textSize.Y * 0.5f),
-                    ImGui.ColorConvertFloat4ToU32(displayColor), 1f);
+                if (ev.Cancelled) Text.Strikethrough(ev.Title, displayColor);
+                else              ImGui.TextColored(displayColor, Glyphs.Safe(ev.Title));
             }
 
-            // Établissement + bouton "Plus d'info"
-            if (ev.Establishment != null)
+            // Résumé de la description, visible sans avoir à déplier.
+            if (!string.IsNullOrWhiteSpace(ev.Description))
             {
-                ImGui.TextColored(UiStyle.TextMuted, $"@ {ev.Establishment.Name}");
-                var btnX = ImGui.GetContentRegionMax().X - UiStyle.CardPadH - UiStyle.SmallButton.X;
-                ImGui.SameLine(btnX);
-                if (UiPrimitives.ColorButton($"{l.MoreInfo}##{ev.Id}", UiStyle.SmallButton,
-                    UiStyle.SecondaryNormal, UiStyle.SecondaryHovered, UiStyle.SecondaryActive))
-                    Plugin.OpenEstabDetail(ev.Establishment);
-            }
-
-            // Description collapsible
-            if (!string.IsNullOrEmpty(ev.Description))
-            {
-                ImGui.SetNextItemOpen(false, ImGuiCond.Once);
-                if (ImGui.TreeNode($"  {l.Description}##{ev.Id}"))
+                Layout.Spacer(Theme.GapXs);
+                using (Fonts.PushBody())
                 {
-                    var clean = StripMarkdown(ev.Description);
-                    ImGui.PushTextWrapPos(0);
-                    ImGui.TextColored(UiStyle.TextSubtle, clean);
+                    ImGui.PushTextWrapPos(0f);
+                    ImGui.TextColored(Theme.TextMuted, Glyphs.Summarize(ev.Description, 150));
                     ImGui.PopTextWrapPos();
-                    ImGui.TreePop();
                 }
             }
-        });
 
-        ImGui.Dummy(new Vector2(0, UiStyle.CardSpacing));
+            // Lieu et localisation.
+            if (ev.Establishment is { } venue)
+            {
+                Layout.Spacer(Theme.GapS);
+
+                Chip.Draw(venue.Name, ChipTone.Neutral, Icons.Venues);
+
+                if (!string.IsNullOrEmpty(venue.District))
+                {
+                    ImGui.SameLine(0f, Theme.S(Theme.GapXs));
+                    Chip.Draw(DistrictLabel(venue.District), ChipTone.Neutral, Icons.Location);
+                }
+                if (venue.Ward.HasValue)
+                {
+                    ImGui.SameLine(0f, Theme.S(Theme.GapXs));
+                    Chip.Draw(venue.Plot.HasValue
+                                  ? string.Format(l.HousingWardPlot, venue.Ward, venue.Plot)
+                                  : string.Format(l.HousingWard, venue.Ward),
+                              ChipTone.Neutral, Icons.Housing);
+                }
+
+                Layout.Spacer(Theme.GapS);
+                if (Btn.Draw(l.MoreInfo, BtnTone.Primary, BtnSize.Medium,
+                             Icons.External, id: $"info_{ev.Id}"))
+                    Plugin.OpenEstabDetail(venue);
+
+                TravelButton.Draw(venue, $"ev_{ev.Id}", sameLine: true);
+            }
+
+        });
+    }
+
+    /// <summary>
+    /// Carte d'événement. L'affiche propre à l'événement sert de bannière quand
+    /// elle existe ; à défaut la carte reste sobre, la bannière du lieu étant
+    /// déjà visible dans l'onglet des établissements.
+    /// </summary>
+    private void DrawEventCard(EventDto ev, System.Action content)
+    {
+        using var card = Card.Begin($"event_{ev.Id}", CardTone.Interactive,
+                                    banner: Textures.Get(ev.Image),
+                                    bannerHeight: 84f);
+        content();
     }
 
     private static string StripMarkdown(string text)
@@ -727,33 +909,36 @@ public class MainWindow : Window
             FetchEstablishments(string.Empty);
         }
 
-        ImGui.Spacing();
-        ImGui.SetNextItemWidth(-(UiStyle.SmallButton.X + UiStyle.WideButton.X + 12f));
-        var enterPressed = ImGui.InputText("##estabsearch", ref _estabSearchInput, 100, ImGuiInputTextFlags.EnterReturnsTrue);
-        ImGui.SameLine();
-        if (ImGui.Button(l.Search, UiStyle.SmallButton) || enterPressed)
-            FetchEstablishments(_estabSearchInput.Trim());
-        ImGui.SameLine();
-        if (ImGui.Button(l.ViewOnline + "##estab", UiStyle.WideButton))
-            OpenUrl(_config.BaseUrl + "/etablissements");
-        ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
+        Layout.Spacer(Theme.GapXs);
 
-        if (_estabLoading) { ImGui.TextColored(UiStyle.TextSubtle, l.Loading); return; }
+        var onlineWidth = Btn.Measure(l.ViewOnline, Icons.External);
+        var searchWidth = ImGui.GetContentRegionAvail().X - onlineWidth - Theme.S(Theme.GapM);
+        if (Inputs.SearchBar("##estabsearch", ref _estabSearchInput, l.Search, searchWidth))
+            FetchEstablishments(_estabSearchInput.Trim());
+
+        ImGui.SameLine(0f, Theme.S(Theme.GapM));
+        if (Btn.Draw(l.ViewOnline, BtnTone.Ghost, BtnSize.Medium, Icons.External, id: "estab_online"))
+            OpenUrl(_config.BaseUrl + "/etablissements");
+
+        Layout.Spacer(Theme.GapS);
+
+        if (_estabLoading)
+        {
+            Feedback.SkeletonCards();
+            return;
+        }
 
         var visibleEstabs = GetVisibleEstablishments();
 
         if (visibleEstabs.Count == 0)
         {
-            ImGui.TextColored(UiStyle.TextSubtle,
+            Feedback.EmptyState(Icons.Venues,
                 _config.HiddenEstablishmentIds.Count > 0 ? l.EstabNoResults : l.EstabSearchHint);
             DrawHiddenEstablishmentsSection();
             return;
         }
 
-        ImGui.TextColored(UiStyle.TextSubtle, string.Format(l.EstabCount, visibleEstabs.Count));
-        ImGui.Spacing();
+        Layout.SectionHeader(l.TabEstabs, Icons.Venues, visibleEstabs.Count);
 
         if (!ImGui.BeginChild("##estabscroll", new Vector2(-1, -1), false)) return;
 
@@ -761,49 +946,118 @@ public class MainWindow : Window
         foreach (var e in visibleEstabs)
         {
             bool hideThis = false;
-            UiPrimitives.DrawCardWithBanner(GetBannerWrap(e.Banner), () =>
+            UiPrimitives.DrawCardWithBanner(Textures.Get(e.Banner), () =>
             {
-                // Nom
-                ImGui.TextColored(UiStyle.TextTitle, e.Name);
+                // ── Titre, teinté de la couleur choisie par le gérant ──────────
+                var accent = Theme.TryParseHex(e.AccentColor) is { } custom
+                    ? Theme.EnsureReadable(custom)
+                    : Theme.Accent;
 
-                // Chips de localisation
-                var hasLocation = !string.IsNullOrEmpty(e.Server)
-                               || !string.IsNullOrEmpty(e.District)
-                               || e.Ward.HasValue
-                               || e.Plot.HasValue;
-                if (hasLocation)
+                Text.Title(e.Name, accent);
+
+                if (e.IsFeatured)
                 {
-                    if (!string.IsNullOrEmpty(e.Server))
-                    {
-                        UiPrimitives.DrawChip(e.Server);
-                        ImGui.SameLine(0, 4);
-                    }
-                    if (!string.IsNullOrEmpty(e.District))
-                    {
-                        UiPrimitives.DrawChip(DistrictLabel(e.District));
-                        ImGui.SameLine(0, 4);
-                    }
-                    if (e.Ward.HasValue)
-                    {
-                        UiPrimitives.DrawChip(string.Format(l.HousingWard, e.Ward));
-                        ImGui.SameLine(0, 4);
-                    }
-                    if (e.Plot.HasValue)
-                        UiPrimitives.DrawChip(string.Format("{0} {1}", l.FieldPlot, e.Plot));
+                    ImGui.SameLine(0f, Theme.S(Theme.GapS));
+                    Chip.Draw(l.EstabFeatured, ChipTone.Gold, Icons.Sparkle);
                 }
 
-                // Boutons d'action
-                ImGui.Spacing();
-                if (UiPrimitives.ColorButton($"{l.EstabDetail}##detail_{e.Id}", UiStyle.SmallButton,
-                    UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive))
-                    Plugin.OpenEstabDetail(e);
-                ImGui.SameLine(0, 4);
-                if (UiPrimitives.ColorButton($"{l.Hide}##hide_est_{e.Id}", UiStyle.SmallButton,
-                    UiStyle.SecondaryNormal, UiStyle.SecondaryHovered, UiStyle.SecondaryActive))
-                    hideThis = true;
-            });
+                // ── Catégories, chacune dans sa propre couleur ─────────────────
+                if (e.Categories is { Count: > 0 })
+                {
+                    Layout.Spacer(Theme.GapXs);
+                    var firstCategory = true;
+                    foreach (var link in e.Categories)
+                    {
+                        if (link.Category is not { } category) continue;
+                        if (!firstCategory) ImGui.SameLine(0f, Theme.S(Theme.GapXs));
+                        Chip.Colored(category.Name,
+                                     Theme.TryParseHex(category.Color) ?? Theme.BgRaised,
+                                     tooltip: category.Group);
+                        firstCategory = false;
+                    }
+                }
 
-            ImGui.Dummy(new Vector2(0, UiStyle.CardSpacing));
+                // ── Résumé de la description ──────────────────────────────────
+                if (!string.IsNullOrWhiteSpace(e.Description))
+                {
+                    Layout.Spacer(Theme.GapS);
+                    using (Fonts.PushBody())
+                    {
+                        ImGui.PushTextWrapPos(0f);
+                        ImGui.TextColored(Theme.TextMuted, Glyphs.Summarize(e.Description, 170));
+                        ImGui.PopTextWrapPos();
+                    }
+                }
+
+                // ── Localisation et nature du lieu ────────────────────────────
+                Layout.Spacer(Theme.GapS);
+
+                if (!string.IsNullOrEmpty(e.Server))
+                {
+                    Chip.Draw(e.Server, ChipTone.Neutral, Icons.World,
+                              tooltip: e.Datacenter);
+                    ImGui.SameLine(0f, Theme.S(Theme.GapXs));
+                }
+                if (!string.IsNullOrEmpty(e.District))
+                {
+                    Chip.Draw(DistrictLabel(e.District), ChipTone.Neutral, Icons.Location);
+                    ImGui.SameLine(0f, Theme.S(Theme.GapXs));
+                }
+                Chip.Draw(FormatAddress(e, l), ChipTone.Neutral, Icons.Housing);
+
+                if (e.Counts is { Events: > 0 })
+                {
+                    ImGui.SameLine(0f, Theme.S(Theme.GapXs));
+                    Chip.Draw(e.Counts.Events.ToString(), ChipTone.Accent, Icons.Events,
+                              tooltip: l.TabEvents);
+                }
+                if (e.RpType == "semi_rp")
+                {
+                    ImGui.SameLine(0f, Theme.S(Theme.GapXs));
+                    Chip.Draw(l.EstabSemiRp, ChipTone.Warning);
+                }
+                if (e.IsNsfw)
+                {
+                    ImGui.SameLine(0f, Theme.S(Theme.GapXs));
+                    Chip.Draw("18+", ChipTone.Danger);
+                }
+
+                // ── Actions ───────────────────────────────────────────────────
+                Layout.Spacer(Theme.GapM);
+                if (Btn.Draw(l.EstabDetail, BtnTone.Primary, BtnSize.Medium,
+                             Icons.Info, id: $"detail_{e.Id}"))
+                    Plugin.OpenEstabDetail(e);
+
+                TravelButton.Draw(e, $"estab_list_{e.Id}", sameLine: true);
+
+                ImGui.SameLine(0f, Theme.S(Theme.GapXs));
+                if (Btn.Draw(l.Hide, BtnTone.Ghost, BtnSize.Medium,
+                             Icons.Hide, id: $"hide_est_{e.Id}"))
+                    hideThis = true;
+
+                // Raccourcis externes, alignés à droite.
+                var shortcuts = 0f;
+                if (!string.IsNullOrEmpty(e.DiscordInvite)) shortcuts += ImGui.GetFrameHeight() + Theme.S(Theme.GapXs);
+                if (!string.IsNullOrEmpty(e.Website))       shortcuts += ImGui.GetFrameHeight() + Theme.S(Theme.GapXs);
+
+                if (shortcuts > 0f)
+                {
+                    ImGui.SameLine();
+                    Layout.RightAlign(shortcuts);
+
+                    if (!string.IsNullOrEmpty(e.DiscordInvite))
+                    {
+                        if (Btn.Icon(Icons.Language, $"discord_{e.Id}", BtnTone.Ghost, l.EstabDiscord))
+                            OpenUrl($"https://discord.gg/{e.DiscordInvite}");
+                        ImGui.SameLine(0f, Theme.S(Theme.GapXs));
+                    }
+                    if (!string.IsNullOrEmpty(e.Website))
+                    {
+                        if (Btn.Icon(Icons.External, $"web_{e.Id}", BtnTone.Ghost, e.Website))
+                            OpenUrl(e.Website);
+                    }
+                }
+            });
 
             if (hideThis) { toHide = e.Id; break; }
         }
@@ -874,7 +1128,7 @@ public class MainWindow : Window
 
         foreach (var ev in hiddenEvents)
         {
-            ImGui.TextColored(UiStyle.TextSubtle, $"  {ev.Title}");
+            ImGui.TextColored(UiStyle.TextSubtle, $"  {Glyphs.Safe(ev.Title)}");
             ImGui.SameLine();
             if (ImGui.Button($"{Plugin.L.Show}##show_event_{ev.Id}", UiStyle.SmallButton))
                 ShowEvent(ev.Id);
@@ -882,7 +1136,7 @@ public class MainWindow : Window
 
         foreach (var est in hiddenEstabs)
         {
-            ImGui.TextColored(UiStyle.TextSubtle, $"  {est.Name}");
+            ImGui.TextColored(UiStyle.TextSubtle, $"  {Glyphs.Safe(est.Name)}");
             ImGui.SameLine();
             if (ImGui.Button($"{Plugin.L.Show}##show_est_from_events_{est.Id}", UiStyle.SmallButton))
                 ShowEstablishment(est.Id);
@@ -901,7 +1155,7 @@ public class MainWindow : Window
         ImGui.TextColored(UiStyle.TextSubtle, $"{Plugin.L.Hide}: {hiddenEstabs.Count} lieu(x)");
         foreach (var est in hiddenEstabs)
         {
-            ImGui.TextColored(UiStyle.TextSubtle, $"  {est.Name}");
+            ImGui.TextColored(UiStyle.TextSubtle, $"  {Glyphs.Safe(est.Name)}");
             ImGui.SameLine();
             if (ImGui.Button($"{Plugin.L.Show}##show_est_{est.Id}", UiStyle.SmallButton))
                 ShowEstablishment(est.Id);
@@ -934,39 +1188,9 @@ public class MainWindow : Window
             .ToList();
     }
 
-    private IDalamudTextureWrap? GetBannerWrap(string? bannerUrl)
-    {
-        if (string.IsNullOrEmpty(bannerUrl)) return null;
-        if (!_estabBannerTasks.TryGetValue(bannerUrl, out var task))
-        {
-            task = FetchBannerTextureAsync(bannerUrl);
-            _estabBannerTasks[bannerUrl] = task;
-        }
-        return task.IsCompletedSuccessfully ? task.Result : null;
-    }
-
-    private async Task<IDalamudTextureWrap?> FetchBannerTextureAsync(string url)
-    {
-        try
-        {
-            var bytes = await _bannerHttp.GetByteArrayAsync(url);
-            return await Plugin.TextureProvider.CreateFromImageAsync(
-                new ReadOnlyMemory<byte>(bytes), null, default);
-        }
-        catch { return null; }
-    }
-
-    private void DisposeBannerCache()
-    {
-        foreach (var (_, task) in _estabBannerTasks)
-            if (task.IsCompletedSuccessfully) task.Result?.Dispose();
-        _estabBannerTasks.Clear();
-    }
-
     private void FetchEstablishments(string search)
     {
         _estabLoading = true;
-        DisposeBannerCache();
         Task.Run(async () =>
         {
             try

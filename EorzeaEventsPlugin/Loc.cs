@@ -46,6 +46,23 @@ internal sealed class Loc
     public required string EventsOngoing  { get; init; }   // {0} en cours
     public required string EventsTotal    { get; init; }   // · {0} au total
 
+    // Agenda : en-têtes de jour et filtres.
+    public required string EventsToday       { get; init; }
+    public required string EventsTomorrow    { get; init; }
+    public required string EventsSearchHint  { get; init; }
+    public required string EventsFilterAll   { get; init; }
+    public required string EventsOfficial    { get; init; }
+    public required string EventsCommunity   { get; init; }
+    public required string EventsNoMatch     { get; init; }
+    public required string EventsClearFilter { get; init; }
+
+    // Voyage assisté par Lifestream.
+    public required string TravelGo          { get; init; }
+    public required string TravelBusy        { get; init; }
+    public required string CfgTravel         { get; init; }
+    public required string CfgTravelHint     { get; init; }
+    public required string CfgTravelMissing  { get; init; }
+
     // ── Establishments tab ────────────────────────────────────────────────────
     public required string EstabSearchHint { get; init; }
     public required string EstabNoResults  { get; init; }
@@ -53,6 +70,35 @@ internal sealed class Loc
     public required string EstabDetail     { get; init; }
     public required string EstabOpenSite   { get; init; }
     public required string EstabDiscord    { get; init; }
+    public required string EstabFeatured   { get; init; }
+    public required string EstabSemiRp     { get; init; }
+    public required string EstabApartment  { get; init; }
+    public required string CfgCharactersHeader { get; init; }
+    public required string CfgLinkPending      { get; init; }   // {0} = perso@monde
+    public required string CfgLinkPendingHint  { get; init; }
+    public required string CfgLinkReopen       { get; init; }
+    public required string CfgLinkNeedLogin    { get; init; }
+    public required string CfgLinkAgain        { get; init; }
+    public required string CfgLinkCharacter    { get; init; }   // {0} = perso@monde
+    public required string CfgLinkForget       { get; init; }
+    public required string And             { get; init; }
+    public required string RecurrenceDaily    { get; init; }
+    public required string RecurrenceWeekly   { get; init; }
+    public required string RecurrenceWeeklyOn { get; init; }   // {0} = jours
+    public required string RecurrenceMonthly  { get; init; }
+
+    /// <summary>Vrai pour le jeu de chaînes françaises. Sert au formatage des dates.</summary>
+    public bool IsFrench => ReferenceEquals(this, Fr);
+
+    /// <summary>
+    /// Culture de formatage des dates, alignée sur la langue du plugin plutôt
+    /// que sur celle du système : un joueur en plugin français doit lire
+    /// « mercredi 5 août », quelle que soit la locale de sa machine.
+    /// </summary>
+    public System.Globalization.CultureInfo Culture => IsFrench ? FrCulture : EnCulture;
+
+    private static readonly System.Globalization.CultureInfo FrCulture = new("fr-FR");
+    private static readonly System.Globalization.CultureInfo EnCulture = new("en-GB");
     public required string EstabSyncshells { get; init; }
     public required string EstabPassword   { get; init; }
     public required string EstabReveal     { get; init; }
@@ -234,6 +280,56 @@ internal sealed class Loc
     public required string RpProfileSetup          { get; init; }
     public required string RpProfileWizardTitle    { get; init; }
     public required string RpProfileWizardIntro    { get; init; }
+    public required string RpProfileTitle         { get; init; }
+    public required string RpProfileNoCharacter   { get; init; }
+    public required string RpProfileEditOnline    { get; init; }
+    public required string RpProfileEditOnlineHint{ get; init; }
+    public required string RpAvailableEnableHint  { get; init; }
+    public required string RpProfileHooks         { get; init; }
+    public required string RpProfileHooksHint     { get; init; }
+    public required string RpProfileHooksExample  { get; init; }
+    public required string RpProfileCurrentQuest  { get; init; }
+    public required string RpProfilePreferences   { get; init; }
+    public required string RpProfileThemes        { get; init; }
+    public required string RpProfileAvoidThemes   { get; init; }
+    public required string RpProfileIdentity      { get; init; }
+    public required string RpProfileRace          { get; init; }
+    public required string RpProfileRaceOther     { get; init; }
+    public required string RpProfileAge           { get; init; }
+    public required string RpProfilePronouns      { get; init; }
+    public required string RpProfileOrigin        { get; init; }
+    public required string RpProfileOccupation    { get; init; }
+    public required string RpProfileAppearance    { get; init; }
+    public required string RpProfilePersonality   { get; init; }
+    public required string RpProfileBackground    { get; init; }
+    public required string RpProfileLimits        { get; init; }
+
+    // Traits physiques, appartenances et mise en avant : éditables en jeu.
+    public required string RpProfileTraits       { get; init; }
+    public required string RpProfileTraitsHint   { get; init; }
+    public required string RpProfileHeight       { get; init; }
+    public required string RpProfileBuild        { get; init; }
+    public required string RpProfileMarks        { get; init; }
+    public required string RpProfileVoice        { get; init; }
+    public required string RpProfileBelonging    { get; init; }
+    public required string RpProfileFreeCompany  { get; init; }
+    public required string RpProfileAllegiance   { get; init; }
+    public required string RpProfileDeity        { get; init; }
+    public required string RpProfileDeityNone    { get; init; }
+    public required string RpProfileQuote        { get; init; }
+    public required string RpProfileQuoteHint    { get; init; }
+
+    // Relations : consultables en jeu, éditables sur le site.
+    public required string RpProfileRelations     { get; init; }
+    public required string RpProfileRelationAlly    { get; init; }
+    public required string RpProfileRelationFriend  { get; init; }
+    public required string RpProfileRelationFamily  { get; init; }
+    public required string RpProfileRelationLover   { get; init; }
+    public required string RpProfileRelationMentor  { get; init; }
+    public required string RpProfileRelationStudent { get; init; }
+    public required string RpProfileRelationRival   { get; init; }
+    public required string RpProfileRelationEnemy   { get; init; }
+    public required string RpProfileRelationOther   { get; init; }
     public required string RpProfileLevel          { get; init; }
     public required string RpProfileLevelBeginner  { get; init; }
     public required string RpProfileLevelCasual    { get; init; }
@@ -272,6 +368,52 @@ internal sealed class Loc
     public required string AnnouncementLater       { get; init; }
     public required string AnnouncementIndicator   { get; init; }
 
+    // ── Nouveautés ────────────────────────────────────────────────────────────
+    public required string WhatsNewTitle       { get; init; }
+    public required string WhatsNewClose       { get; init; }
+    public required string WhatsNewEmpty       { get; init; }
+    public required string WhatsNewUnseen      { get; init; }
+    public required string CfgAboutHeader      { get; init; }
+    public required string CfgWhatsNew         { get; init; }
+    public required string CfgWhatsNewAuto     { get; init; }
+    public required string CfgWhatsNewAutoHint { get; init; }
+
+    // ── Fiche d'un autre joueur ───────────────────────────────────────────────
+    public required string RpProfileNoProfile  { get; init; }
+    public required string RpProfileNsfw       { get; init; }
+    public required string RpProfileViewOnSite { get; init; }
+    public required string MenuViewRpProfile   { get; init; }
+
+    // ── Visibilité de la fiche ────────────────────────────────────────────────
+    public required string RpProfileVisibility       { get; init; }
+    public required string RpProfileVisWhere         { get; init; }
+    public required string RpProfileVisWho           { get; init; }
+    public required string RpProfileVisInGame        { get; init; }
+    public required string RpProfileVisInGameHint    { get; init; }
+    public required string RpProfileVisWebPage       { get; init; }
+    public required string RpProfileVisWebPageHint   { get; init; }
+    public required string RpProfileVisIndexable     { get; init; }
+    public required string RpProfileVisIndexableHint { get; init; }
+    public required string RpProfileVisAlwaysPublic  { get; init; }
+    public required string RpProfileVisOwnerNote     { get; init; }  // {0} = libellé accordé
+    public required string RpProfileAudiencePublic   { get; init; }
+    public required string RpProfileAudienceOwner    { get; init; }  // masculin
+    public required string RpProfileAudienceOwnerFem { get; init; }  // féminin
+    public required string RpProfilePreview          { get; init; }
+    public required string RpProfilePreviewTitle     { get; init; }
+    public required string RpProfilePreviewHint      { get; init; }
+    public required string RpProfilePreviewHidden    { get; init; }
+    public required string RpProfileVisSaveFirst     { get; init; }
+    public required string RpProfileDescription      { get; init; }
+
+    // ── Autour de moi ─────────────────────────────────────────────────────────
+    public required string TabAround         { get; init; }
+    public required string AroundCount       { get; init; }   // {0} joueur(s)
+    public required string AroundEmpty       { get; init; }
+    public required string AroundNoMatch     { get; init; }
+    public required string AroundSearchHint  { get; init; }
+    public required string AroundMyWorldOnly { get; init; }
+
     // ── Static instances ──────────────────────────────────────────────────────
 
     public static readonly Loc Fr = new()
@@ -303,8 +445,8 @@ internal sealed class Loc
         RpNoSession         = "Aucune session active en ce moment",
         RpSessionsActive    = "{0} session(s) en cours",
         RpBeFirst           = "Soyez le premier à en démarrer une !",
-        RpInYourZone        = "✦  Dans votre zone ({0})",
-        RpOtherServers      = "── Autres serveurs ──────────────────────────────────",
+        RpInYourZone        = "Dans votre zone ({0})",
+        RpOtherServers      = "Autres serveurs",
         RpYourSessionActive = "Votre session est en cours.",
         RpManageSession     = "Gérer ma session",
         RpNewSession        = "Nouvelle session de RP ouvert",
@@ -315,6 +457,19 @@ internal sealed class Loc
         EventsCount    = "{0} événement(s)",
         EventsOngoing  = "{0} en cours",
         EventsTotal    = "· {0} événement(s) au total",
+        EventsToday       = "Aujourd'hui",
+        EventsTomorrow    = "Demain",
+        EventsSearchHint  = "Rechercher un événement, un lieu…",
+        EventsFilterAll   = "Tous",
+        EventsOfficial    = "Officiels",
+        EventsCommunity   = "Communauté",
+        EventsNoMatch     = "Aucun événement ne correspond à ces filtres.",
+        EventsClearFilter = "Réinitialiser",
+        TravelGo         = "Y aller (Lifestream)",
+        TravelBusy       = "Lifestream est déjà en route.",
+        CfgTravel        = "Proposer le voyage via Lifestream",
+        CfgTravelHint    = "Ajoute un bouton « Y aller » sur les événements et les fiches de lieu.",
+        CfgTravelMissing = "Lifestream n'est pas installé : le bouton reste masqué.",
         EventsHideHint = "Pour ne plus voir un lieu ni recevoir ses notifications, masque-le depuis l'onglet Lieux.",
         EventCancelled = "Annulé pour aujourd'hui",
 
@@ -324,6 +479,22 @@ internal sealed class Loc
         EstabDetail     = "Fiche",
         EstabOpenSite   = "Voir le site",
         EstabDiscord    = "Discord",
+        EstabFeatured  = "Mis en avant",
+        EstabSemiRp    = "Semi-RP",
+        EstabApartment = "Appartement",
+        CfgCharactersHeader = "Personnages liés",
+        CfgLinkPending      = "Couplage en cours pour {0}",
+        CfgLinkPendingHint  = "Confirmez dans le navigateur : le plugin récupérera le jeton automatiquement.",
+        CfgLinkReopen       = "Rouvrir la page",
+        CfgLinkNeedLogin    = "Connectez-vous en jeu pour lier un personnage.",
+        CfgLinkAgain        = "Relier",
+        CfgLinkCharacter    = "Lier {0}",
+        CfgLinkForget       = "Oublier ce personnage",
+        And                = "et",
+        RecurrenceDaily    = "chaque jour",
+        RecurrenceWeekly   = "chaque semaine",
+        RecurrenceWeeklyOn = "chaque {0}",
+        RecurrenceMonthly  = "chaque mois",
         EstabSyncshells = "Syncshells",
         EstabPassword   = "MdP",
         EstabReveal     = "Révéler",
@@ -399,9 +570,9 @@ internal sealed class Loc
         AlertZoneChangedDesc  = "Voulez-vous mettre à jour votre emplacement ou terminer la session ?",
         AlertRpTagRemovedTitle = "⚠  Tag RP retiré",
         AlertRpTagRemovedDesc  = "Vous n'êtes plus en mode RP. Souhaitez-vous terminer la session ?",
-        AlertRpTagActivTitle  = "✦  Tag RP activé !",
+        AlertRpTagActivTitle  = "Tag RP activé !",
         AlertRpTagActivDesc   = "Vous êtes en mode RP. Souhaitez-vous annoncer une session de RP ouvert ?",
-        AlertExpiryTitle      = "⏱  Session bientôt expirée",
+        AlertExpiryTitle      = "Session bientôt expirée",
         AlertExpiryDesc       = "Votre session RP expire dans {0} minute(s). Souhaitez-vous la prolonger ?",
         BtnStop               = "Arrêter",
         AlertActiveEventTitle = "⚠  Événement en cours ici",
@@ -484,8 +655,8 @@ internal sealed class Loc
         DtrRpTooltip      = "Sessions RP ouvertes en cours\nCliquez pour ouvrir",
         DtrEventsTooltip  = "Événements en cours\nCliquez pour ouvrir",
         DtrRpAvailTooltip = "Disponibilité RP sauvage\nCliquez pour activer / désactiver",
-        CfgDtrRpAvail     = "Afficher le statut de disponibilité RP (♦)",
-        PlayersOnline     = "🟢 {0} joueur(s) en ligne",
+        CfgDtrRpAvail     = "Afficher le statut de disponibilité RP",
+        PlayersOnline     = "{0} joueur(s) en ligne",
 
         RpAvailableDesc         = "Signale aux autres rôlistes que tu es disponible pour du RP improvisé. Un titre coloré apparaît sous ton nom sur les nameplates des joueurs avec le plugin : « Dispo RP - Timide » si tu préfères qu'on vienne vers toi, « Dispo RP - Avenant·e » si tu peux faire le premier pas.",
         RpAvailableTitle        = "Disponibles pour du RP sauvage",
@@ -496,11 +667,57 @@ internal sealed class Loc
         RpAvailableDur30        = "30 min",
         RpAvailableDur60        = "1h",
         RpAvailableDur120       = "2h",
-        RpAvailableActiveStatus = "♦  Disponible pour du RP",
+        RpAvailableActiveStatus = "Disponible pour du RP",
         RpAvailableNoToken      = "Liez ce personnage pour activer la disponibilité RP.",
         RpProfileSetup          = "Configurer mon profil RP",
         RpProfileWizardTitle    = "Mon profil RP",
         RpProfileWizardIntro    = "Quelques questions rapides pour que les autres joueurs sachent à quoi s'attendre avant de t'approcher.",
+        RpProfileTitle          = "Mon profil RP",
+        RpProfileNoCharacter    = "Connectez-vous en jeu pour voir la fiche de votre personnage.",
+        RpProfileEditOnline     = "Modifier sur le site",
+        RpProfileEditOnlineHint = "Identité, description et limites se rédigent au clavier, sur le site.",
+        RpAvailableEnableHint   = "Les autres rôlistes vous voient dans la liste des joueurs disponibles.",
+        RpProfileHooks          = "Accroches",
+        RpProfileHooksHint      = "Ce qui donne envie de venir vous parler.",
+        RpProfileHooksExample   = "Tenancier de la taverne des Deux Lunes",
+        RpProfileCurrentQuest   = "En ce moment",
+        RpProfilePreferences    = "Préférences",
+        RpProfileThemes         = "Thèmes recherchés",
+        RpProfileAvoidThemes    = "Thèmes évités",
+        RpProfileIdentity       = "Identité",
+        RpProfileRace           = "Race",
+        RpProfileRaceOther      = "Autre",
+        RpProfileAge            = "Âge",
+        RpProfilePronouns       = "Pronoms",
+        RpProfileOrigin         = "Origine",
+        RpProfileOccupation     = "Occupation",
+        RpProfileAppearance     = "Apparence",
+        RpProfilePersonality    = "Personnalité",
+        RpProfileBackground     = "Histoire",
+        RpProfileLimits         = "Limites",
+        RpProfileTraits         = "Traits physiques",
+        RpProfileTraitsHint     = "Des repères rapides, en plus de l'apparence rédigée.",
+        RpProfileHeight         = "Taille",
+        RpProfileBuild          = "Corpulence",
+        RpProfileMarks          = "Signes distinctifs",
+        RpProfileVoice          = "Voix",
+        RpProfileBelonging      = "Appartenances",
+        RpProfileFreeCompany    = "Compagnie libre",
+        RpProfileAllegiance     = "Allégeance",
+        RpProfileDeity          = "Divinité",
+        RpProfileDeityNone      = "Non précisé",
+        RpProfileQuote          = "Citation",
+        RpProfileQuoteHint      = "Une réplique qui résume le personnage.",
+        RpProfileRelations      = "Relations",
+        RpProfileRelationAlly    = "Allié",
+        RpProfileRelationFriend  = "Ami",
+        RpProfileRelationFamily  = "Famille",
+        RpProfileRelationLover   = "Amour",
+        RpProfileRelationMentor  = "Mentor",
+        RpProfileRelationStudent = "Élève",
+        RpProfileRelationRival   = "Rival",
+        RpProfileRelationEnemy   = "Ennemi",
+        RpProfileRelationOther   = "Autre",
         RpProfileLevel          = "Niveau de RP",
         RpProfileLevelBeginner  = "Débutant — Je découvre le RP",
         RpProfileLevelCasual    = "Casual — Je RP de temps en temps",
@@ -517,7 +734,7 @@ internal sealed class Loc
         RpProfileError          = "Erreur lors de l'enregistrement.",
         RpProfileViewTitle      = "Profil RP",
         CfgRpProfileHeader      = "Profil RP & Disponibilité",
-        CfgRpIndicator          = "Afficher ♦ sur les nameplates des joueurs disponibles",
+        CfgRpIndicator          = "Afficher le marqueur sur les nameplates des joueurs disponibles",
 
         RpLoginPrompt           = "Tu étais disponible pour du RP lors de ta dernière session.",
         RpLoginStay             = "Rester disponible",
@@ -530,11 +747,53 @@ internal sealed class Loc
         RpNameplateExtravertie  = "Avenante",
 
         AnnouncementTitle       = "Nouveau — Profil RP & Disponibilité",
-        AnnouncementBadge       = "✦  Mise à jour",
-        AnnouncementBody        = "Tu peux maintenant indiquer que tu es disponible pour du RP improvisé.\n\nLes autres joueurs verront un ♦ à droite de ton nom dans le jeu, et pourront voir ton profil (niveau, mode d'approche, langue) avant de t'aborder.\n\nConfigure ton profil en quelques secondes — tu pourras le modifier à tout moment dans les paramètres.",
+        AnnouncementBadge       = "Mise à jour",
+        AnnouncementBody        = "Tu peux maintenant indiquer que tu es disponible pour du RP improvisé.\n\nLes autres joueurs verront un losange à droite de ton nom dans le jeu, et pourront voir ton profil (niveau, mode d'approche, langue) avant de t'aborder.\n\nConfigure ton profil en quelques secondes — tu pourras le modifier à tout moment dans les paramètres.",
         AnnouncementConfigure   = "Configurer mon profil RP",
         AnnouncementLater       = "Plus tard",
-        AnnouncementIndicator   = "L'indicateur ♦ sur les nameplates peut être désactivé dans Paramètres.",
+        AnnouncementIndicator   = "L'indicateur sur les nameplates peut être désactivé dans Paramètres.",
+
+        WhatsNewTitle       = "Nouveautés Eorzea Events",
+        WhatsNewClose       = "Compris",
+        WhatsNewEmpty       = "Aucune note pour cette version.",
+        WhatsNewUnseen      = "nouveau",
+        CfgAboutHeader      = "À propos",
+        CfgWhatsNew         = "Voir les nouveautés",
+        CfgWhatsNewAuto     = "Afficher les nouveautés après une mise à jour",
+        CfgWhatsNewAutoHint = "La fenêtre s'ouvre une seule fois, au premier lancement suivant l'installation d'une nouvelle version.",
+
+        RpProfileNoProfile  = "Ce joueur n'a pas encore rempli sa fiche.",
+        RpProfileNsfw       = "Contenu sensible",
+        RpProfileViewOnSite = "Voir sur le site",
+        MenuViewRpProfile   = "Voir la fiche RP",
+
+        RpProfileVisibility       = "Visibilité",
+        RpProfileVisWhere         = "Où ma fiche apparaît",
+        RpProfileVisWho           = "Qui voit quoi",
+        RpProfileVisInGame        = "Visible en jeu",
+        RpProfileVisInGameHint    = "Dans la liste des joueurs disponibles et par clic droit. N'ouvre aucune page sur le site.",
+        RpProfileVisWebPage       = "Page web partageable",
+        RpProfileVisWebPageHint   = "Crée une adresse que tu peux transmettre. N'inscrit pas ta fiche dans les moteurs de recherche.",
+        RpProfileVisIndexable     = "Référencée par les moteurs",
+        RpProfileVisIndexableHint = "Ta fiche peut apparaître dans les résultats de recherche. Une fois indexée, elle peut y rester un moment.",
+        RpProfileVisAlwaysPublic  = "Niveau, mode d'approche, langues, thèmes, citation et disponibilité restent visibles dès que ta fiche est visible en jeu : ce sont eux qui alimentent le marqueur sur les plaques de nom.",
+        RpProfileVisOwnerNote     = "« {0} » veut dire que la section n'est jamais envoyée aux autres joueurs. Ton texte reste enregistré sur le site.",
+        RpProfileAudiencePublic   = "Tout le monde",
+        RpProfileAudienceOwner    = "Moi seul",
+        RpProfileAudienceOwnerFem = "Moi seule",
+        RpProfilePreview          = "Aperçu de mon profil",
+        RpProfilePreviewTitle     = "Aperçu de ma fiche",
+        RpProfilePreviewHint      = "Voici exactement ce que les autres joueurs voient. Les sections réservées ne sont pas envoyées par le serveur, elles sont donc absentes d'ici aussi.",
+        RpProfilePreviewHidden    = "Ta fiche n'est pas visible en jeu. Coche « Visible en jeu » pour que les autres puissent la consulter.",
+        RpProfileVisSaveFirst     = "Enregistre d'abord : l'aperçu montre ce que le serveur a reçu.",
+        RpProfileDescription      = "Description",
+
+        TabAround         = "Autour de moi",
+        AroundCount       = "{0} joueur(s) disponible(s)",
+        AroundEmpty       = "Personne de disponible pour le moment",
+        AroundNoMatch     = "Aucun joueur ne correspond",
+        AroundSearchHint  = "Rechercher un personnage",
+        AroundMyWorldOnly = "Mon monde uniquement",
     };
 
     public static readonly Loc En = new()
@@ -566,8 +825,8 @@ internal sealed class Loc
         RpNoSession         = "No active sessions right now",
         RpSessionsActive    = "{0} active session(s)",
         RpBeFirst           = "Be the first to start one!",
-        RpInYourZone        = "✦  In your zone ({0})",
-        RpOtherServers      = "── Other servers ────────────────────────────────────",
+        RpInYourZone        = "In your zone ({0})",
+        RpOtherServers      = "Other servers",
         RpYourSessionActive = "Your session is active.",
         RpManageSession     = "Manage my session",
         RpNewSession        = "New open RP session",
@@ -578,6 +837,19 @@ internal sealed class Loc
         EventsCount    = "{0} event(s)",
         EventsOngoing  = "{0} ongoing",
         EventsTotal    = "· {0} event(s) total",
+        EventsToday       = "Today",
+        EventsTomorrow    = "Tomorrow",
+        EventsSearchHint  = "Search an event, a venue…",
+        EventsFilterAll   = "All",
+        EventsOfficial    = "Official",
+        EventsCommunity   = "Community",
+        EventsNoMatch     = "No event matches these filters.",
+        EventsClearFilter = "Reset",
+        TravelGo         = "Travel there (Lifestream)",
+        TravelBusy       = "Lifestream is already travelling.",
+        CfgTravel        = "Offer travel through Lifestream",
+        CfgTravelHint    = "Adds a “Travel there” button on events and venue pages.",
+        CfgTravelMissing = "Lifestream is not installed: the button stays hidden.",
         EventsHideHint = "To stop seeing a venue and its event notifications, hide it from the Venues tab.",
         EventCancelled = "Cancelled for today",
 
@@ -587,6 +859,22 @@ internal sealed class Loc
         EstabDetail     = "Details",
         EstabOpenSite   = "Visit website",
         EstabDiscord    = "Discord",
+        EstabFeatured  = "Featured",
+        EstabSemiRp    = "Semi-RP",
+        EstabApartment = "Apartment",
+        CfgCharactersHeader = "Linked characters",
+        CfgLinkPending      = "Linking {0}",
+        CfgLinkPendingHint  = "Confirm in your browser: the plugin will pick up the token automatically.",
+        CfgLinkReopen       = "Reopen page",
+        CfgLinkNeedLogin    = "Log in to the game to link a character.",
+        CfgLinkAgain        = "Relink",
+        CfgLinkCharacter    = "Link {0}",
+        CfgLinkForget       = "Forget this character",
+        And                = "and",
+        RecurrenceDaily    = "every day",
+        RecurrenceWeekly   = "every week",
+        RecurrenceWeeklyOn = "every {0}",
+        RecurrenceMonthly  = "every month",
         EstabSyncshells = "Syncshells",
         EstabPassword   = "Pwd",
         EstabReveal     = "Reveal",
@@ -662,9 +950,9 @@ internal sealed class Loc
         AlertZoneChangedDesc  = "Do you want to update your location or end the session?",
         AlertRpTagRemovedTitle = "⚠  RP tag removed",
         AlertRpTagRemovedDesc  = "You're no longer in RP mode. Do you want to end the session?",
-        AlertRpTagActivTitle  = "✦  RP tag activated!",
+        AlertRpTagActivTitle  = "RP tag activated!",
         AlertRpTagActivDesc   = "You're in RP mode. Do you want to announce an open RP session?",
-        AlertExpiryTitle      = "⏱  Session expiring soon",
+        AlertExpiryTitle      = "Session expiring soon",
         AlertExpiryDesc       = "Your RP session expires in {0} minute(s). Do you want to extend it?",
         BtnStop               = "Stop",
         AlertActiveEventTitle = "⚠  Event in progress here",
@@ -747,8 +1035,8 @@ internal sealed class Loc
         DtrRpTooltip      = "Active open RP sessions\nClick to open",
         DtrEventsTooltip  = "Ongoing events\nClick to open",
         DtrRpAvailTooltip = "Spontaneous RP availability\nClick to toggle",
-        CfgDtrRpAvail     = "Show RP availability status (♦)",
-        PlayersOnline     = "🟢 {0} player(s) online",
+        CfgDtrRpAvail     = "Show RP availability status",
+        PlayersOnline     = "{0} player(s) online",
 
         RpAvailableDesc         = "Signal to other roleplayers that you're available for spontaneous RP. A colored title appears below your name on nameplates for players with the plugin: \"RP Avail - Shy\" if you'd rather others come to you, \"RP Avail - Friendly\" if you can make the first move.",
         RpAvailableTitle        = "Available for Spontaneous RP",
@@ -759,11 +1047,57 @@ internal sealed class Loc
         RpAvailableDur30        = "30 min",
         RpAvailableDur60        = "1h",
         RpAvailableDur120       = "2h",
-        RpAvailableActiveStatus = "♦  Available for RP",
+        RpAvailableActiveStatus = "Available for RP",
         RpAvailableNoToken      = "Link this character to enable RP availability.",
         RpProfileSetup          = "Set up my RP profile",
         RpProfileWizardTitle    = "My RP Profile",
         RpProfileWizardIntro    = "A few quick questions so other players know what to expect before approaching you.",
+        RpProfileTitle          = "My RP profile",
+        RpProfileNoCharacter    = "Log in to the game to see your character's profile.",
+        RpProfileEditOnline     = "Edit on the website",
+        RpProfileEditOnlineHint = "Identity, description and limits are written on the website.",
+        RpAvailableEnableHint   = "Other roleplayers will see you in the available players list.",
+        RpProfileHooks          = "Hooks",
+        RpProfileHooksHint      = "What makes people want to come and talk to you.",
+        RpProfileHooksExample   = "Keeper of the Two Moons tavern",
+        RpProfileCurrentQuest   = "Right now",
+        RpProfilePreferences    = "Preferences",
+        RpProfileThemes         = "Themes sought",
+        RpProfileAvoidThemes    = "Themes avoided",
+        RpProfileIdentity       = "Identity",
+        RpProfileRace           = "Race",
+        RpProfileRaceOther      = "Other",
+        RpProfileAge            = "Age",
+        RpProfilePronouns       = "Pronouns",
+        RpProfileOrigin         = "Origin",
+        RpProfileOccupation     = "Occupation",
+        RpProfileAppearance     = "Appearance",
+        RpProfilePersonality    = "Personality",
+        RpProfileBackground     = "Background",
+        RpProfileLimits         = "Limits",
+        RpProfileTraits         = "Physical traits",
+        RpProfileTraitsHint     = "Quick cues, alongside the written appearance.",
+        RpProfileHeight         = "Height",
+        RpProfileBuild          = "Build",
+        RpProfileMarks          = "Distinguishing marks",
+        RpProfileVoice          = "Voice",
+        RpProfileBelonging      = "Affiliations",
+        RpProfileFreeCompany    = "Free company",
+        RpProfileAllegiance     = "Allegiance",
+        RpProfileDeity          = "Deity",
+        RpProfileDeityNone      = "Unspecified",
+        RpProfileQuote          = "Quote",
+        RpProfileQuoteHint      = "A line that sums the character up.",
+        RpProfileRelations      = "Relationships",
+        RpProfileRelationAlly    = "Ally",
+        RpProfileRelationFriend  = "Friend",
+        RpProfileRelationFamily  = "Family",
+        RpProfileRelationLover   = "Lover",
+        RpProfileRelationMentor  = "Mentor",
+        RpProfileRelationStudent = "Student",
+        RpProfileRelationRival   = "Rival",
+        RpProfileRelationEnemy   = "Enemy",
+        RpProfileRelationOther   = "Other",
         RpProfileLevel          = "RP Level",
         RpProfileLevelBeginner  = "Beginner — New to RP",
         RpProfileLevelCasual    = "Casual — I RP occasionally",
@@ -780,7 +1114,7 @@ internal sealed class Loc
         RpProfileError          = "Error saving profile.",
         RpProfileViewTitle      = "RP Profile",
         CfgRpProfileHeader      = "RP Profile & Availability",
-        CfgRpIndicator          = "Show ♦ on nameplates of available players",
+        CfgRpIndicator          = "Show the marker on nameplates of available players",
 
         RpLoginPrompt           = "You were available for RP in your last session.",
         RpLoginStay             = "Stay available",
@@ -793,10 +1127,54 @@ internal sealed class Loc
         RpNameplateExtravertie  = "Friendly",
 
         AnnouncementTitle       = "New — RP Profile & Availability",
-        AnnouncementBadge       = "✦  Update",
-        AnnouncementBody        = "You can now signal that you're available for spontaneous RP.\n\nOther players will see a ♦ next to your name in-game and can view your profile (level, approach style, language) before approaching you.\n\nSet up your profile in a few seconds — you can always change it later in Settings.",
+        AnnouncementBadge       = "Update",
+        AnnouncementBody        = "You can now signal that you're available for spontaneous RP.\n\nOther players will see a diamond next to your name in-game and can view your profile (level, approach style, language) before approaching you.\n\nSet up your profile in a few seconds — you can always change it later in Settings.",
         AnnouncementConfigure   = "Set up my RP profile",
         AnnouncementLater       = "Later",
-        AnnouncementIndicator   = "The ♦ nameplate indicator can be disabled in Settings.",
+        AnnouncementIndicator   = "The nameplate indicator can be disabled in Settings.",
+
+        WhatsNewTitle       = "What's new in Eorzea Events",
+        WhatsNewClose       = "Got it",
+        WhatsNewEmpty       = "No notes for this version.",
+        WhatsNewUnseen      = "new",
+        CfgAboutHeader      = "About",
+        CfgWhatsNew         = "View what's new",
+        CfgWhatsNewAuto     = "Show what's new after an update",
+        CfgWhatsNewAutoHint = "The window opens once, the first time you launch after a new version is installed.",
+
+        RpProfileNoProfile  = "This player hasn't filled in their profile yet.",
+        RpProfileNsfw       = "Sensitive content",
+        RpProfileViewOnSite = "View on the website",
+        MenuViewRpProfile   = "View RP profile",
+
+        RpProfileVisibility       = "Visibility",
+        RpProfileVisWhere         = "Where my profile appears",
+        RpProfileVisWho           = "Who sees what",
+        RpProfileVisInGame        = "Visible in game",
+        RpProfileVisInGameHint    = "In the list of available players and on right-click. Does not create any page on the website.",
+        RpProfileVisWebPage       = "Shareable web page",
+        RpProfileVisWebPageHint   = "Creates an address you can pass around. Does not list your profile in search engines.",
+        RpProfileVisIndexable     = "Listed in search engines",
+        RpProfileVisIndexableHint = "Your profile may appear in search results. Once indexed, it can linger there for a while.",
+        RpProfileVisAlwaysPublic  = "Level, approach style, languages, themes, quote and availability stay visible as soon as your profile is visible in game: they are what drives the nameplate marker.",
+        RpProfileVisOwnerNote     = "\"{0}\" means the section is never sent to other players. Your text stays saved on the site.",
+        RpProfileAudiencePublic   = "Everyone",
+        // L'anglais ne s'accorde pas : les deux formes sont identiques, mais la
+        // clé existe pour que l'appelant n'ait pas à savoir dans quelle langue il est.
+        RpProfileAudienceOwner    = "Only me",
+        RpProfileAudienceOwnerFem = "Only me",
+        RpProfilePreview          = "Preview my profile",
+        RpProfilePreviewTitle     = "Preview of my profile",
+        RpProfilePreviewHint      = "This is exactly what other players see. Reserved sections are not sent by the server, so they are missing here too.",
+        RpProfilePreviewHidden    = "Your profile is not visible in game. Tick \"Visible in game\" so others can view it.",
+        RpProfileVisSaveFirst     = "Save first: the preview shows what the server received.",
+        RpProfileDescription      = "Description",
+
+        TabAround         = "Around me",
+        AroundCount       = "{0} player(s) available",
+        AroundEmpty       = "Nobody available right now",
+        AroundNoMatch     = "No player matches",
+        AroundSearchHint  = "Search for a character",
+        AroundMyWorldOnly = "My world only",
     };
 }

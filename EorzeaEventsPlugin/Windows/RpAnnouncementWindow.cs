@@ -1,5 +1,6 @@
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Windowing;
+using EorzeaEventsPlugin.Ui.Shell;
 using System.Numerics;
 
 namespace EorzeaEventsPlugin.Windows;
@@ -9,7 +10,7 @@ namespace EorzeaEventsPlugin.Windows;
 /// Opens automatically on first launch if the user has a configured API token.
 /// Dismissed permanently by clicking either button.
 /// </summary>
-public class RpAnnouncementWindow : Window
+public class RpAnnouncementWindow : ThemedWindow
 {
     private readonly Configuration _config;
 
@@ -17,7 +18,7 @@ public class RpAnnouncementWindow : Window
         : base("##rpannouncement",
                ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse)
     {
-        SizeConstraints = new WindowSizeConstraints
+        LogicalSizeConstraints = new WindowSizeConstraints
         {
             MinimumSize = new Vector2(520, 320),
             MaximumSize = new Vector2(520, 320),

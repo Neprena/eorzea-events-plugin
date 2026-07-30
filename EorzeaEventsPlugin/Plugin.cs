@@ -1,4 +1,5 @@
 using Dalamud.Game.Command;
+using Dalamud.Game.Gui.ContextMenu;
 using Dalamud.Game.Gui.Dtr;
 using Dalamud.Game.Gui.NamePlate;
 using Dalamud.Game.Text.SeStringHandling;
@@ -41,6 +42,7 @@ public sealed class Plugin : IDalamudPlugin
     [PluginService] internal static IChatGui                ChatGui         { get; private set; } = null!;
     [PluginService] internal static IToastGui               ToastGui        { get; private set; } = null!;
     [PluginService] internal static IGameGui                GameGui         { get; private set; } = null!;
+    [PluginService] internal static IContextMenu            ContextMenu     { get; private set; } = null!;
 
     internal static Configuration Config { get; private set; } = null!;
     internal static ApiClient     Api    { get; private set; } = null!;
@@ -59,20 +61,155 @@ public sealed class Plugin : IDalamudPlugin
         }
     }
 
+    /// <summary>
+    /// Version installée sous la forme <c>major.minor.build</c>, celle que
+    /// l'utilisateur voit dans le gestionnaire de plugins. Le quatrième segment
+    /// de l'AssemblyVersion vaut toujours 0 et n'apporte rien.
+    /// </summary>
+    internal static string VersionLabel()
+    {
+        var v = PluginInterface.Manifest.AssemblyVersion;
+        return $"{v.Major}.{v.Minor}.{v.Build}";
+    }
+
     private readonly WindowSystem     _windowSystem = new("EorzeaEvents");
     private static   MainWindow?        _mainWindow;
     private static   MySessionWindow?   _sessionWindow;
-    private static   ConfigWindow?      _configWindow;
     private static   SetupWindow?       _setupWindow;
     private static   EstabDetailWindow? _estabDetailWindow;
     private static   RpProfileWindow?      _rpProfileWindow;
     private static   RpAnnouncementWindow? _announcementWindow;
+    private static   WhatsNewWindow?       _whatsNewWindow;
+
+    /// <summary>Voyage assisté vers une parcelle, si Lifestream est présent.</summary>
+    internal static Ipc.LifestreamIpc Lifestream { get; private set; } = null!;
 
     // RP Availability — nameplate indicators (name+world → (level, approachMode))
     private static Dictionary<(string Name, string World), (string? Level, string? ApproachMode)> _availablePlayers = [];
 
+    /// <summary>
+    /// Joueurs actuellement déclarés disponibles pour du RP, tels que renvoyés
+    /// par l'API publique. Alimente la page « Autour de moi » et le menu
+    /// contextuel, qui ont besoin de la fiche et non du seul couple
+    /// niveau / mode d'approche retenu pour les nameplates.
+    /// </summary>
+    internal static IReadOnlyList<Api.RpAvailabilityEntryDto> AvailableEntries { get; private set; } = [];
+
     // Prompt "rester disponible ?" affiché au prochain rendu de l'onglet RP
     internal static bool LoginPromptPending { get; private set; } = false;
+
+    /// <summary>
+    /// Personnage actuellement connecté, ou null hors du jeu. Sert de clé à
+    /// tout ce qui lui est propre : fiche RP et disponibilité.
+    /// </summary>
+    internal static (string Name, int WorldId)? CurrentCharacter
+    {
+        get
+        {
+            // La table d'objets n'est interrogeable que depuis le thread de
+            // jeu et lève « Not on main thread! » ailleurs. Or le constructeur
+            // du plugin, qui initialise la barre de statut, s'exécute sur un
+            // thread de pool : l'accès est donc protégé plutôt qu'interdit,
+            // l'appelant obtenant simplement « aucun personnage » à ce moment.
+            try
+            {
+                if (!ClientState.IsLoggedIn) return null;
+
+                var player = ObjectTable.LocalPlayer;
+                return player == null
+                    ? null
+                    : (player.Name.TextValue, (int)player.HomeWorld.RowId);
+            }
+            catch (InvalidOperationException)
+            {
+                return null;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Monde sur lequel le personnage se trouve actuellement, ou null hors du
+    /// jeu. C'est le monde courant et non le monde d'origine : un joueur en
+    /// voyage doit voir les disponibilités de là où il est.
+    ///
+    /// Même précaution que <see cref="CurrentCharacter"/> : la table d'objets
+    /// n'est interrogeable que depuis le thread de jeu.
+    /// </summary>
+    internal static string? CurrentWorldName()
+    {
+        try
+        {
+            if (!ClientState.IsLoggedIn) return null;
+            return ObjectTable.LocalPlayer?.CurrentWorld.Value.Name.ToString();
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Genre du personnage connecté, pour accorder les libellés qui parlent de
+    /// lui à la première personne. Retourne false hors du jeu, le masculin
+    /// servant alors de forme par défaut.
+    ///
+    /// Même convention que les titres de plaque de nom (voir
+    /// <c>OnNamePlateUpdate</c>) : <c>Customize[1]</c> vaut 0 au masculin.
+    /// </summary>
+    internal static bool CurrentCharacterIsFemale()
+    {
+        try
+        {
+            if (!ClientState.IsLoggedIn) return false;
+            return ObjectTable.LocalPlayer?.Customize[1] is { } gender && gender != 0;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Disponibilité RP du personnage connecté. Remplace l'ancien indicateur
+    /// commun au compte, qui déclarait tous les personnages d'un joueur dès que
+    /// l'un d'eux se disait disponible.
+    /// </summary>
+    internal static bool CurrentCharacterAvailable
+    {
+        get => CurrentCharacter is { } c && Config.IsAvailable(c.Name, c.WorldId);
+        set
+        {
+            if (CurrentCharacter is not { } c) return;
+            Config.SetAvailable(c.Name, c.WorldId, value);
+        }
+    }
+
+    /// <summary>
+    /// Publie la disponibilité du personnage connecté auprès du serveur.
+    /// Appelé depuis les réglages comme depuis la fiche RP.
+    /// </summary>
+    internal static void PublishAvailability(bool available)
+    {
+        if (!available)
+        {
+            _ = Task.Run(async () => await Api.ClearRpAvailabilityAsync());
+            return;
+        }
+
+        var player = ObjectTable.LocalPlayer;
+        if (player == null) return;
+
+        var request = new Api.SetRpAvailableRequest
+        {
+            CharacterName = player.Name.TextValue,
+            Server        = player.HomeWorld.Value.Name.ToString(),
+            Zone          = CurrentZone,
+            TerritoryId   = (int)ClientState.TerritoryType > 0
+                                ? (int)ClientState.TerritoryType
+                                : null,
+        };
+        _ = Task.Run(async () => await Api.SetRpAvailableAsync(request));
+    }
 
     internal static bool IsLocalPlayerAvailable()
     {
@@ -141,22 +278,34 @@ public sealed class Plugin : IDalamudPlugin
             Config.Version = 2;
             Config.Save();
         }
+
+        // La fiche RP et la disponibilité deviennent propres à chaque
+        // personnage : reporter l'ancien état commun au compte.
+        Config.MigrateToPerCharacter();
         Api    = new ApiClient(Config.BaseUrl, Config.ApiToken);
+
+        // Les abonnements IPC sont inertes tant que Lifestream n'est pas là :
+        // les créer tôt évite de tester sa présence à chaque affichage.
+        Lifestream = new Ipc.LifestreamIpc(PluginInterface);
+
+        // Avant la création des fenêtres : l'atlas se construit en tâche de fond,
+        // les premières frames retombent sur la police Dalamud.
+        Ui.Fonts.Build(PluginInterface);
 
         _mainWindow        = new MainWindow(Config);
         _sessionWindow     = new MySessionWindow(Config);
-        _configWindow      = new ConfigWindow(Config);
         _setupWindow       = new SetupWindow(Config);
         _estabDetailWindow = new EstabDetailWindow(Config);
         _rpProfileWindow    = new RpProfileWindow(Config);
         _announcementWindow = new RpAnnouncementWindow(Config);
+        _whatsNewWindow     = new WhatsNewWindow(Config);
         _windowSystem.AddWindow(_mainWindow);
         _windowSystem.AddWindow(_sessionWindow);
-        _windowSystem.AddWindow(_configWindow);
         _windowSystem.AddWindow(_setupWindow);
         _windowSystem.AddWindow(_estabDetailWindow);
         _windowSystem.AddWindow(_rpProfileWindow);
         _windowSystem.AddWindow(_announcementWindow);
+        _windowSystem.AddWindow(_whatsNewWindow);
 
         CommandManager.AddHandler(CommandMain, new CommandInfo(OnCommand)
         {
@@ -170,6 +319,7 @@ public sealed class Plugin : IDalamudPlugin
         ClientState.TerritoryChanged            += OnTerritoryChanged;
         NamePlateGui.OnNamePlateUpdate          += OnNamePlateUpdate;
         ClientState.Login                       += OnLogin;
+        ContextMenu.OnMenuOpened                += OnMenuOpened;
 
         // DTR bar entries
         _dtrRp = DtrBar.Get("EorzeaEvents_RP");
@@ -188,7 +338,7 @@ public sealed class Plugin : IDalamudPlugin
         _dtrRpAvail.Tooltip = new SeStringBuilder().AddText(L.DtrRpAvailTooltip).Build();
         _dtrRpAvail.OnClick = e =>
         {
-            if (Config.RpAvailabilityActive)
+            if (CurrentCharacterAvailable)
             {
                 Task.Run(ClearRpAvailabilityAsync);
                 return;
@@ -209,7 +359,7 @@ public sealed class Plugin : IDalamudPlugin
                 var ok = await Api.SetRpAvailableAsync(req);
                 if (ok)
                 {
-                    Config.RpAvailabilityActive = true;
+                    CurrentCharacterAvailable = true;
                     Config.Save();
                     _ = Framework.RunOnFrameworkThread(UpdateDtrRpAvail);
                 }
@@ -278,6 +428,10 @@ public sealed class Plugin : IDalamudPlugin
             OpenMain();
     }
 
+    /// <summary>
+    /// Ouvre les réglages. Ils vivent désormais dans la coque principale, ce
+    /// que l'engrenage de la liste des plugins doit aussi atteindre.
+    /// </summary>
     internal static void OpenConfig()
     {
         if (IsBlocked)
@@ -285,9 +439,13 @@ public sealed class Plugin : IDalamudPlugin
             OpenMain();
             return;
         }
-        if (_configWindow != null) _configWindow.IsOpen = true;
+        _mainWindow?.OpenAt("settings");
     }
     internal static void OpenMain()       { if (_mainWindow    != null) _mainWindow.IsOpen    = true; }
+
+    /// <summary>Rouvre les nouveautés à la demande, depuis les réglages.</summary>
+    internal static void OpenWhatsNew() => _whatsNewWindow?.Open();
+
     internal static void OpenEstabDetail(EorzeaEventsPlugin.Api.EstablishmentDto estab)
         { _estabDetailWindow?.Open(estab); }
     internal static void OpenEstabDetail(EorzeaEventsPlugin.Api.EstablishmentSummaryDto estab)
@@ -301,14 +459,42 @@ public sealed class Plugin : IDalamudPlugin
         }
         if (_sessionWindow != null) _sessionWindow.IsOpen = true;
     }
+    /// <summary>
+    /// Ouvre la page « Mon profil RP » de la coque, qui remplace l'ancien
+    /// assistant en fenêtre séparée.
+    /// </summary>
     internal static void OpenRpProfileWizard()
     {
         if (IsBlocked) { OpenMain(); return; }
-        _rpProfileWindow?.OpenWizard();
+        _mainWindow?.OpenAt("profile");
+    }
+
+    /// <summary>
+    /// Ouvre sa propre fiche telle que les autres la voient, en passant par la
+    /// route publique plutôt qu'en simulant la redaction côté plugin.
+    /// </summary>
+    internal static void OpenRpProfilePreview(string characterId, string characterName, string? server)
+    {
+        if (IsBlocked)
+        {
+            OpenMain();
+            return;
+        }
+
+        _rpProfileWindow?.OpenPreview(characterId, characterName, server);
     }
 
     internal static void OpenRpProfileViewer(Api.RpAvailabilityEntryDto entry)
     {
+        // Même garde que OpenConfig et OpenSetup : quand le plugin est bloqué par
+        // le gate de version, seule la fenêtre principale doit s'ouvrir, pour y
+        // afficher le message de mise à jour.
+        if (IsBlocked)
+        {
+            OpenMain();
+            return;
+        }
+
         _rpProfileWindow?.OpenViewer(entry);
     }
 
@@ -322,7 +508,6 @@ public sealed class Plugin : IDalamudPlugin
         // Fermer toutes les autres fenêtres avant de rouvrir l'assistant
         if (_mainWindow    != null) _mainWindow.IsOpen    = false;
         if (_sessionWindow != null) _sessionWindow.IsOpen = false;
-        if (_configWindow  != null) _configWindow.IsOpen  = false;
         _setupWindow?.Restart(tokenInvalid, migration);
     }
     internal static bool HasActiveSession => _sessionWindow?.HasActiveSession ?? false;
@@ -347,7 +532,7 @@ public sealed class Plugin : IDalamudPlugin
     {
         if (_dtrRpAvail == null) return;
         var sb = new SeStringBuilder();
-        if (Config.RpAvailabilityActive)
+        if (CurrentCharacterAvailable)
         {
             sb.AddUiGlow(52);
             sb.AddText("♦");
@@ -673,8 +858,10 @@ public sealed class Plugin : IDalamudPlugin
             return;
         }
 
-        // Sessions RP (5s)
-        if ((Config.NotifyRpLive || Config.NotifyRpLiveChat) && (now - _lastNotifCheck).TotalSeconds >= 5)
+        // Sessions RP (5 s). Volontairement inconditionnel : ce relevé alimente
+        // aussi la barre de statut et la liste de la fenêtre, qui se figeaient
+        // dès qu'on coupait les notifications.
+        if ((now - _lastNotifCheck).TotalSeconds >= 5)
         {
             _lastNotifCheck = now;
             var currentWorld = ObjectTable.LocalPlayer?.CurrentWorld.Value.Name.ToString();
@@ -705,9 +892,8 @@ public sealed class Plugin : IDalamudPlugin
             var housing   = ClientState.IsLoggedIn ? GetCurrentHousingForHeartbeat() : null;
             Task.Run(async () =>
             {
-                var v = PluginInterface.Manifest.AssemblyVersion;
                 await Api.HeartbeatAsync(
-                    version:       $"{v.Major}.{v.Minor}.{v.Build}",
+                    version:       VersionLabel(),
                     territoryId:   territory > 0 ? territory : null,
                     worldName:     !string.IsNullOrWhiteSpace(world) ? world : null,
                     ward:          housing?.Ward,
@@ -753,9 +939,11 @@ public sealed class Plugin : IDalamudPlugin
         // Mise à jour automatique de la position (5 min, silencieuse, sans propagation Discord)
         _sessionWindow?.AutoRefreshPositionIfDue();
 
-        // Disponibilités RP (60 s) — seulement si l'indicateur est activé
-        if (Config.ShowRpAvailableIndicator
-            && (now - _lastAvailabilityCheck).TotalSeconds >= AvailabilityPollIntervalSeconds)
+        // Disponibilités RP. Le rafraîchissement n'est plus conditionné à
+        // l'indicateur de nameplate : la page « Autour de moi » et le menu
+        // contextuel s'appuient sur la même liste, et resteraient vides pour qui
+        // a désactivé le marqueur.
+        if ((now - _lastAvailabilityCheck).TotalSeconds >= AvailabilityPollIntervalSeconds)
         {
             _lastAvailabilityCheck = now;
             Task.Run(async () => await RefreshAvailablePlayersAsync());
@@ -828,40 +1016,57 @@ public sealed class Plugin : IDalamudPlugin
                     }
                 }
 
-                // Alerte "dans votre zone" — ShowQuest pour le son + style doré
+                // Filtre « mon monde ». Sans objet pour une session de ma zone,
+                // qui est par construction sur mon monde.
+                if (!isNearby && Config.NotifyMyWorld
+                    && currentWorld != null && session.Server != currentWorld) continue;
+
+                // Un seul bandeau à l'écran : celui de proximité, avec son et
+                // style doré, remplace le bandeau générique quand il s'applique.
                 if (isNearby && Config.NotifyNearbyZone)
                 {
                     ToastGui.ShowQuest(
                         string.Format(L.NotifNearbyRp, session.Title),
                         new Dalamud.Game.Gui.Toast.QuestToastOptions { PlaySound = true, DisplayCheckmark = false });
                 }
-                // Notifications globales (filtrées si "mon monde" est coché)
-                else
+                else if (Config.NotifyRpLiveScreen)
                 {
-                    if (Config.NotifyMyWorld && currentWorld != null && session.Server != currentWorld) continue;
-
-                    if (Config.NotifyRpLiveScreen)
-                        ToastGui.ShowNormal(
-                            string.Format(L.NotifNewRpScreen, session.Title, session.Location, session.Server),
-                            new Dalamud.Game.Gui.Toast.ToastOptions { Speed = Dalamud.Game.Gui.Toast.ToastSpeed.Slow });
-
-                    if (Config.NotifyRpLive)
-                        NotificationMgr.AddNotification(new Notification
-                        {
-                            Title           = L.NotifNewRpTitle,
-                            Content         = $"{session.Title} — {session.Location} ({session.Server})",
-                            Type            = NotificationType.Info,
-                            InitialDuration = TimeSpan.FromSeconds(6),
-                        });
-
-                    if (Config.NotifyRpLiveChat)
-                        ChatGui.Print(new SeStringBuilder()
-                            .AddUiForeground(32)
-                            .AddText("[Eorzea Events] ")
-                            .AddUiForegroundOff()
-                            .AddText(string.Format(L.NotifNewRpChat, session.Title, session.Location, session.Server))
-                            .Build());
+                    ToastGui.ShowNormal(
+                        string.Format(L.NotifNewRpScreen, session.Title, session.Location, session.Server),
+                        new Dalamud.Game.Gui.Toast.ToastOptions { Speed = Dalamud.Game.Gui.Toast.ToastSpeed.Slow });
                 }
+
+                // Bulle Dalamud et message de chat s'appliquent dans les deux
+                // cas. Ils étaient auparavant enfermés dans la branche « pas
+                // dans ma zone », si bien qu'une session ouverte à côté de soi,
+                // le cas le plus intéressant, n'écrivait rien dans le chat.
+                if (Config.NotifyRpLive)
+                {
+                    // La valeur de retour était jetée : la conserver permet
+                    // de rendre la bulle cliquable, ce qui évite d'avoir à
+                    // retrouver la session à la main.
+                    var active = NotificationMgr.AddNotification(new Notification
+                    {
+                        Title           = L.NotifNewRpTitle,
+                        Content         = $"{session.Title} - {session.Location} ({session.Server})",
+                        Type            = NotificationType.Info,
+                        InitialDuration = TimeSpan.FromSeconds(6),
+                    });
+
+                    active.Click += _ =>
+                    {
+                        _mainWindow?.OpenAt("rp");
+                        active.DismissNow();
+                    };
+                }
+
+                if (Config.NotifyRpLiveChat)
+                    ChatGui.Print(new SeStringBuilder()
+                        .AddUiForeground(32)
+                        .AddText("[Eorzea Events] ")
+                        .AddUiForegroundOff()
+                        .AddText(string.Format(L.NotifNewRpChat, session.Title, session.Location, session.Server))
+                        .Build());
             }
 
             // Marquer connues : les sessions déjà connues encore présentes + toutes celles
@@ -1031,11 +1236,67 @@ public sealed class Plugin : IDalamudPlugin
         try
         {
             var entries = await Api.GetRpAvailabilitiesAsync();
-            _availablePlayers = entries.ToDictionary(
-                e => (e.CharacterName, e.Server.ToLowerInvariant()),
-                e => (e.Profile?.RpLevel, e.Profile?.ApproachMode));
+
+            // La liste brute est conservée : les nameplates n'ont besoin que du
+            // niveau et du mode d'approche, mais la page « Autour de moi » et le
+            // menu contextuel veulent la fiche entière.
+            AvailableEntries = entries;
+
+            // GroupBy plutôt que ToDictionary : deux personnages homonymes sur le
+            // même monde lèveraient sur clé dupliquée, et le catch silencieux
+            // laisserait alors la liste vide sans que rien ne le signale.
+            _availablePlayers = entries
+                .GroupBy(e => (e.CharacterName, e.Server.ToLowerInvariant()))
+                .ToDictionary(
+                    g => g.Key,
+                    g => (g.First().Profile?.RpLevel, g.First().Profile?.ApproachMode));
         }
         catch { /* silencieux */ }
+    }
+
+    /// <summary>
+    /// Joueur disponible correspondant au nom et au monde donnés, ou null.
+    ///
+    /// Volontairement limité à la liste publique des disponibilités : le plugin
+    /// ne cherche jamais un personnage par son nom côté serveur, ce qui
+    /// reviendrait à exposer un annuaire de joueurs.
+    /// </summary>
+    internal static Api.RpAvailabilityEntryDto? FindAvailableEntry(string? name, string? world)
+    {
+        if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(world)) return null;
+
+        return AvailableEntries.FirstOrDefault(e =>
+            string.Equals(e.CharacterName, name, StringComparison.Ordinal)
+            && string.Equals(e.Server, world, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Ajoute « Voir la fiche RP » au menu contextuel d'un joueur.
+    ///
+    /// L'entrée n'apparaît que pour les joueurs figurant déjà dans la liste
+    /// publique des disponibilités, à laquelle ils ont consenti. C'est une
+    /// contrainte, pas une simplification : résoudre un nom arbitraire côté
+    /// serveur reviendrait à offrir un annuaire de joueurs, ce que
+    /// <c>src/lib/rp-relations.ts</c> proscrit explicitement. Effet de bord
+    /// heureux, un clic droit sur quelqu'un qui n'a pas consenti ne révèle même
+    /// pas qu'il possède une fiche.
+    /// </summary>
+    private void OnMenuOpened(IMenuOpenedArgs args)
+    {
+        if (args.Target is not MenuTargetDefault target) return;
+        if (string.IsNullOrEmpty(target.TargetName)) return;
+
+        // Même rapprochement nom + monde que les nameplates.
+        var entry = FindAvailableEntry(target.TargetName, target.TargetHomeWorld.Value.Name.ToString());
+        if (entry == null) return;
+
+        args.AddMenuItem(new MenuItem
+        {
+            Name        = L.MenuViewRpProfile,
+            PrefixChar  = 'E',
+            PrefixColor = 52, // même teinte que le titre de nameplate
+            OnClicked   = _ => OpenRpProfileViewer(entry),
+        });
     }
 
     private void OnNamePlateUpdate(
@@ -1122,7 +1383,7 @@ public sealed class Plugin : IDalamudPlugin
             var ok = await Api.SetRpAvailableAsync(req);
             if (ok)
             {
-                Config.RpAvailabilityActive = true;
+                CurrentCharacterAvailable = true;
                 Config.Save();
                 _ = Framework.RunOnFrameworkThread(UpdateDtrRpAvail);
             }
@@ -1138,7 +1399,7 @@ public sealed class Plugin : IDalamudPlugin
     internal static async Task ClearRpAvailabilityAsync()
     {
         await Api.ClearRpAvailabilityAsync();
-        Config.RpAvailabilityActive = false;
+        CurrentCharacterAvailable = false;
         Config.Save();
         _ = Framework.RunOnFrameworkThread(UpdateDtrRpAvail);
     }
@@ -1149,7 +1410,7 @@ public sealed class Plugin : IDalamudPlugin
     {
         DoFirstRunCheck();
         _tokenInvalidNotified = false;
-        if (Config.RpAskOnLogin && Config.RpAvailabilityActive)
+        if (Config.RpAskOnLogin && CurrentCharacterAvailable)
             LoginPromptPending = true;
     }
 
@@ -1159,13 +1420,21 @@ public sealed class Plugin : IDalamudPlugin
         if (!ClientState.IsLoggedIn) return;
         _tokenInvalidNotified = true;
 
-        NotificationMgr.AddNotification(new Notification
+        // Un jeton invalide se règle en relançant le couplage : la bulle y mène
+        // directement plutôt que de laisser l'utilisateur chercher.
+        var notification = NotificationMgr.AddNotification(new Notification
         {
             Title           = L.NotifTokenTitle,
             Content         = L.NotifTokenContent,
             Type            = NotificationType.Warning,
             InitialDuration = TimeSpan.FromSeconds(12),
         });
+
+        notification.Click += _ =>
+        {
+            OpenSetup(tokenInvalid: true);
+            notification.DismissNow();
+        };
 
         ChatGui.Print(new SeStringBuilder()
             .AddUiForeground(17) // jaune
@@ -1186,8 +1455,8 @@ public sealed class Plugin : IDalamudPlugin
             var info = await Api.GetVersionInfoAsync();
             if (info == null) return;
 
-            var current     = PluginInterface.Manifest.AssemblyVersion;
-            var currentLabel = $"{current.Major}.{current.Minor}.{current.Build}";
+            var current      = PluginInterface.Manifest.AssemblyVersion;
+            var currentLabel = VersionLabel();
             var minimumStr   = PluginInterface.IsTesting ? info.TestingMinimum : info.Minimum;
             var updateUrl    = string.IsNullOrWhiteSpace(info.UpdateUrl)
                 ? Config.BaseUrl.TrimEnd('/') + "/plugin"
@@ -1279,6 +1548,7 @@ public sealed class Plugin : IDalamudPlugin
         Framework.Update                        -= OnFrameworkUpdate;
         NamePlateGui.OnNamePlateUpdate          -= OnNamePlateUpdate;
         ClientState.Login                       -= OnLogin;
+        ContextMenu.OnMenuOpened                -= OnMenuOpened;
         PluginInterface.UiBuilder.Draw         -= _windowSystem.Draw;
         PluginInterface.UiBuilder.OpenConfigUi -= OpenConfig;
         PluginInterface.UiBuilder.OpenMainUi   -= OpenMain;
@@ -1286,6 +1556,15 @@ public sealed class Plugin : IDalamudPlugin
         _dtrRp?.Remove();
         _dtrEvents?.Remove();
         _dtrRpAvail?.Remove();
+
+        // Après le retrait de UiBuilder.Draw : plus aucune frame ne peut
+        // référencer l'atlas ni les textures pendant leur libération.
+        _windowSystem.RemoveAllWindows();
+        _mainWindow?.Dispose();
+        _estabDetailWindow?.Dispose();
+        Ui.Fonts.Dispose();
+        Ui.Textures.Dispose();
+
         Api.Dispose();
     }
 
@@ -1299,7 +1578,6 @@ public sealed class Plugin : IDalamudPlugin
         BlockedUpdateUrl = updateUrl;
 
         if (_sessionWindow != null) _sessionWindow.IsOpen = false;
-        if (_configWindow != null) _configWindow.IsOpen = false;
         if (_setupWindow != null) _setupWindow.IsOpen = false;
         if (_mainWindow != null) _mainWindow.IsOpen = true;
 

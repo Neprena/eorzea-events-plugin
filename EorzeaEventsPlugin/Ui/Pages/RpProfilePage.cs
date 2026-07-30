@@ -36,6 +36,15 @@ internal sealed class RpProfilePage(Configuration config)
     private bool          _saving;
     private DateTime      _savedUntil = DateTime.MinValue;
 
+    /// <summary>
+    /// Le dernier enregistrement a échoué.
+    ///
+    /// Il ne l'était nulle part : le bouton reprenait son état normal, sans
+    /// « enregistré » ni erreur, et rien ne distinguait un refus de validation
+    /// d'une réussite.
+    /// </summary>
+    private bool _saveFailed;
+
     // Copie de travail des champs éditables en jeu.
     private readonly string[] _hooks = ["", "", "", "", ""];
     private string _currentQuest = string.Empty;
@@ -576,6 +585,14 @@ internal sealed class RpProfilePage(Configuration config)
             return;
         }
 
+        // L'échec reste affiché tant que la fiche n'a pas été réenregistrée :
+        // les modifications sont encore là, elles ne sont simplement pas parties.
+        if (_saveFailed)
+        {
+            Text.WithIcon(Icons.Warning, l.SaveFailed, Theme.Danger, Theme.Danger);
+            Layout.Spacer(Theme.GapXs);
+        }
+
         if (Btn.Draw(_saving ? l.Processing : l.Save, BtnTone.Primary, BtnSize.Medium,
                      Icons.Check, disabled: _saving, id: "rpprofile_save"))
             Save();
@@ -600,19 +617,21 @@ internal sealed class RpProfilePage(Configuration config)
         request.ApproachMode = ApproachKeys[_approachIndex];
         request.Languages    = [.. languages];
         request.Hooks        = [.. _hooks.Where(h => !string.IsNullOrWhiteSpace(h)).Select(h => h.Trim())];
-        request.CurrentQuest = Trimmed(_currentQuest);
+        request.CurrentQuest = Edited(_currentQuest);
 
-        request.Height      = Trimmed(_height);
-        request.Build       = Trimmed(_build);
-        request.Marks       = Trimmed(_marks);
-        request.Voice       = Trimmed(_voice);
-        request.FreeCompany = Trimmed(_freeCompany);
-        request.Allegiance  = Trimmed(_allegiance);
-        request.Quote       = Trimmed(_quote);
+        request.Height      = Edited(_height);
+        request.Build       = Edited(_build);
+        request.Marks       = Edited(_marks);
+        request.Voice       = Edited(_voice);
+        request.FreeCompany = Edited(_freeCompany);
+        request.Allegiance  = Edited(_allegiance);
+        request.Quote       = Edited(_quote);
 
         // L'index 0 vaut « non précisé », que le serveur attend en null : une
         // chaîne vide serait refusée par l'énumération.
-        request.Deity = _deityIndex > 0 ? DeityKeys[_deityIndex] : null;
+        // Chaîne vide et non null : « non précisé » est un choix, et un null
+        // serait omis, donc l'ancienne divinité resterait en base.
+        request.Deity = _deityIndex > 0 ? DeityKeys[_deityIndex] : string.Empty;
 
         // Confidentialité : envoyée seulement si elle a été lue du serveur.
         // Laissés nuls, ces champs sont omis du corps et le serveur conserve les
@@ -634,8 +653,14 @@ internal sealed class RpProfilePage(Configuration config)
             await Plugin.Framework.RunOnFrameworkThread(() =>
             {
                 _saving = false;
-                if (saved == null) return;
 
+                if (saved == null)
+                {
+                    _saveFailed = true;
+                    return;
+                }
+
+                _saveFailed = false;
                 _profile = saved;
                 config.RpProfiles[key] = FromDto(saved);
                 config.Save();
@@ -648,8 +673,19 @@ internal sealed class RpProfilePage(Configuration config)
     // ─── Rendu utilitaire ─────────────────────────────────────────────────────
 
     /// <summary>Une saisie vide vaut absence de valeur, jamais chaîne vide.</summary>
-    private static string? Trimmed(string value) =>
-        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    /// <summary>
+    /// Valeur d'un champ édité dans cette page, prête à être envoyée.
+    ///
+    /// Un champ vidé part en chaîne vide, et non en null : le serveur conserve ce
+    /// qu'il a pour tout champ absent du corps, et le null est omis à la
+    /// sérialisation. Vider une valeur en jeu ne faisait donc rien, alors que
+    /// l'écran affichait « Enregistré ».
+    ///
+    /// La distinction porte tout le contrat : absent veut dire « ce client ne
+    /// touche pas à ce champ », vide veut dire « efface-le ». C'est ce qui permet
+    /// d'effacer sans rouvrir la porte aux écrasements en masse.
+    /// </summary>
+    private static string Edited(string value) => value.Trim();
 
     private static void OpenSite(string path) =>
         System.Diagnostics.Process.Start(

@@ -386,7 +386,7 @@ internal static class RpProfileView
         for (var i = 0; i < themes.Length; i++)
         {
             if (i > 0) ImGui.SameLine(0f, Theme.S(Theme.GapXs));
-            Chip.Draw(ThemeLabel(themes[i]), tone);
+            Chip.Draw(ThemeLabel(themes[i], Plugin.L), tone);
         }
     }
 
@@ -432,19 +432,13 @@ internal static class RpProfileView
         _    => key,
     };
 
-    public static string RaceLabel(string key, Loc l) => key switch
-    {
-        "hyur"     => "Hyur",
-        "elezen"   => "Elézen",
-        "lalafell" => "Lalafell",
-        "miqote"   => "Miqo'te",
-        "roegadyn" => "Roegadyn",
-        "aura"     => "Au Ra",
-        "hrothgar" => "Hrothgar",
-        "viera"    => "Viéra",
-        "other"    => l.RpProfileRaceOther,
-        _          => key,
-    };
+    /// <summary>
+    /// Nom de race traduit. Les orthographes diffèrent d'une langue à l'autre
+    /// (« Elézen » contre « Elezen »), et une valeur inconnue s'affiche telle
+    /// quelle, pour qu'un ajout côté serveur se voie au lieu de se fondre.
+    /// </summary>
+    public static string RaceLabel(string key, Loc l) =>
+        l.RpRaceLabels.TryGetValue(key, out var label) ? label : key;
 
     public static string DeityLabel(string key, Loc l) => key switch
     {
@@ -475,23 +469,17 @@ internal static class RpProfileView
         "student" => l.RpProfileRelationStudent,
         "rival"   => l.RpProfileRelationRival,
         "enemy"   => l.RpProfileRelationEnemy,
-        _         => l.RpProfileRelationOther,
+        "other"   => l.RpProfileRelationOther,
+        // Une valeur inconnue s'affiche telle quelle plutôt que sous « Autre » :
+        // un type de relation ajouté côté serveur doit se voir, pas se déguiser
+        // en catégorie existante.
+        _         => key,
     };
 
-    public static string ThemeLabel(string key) => key switch
-    {
-        "tavern"        => "Taverne",
-        "adventure"     => "Aventure",
-        "drama"         => "Drame",
-        "romance"       => "Romance",
-        "lore"          => "Lore-friendly",
-        "dark"          => "Thèmes sombres",
-        "mystery"       => "Mystère",
-        "intrigue"      => "Intrigue",
-        "combat"        => "Combat",
-        "craft"         => "Artisanat",
-        "slice_of_life" => "Tranche de vie",
-        "politics"      => "Politique",
-        _               => key,
-    };
+    /// <summary>
+    /// Nom de thème traduit. Huit des douze diffèrent entre les deux langues,
+    /// et une valeur inconnue s'affiche telle quelle.
+    /// </summary>
+    public static string ThemeLabel(string key, Loc l) =>
+        l.RpThemeLabels.TryGetValue(key, out var label) ? label : key;
 }

@@ -26,12 +26,22 @@ public class MainWindow : ThemedWindow, IDisposable
 
     private List<RpSessionDto> _sessionsList      = [];
     private bool               _sessionsLoading   = false;
+    /// <summary>
+    /// Le dernier chargement a échoué.
+    ///
+    /// Vider la liste sur une exception faisait passer une panne pour « rien à
+    /// afficher » : l'onglet se présentait vide, sans un mot, et effaçait au
+    /// passage ce qui était déjà à l'écran. On garde donc le contenu précédent
+    /// et on dit ce qui s'est passé.
+    /// </summary>
+    private bool               _sessionsFailed    = false;
     private DateTime           _sessionsLastFetch = DateTime.MinValue;
 
     // ─── Événements ───────────────────────────────────────────────────────────
 
     private List<EventDto> _eventsList      = [];
     private bool           _eventsLoading   = false;
+    private bool           _eventsFailed    = false;
     private DateTime       _eventsLastFetch = DateTime.MinValue;
 
     /// <summary>Filtres de l'agenda, appliqués côté client : l'API ne pagine pas.</summary>
@@ -44,6 +54,7 @@ public class MainWindow : ThemedWindow, IDisposable
 
     private List<EstablishmentDto>                              _estabList           = [];
     private bool                                                _estabLoading        = false;
+    private bool                                                _estabFailed         = false;
     private bool                                                _estabInitialLoaded  = false;
     private string                                              _estabSearchInput    = string.Empty;
 
@@ -496,7 +507,12 @@ public class MainWindow : ThemedWindow, IDisposable
             // Zone • Serveur + bouton carte aligné à droite
             UiPrimitives.DrawIcon(Icons.Location);
             ImGui.SameLine(0, 4);
-            ImGui.TextColored(UiStyle.TextMuted, Glyphs.Safe($"{s.Location}  •  {s.Server}"));
+            // Le nombre de joueurs sur place vient du serveur, qui le calcule à
+            // chaque appel : c'est l'information qui décide d'y aller ou non.
+            var place = s.NearbyCount > 0
+                ? $"{s.Location}  •  {s.Server}  •  {string.Format(l.OnSiteCount, s.NearbyCount)}"
+                : $"{s.Location}  •  {s.Server}";
+            ImGui.TextColored(UiStyle.TextMuted, Glyphs.Safe(place));
             if (s.TerritoryId.HasValue && s.MapId.HasValue && s.PosX.HasValue && s.PosZ.HasValue)
             {
                 var btnX = ImGui.GetWindowWidth()
@@ -566,6 +582,15 @@ public class MainWindow : ThemedWindow, IDisposable
 
         if (visibleEvents.Count == 0)
         {
+            // Une panne n'est pas un agenda vide : le dire, et proposer de
+            // réessayer plutôt que d'envoyer sur le site.
+            if (_eventsFailed)
+            {
+                Feedback.EmptyState(Icons.Warning, l.LoadFailed, null,
+                                    l.Refresh, FetchEvents);
+                return;
+            }
+
             Feedback.EmptyState(Icons.Events, l.EventsNoEvents, l.EventsHideHint,
                                 l.ViewOnline, () => OpenUrl(_config.BaseUrl + "/"));
             DrawHiddenItemsSummary();
@@ -762,6 +787,16 @@ public class MainWindow : ThemedWindow, IDisposable
                     Chip.Draw(l.EventsOfficial, ChipTone.Gold, Icons.Sparkle);
                 }
 
+                // Joueurs détectés sur place, comme sur la page d'accueil du
+                // site : c'est ce qui distingue un événement qui bat son plein
+                // d'une salle vide.
+                if (ev.NearbyCount > 0)
+                {
+                    ImGui.SameLine(0f, Theme.S(Theme.GapXs));
+                    Chip.Draw(string.Format(l.OnSiteCount, ev.NearbyCount), ChipTone.Neutral,
+                              Icons.Around);
+                }
+
                 if (ev.Cancelled)
                 {
                     ImGui.SameLine(0f, Theme.S(Theme.GapXs));
@@ -896,8 +931,13 @@ public class MainWindow : ThemedWindow, IDisposable
         _eventsLoading = true;
         Task.Run(async () =>
         {
-            try   { _eventsList = await Plugin.Api.GetUpcomingEventsAsync(); _eventsLastFetch = DateTime.UtcNow; }
-            catch { _eventsList = []; }
+            try
+            {
+                _eventsList      = await Plugin.Api.GetUpcomingEventsAsync();
+                _eventsLastFetch = DateTime.UtcNow;
+                _eventsFailed    = false;
+            }
+            catch { _eventsFailed = true; }
             finally { _eventsLoading = false; }
         });
     }
@@ -938,6 +978,13 @@ public class MainWindow : ThemedWindow, IDisposable
 
         if (visibleEstabs.Count == 0)
         {
+            if (_estabFailed)
+            {
+                Feedback.EmptyState(Icons.Warning, l.LoadFailed, null,
+                                    l.Refresh, () => FetchEstablishments(_estabSearchInput));
+                return;
+            }
+
             Feedback.EmptyState(Icons.Venues,
                 _config.HiddenEstablishmentIds.Count > 0 ? l.EstabNoResults : l.EstabSearchHint);
             DrawHiddenEstablishmentsSection();
@@ -1208,9 +1255,10 @@ public class MainWindow : ThemedWindow, IDisposable
                     int j = rng.Next(i + 1);
                     (list[i], list[j]) = (list[j], list[i]);
                 }
-                _estabList = list;
+                _estabList   = list;
+                _estabFailed = false;
             }
-            catch { _estabList = []; }
+            catch { _estabFailed = true; }
             finally { _estabLoading = false; }
         });
     }
@@ -1227,8 +1275,13 @@ public class MainWindow : ThemedWindow, IDisposable
         _sessionsLoading = true;
         Task.Run(async () =>
         {
-            try   { _sessionsList = await Plugin.Api.GetActiveSessionsAsync(); _sessionsLastFetch = DateTime.UtcNow; }
-            catch { _sessionsList = []; }
+            try
+            {
+                _sessionsList      = await Plugin.Api.GetActiveSessionsAsync();
+                _sessionsLastFetch = DateTime.UtcNow;
+                _sessionsFailed    = false;
+            }
+            catch { _sessionsFailed = true; }
             finally { _sessionsLoading = false; }
         });
     }

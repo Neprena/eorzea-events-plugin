@@ -29,12 +29,25 @@ public class RpSessionDto
     [JsonPropertyName("location")]      public string  Location      { get; set; } = string.Empty;
     [JsonPropertyName("server")]        public string  Server        { get; set; } = string.Empty;
     [JsonPropertyName("characterName")] public string? CharacterName { get; set; }
-    [JsonPropertyName("posX")]          public float?  PosX          { get; set; }
-    [JsonPropertyName("posZ")]          public float?  PosZ          { get; set; }
-    [JsonPropertyName("ward")]          public int?    Ward          { get; set; }
-    [JsonPropertyName("plot")]          public int?    Plot          { get; set; }
-    [JsonPropertyName("room")]          public int?    Room          { get; set; }
-    [JsonPropertyName("rawPlot")]       public int?    RawPlot       { get; set; }
+    // Position : toujours sérialisée, y compris nulle.
+    //
+    // Elle est relevée dans le jeu à chaque rafraîchissement, le plugin en est
+    // donc la source de vérité. Omise quand elle est nulle, elle laissait le
+    // serveur conserver l'ancienne : en quittant une maison pour une zone
+    // ouverte, la session restait annoncée à l'adresse du logement, sur le site
+    // comme sur Discord.
+    [JsonPropertyName("posX")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)] public float? PosX { get; set; }
+    [JsonPropertyName("posZ")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)] public float? PosZ { get; set; }
+    [JsonPropertyName("ward")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)] public int? Ward { get; set; }
+    [JsonPropertyName("plot")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)] public int? Plot { get; set; }
+    [JsonPropertyName("room")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)] public int? Room { get; set; }
+    [JsonPropertyName("rawPlot")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)] public int? RawPlot { get; set; }
     [JsonPropertyName("wing")]          public bool?   Wing          { get; set; }
     [JsonPropertyName("endedAt")]       public string? EndedAt       { get; set; }
     [JsonPropertyName("expiresAt")]     public string? ExpiresAt     { get; set; }
@@ -43,6 +56,12 @@ public class RpSessionDto
     [JsonPropertyName("author")]        public RpSessionAuthorDto? Author { get; set; }
     // Anti-spam serveur : false tant que la session a < 5 min → pas de notif in-game.
     [JsonPropertyName("notifyEligible")] public bool   NotifyEligible { get; set; }
+
+    /// <summary>
+    /// Joueurs présents sur place, comptés par le serveur. C'est ce qui décide
+    /// d'aller ou non à un RP ; le serveur payait une agrégation pour rien.
+    /// </summary>
+    [JsonPropertyName("nearbyCount")] public int NearbyCount { get; set; }
 }
 
 public class EstablishmentSummaryDto
@@ -56,6 +75,11 @@ public class EstablishmentSummaryDto
     [JsonPropertyName("ward")]        public int?    Ward        { get; set; }
     [JsonPropertyName("plot")]        public int?    Plot        { get; set; }
     [JsonPropertyName("housingType")] public string? HousingType { get; set; }
+
+    // Sans eux, un lieu en appartement n'a pas d'adresse complète : la parcelle
+    // est nulle, et il ne reste que le quartier.
+    [JsonPropertyName("apartmentNumber")] public int?  ApartmentNumber { get; set; }
+    [JsonPropertyName("wing")]            public bool  Wing            { get; set; }
 }
 
 public class EventDto
@@ -75,6 +99,19 @@ public class EventDto
 
     /// <summary>Bloc iCalendar : « DTSTART:… » puis « RRULE:FREQ=WEEKLY;BYDAY=WE ».</summary>
     [JsonPropertyName("recurrenceRule")] public string? RecurrenceRule { get; set; }
+
+    /// <summary>Compteurs du serveur, dont le nombre d'inscrits.</summary>
+    [JsonPropertyName("_count")] public EventCountsDto? Counts { get; set; }
+
+    /// <summary>
+    /// Joueurs détectés sur place, même mesure que la page d'accueil du site.
+    /// </summary>
+    [JsonPropertyName("nearbyCount")] public int NearbyCount { get; set; }
+}
+
+public class EventCountsDto
+{
+    [JsonPropertyName("attendees")] public int Attendees { get; set; }
 }
 
 public class OnlineCountDto
@@ -757,17 +794,23 @@ public class ApiClient : IDisposable
     }
 
     // Retourne les IDs des sessions actives appartenant à l'utilisateur authentifié
-    public async Task<HashSet<string>> GetMySessionIdsAsync(CancellationToken ct = default)
+    public async Task<HashSet<string>?> GetMySessionIdsAsync(CancellationToken ct = default)
     {
         try
         {
             var res = await _http.GetAsync("api/rp-sessions/mine", ct);
             HandleAuthResponse(res.StatusCode);
-            if (!res.IsSuccessStatusCode) return [];
+
+            // Null sur échec, jamais une liste vide : « aucune session » et « je
+            // n'ai pas pu demander » ne se ressemblent pas. Confondre les deux
+            // faisait disparaître le bouton de reprise, et donc croire la session
+            // terminée alors qu'elle tournait encore côté serveur.
+            if (!res.IsSuccessStatusCode) return null;
+
             var list = await res.Content.ReadFromJsonAsync<List<string>>(JsonOptions, ct);
             return list != null ? [..list] : [];
         }
-        catch { return []; }
+        catch { return null; }
     }
 
     public async Task HeartbeatAsync(
@@ -952,16 +995,51 @@ public class ApiClient : IDisposable
         catch { return null; }
     }
 
-    /// <summary>Ouvre sa fiche à un personnage. Idempotent côté serveur.</summary>
-    public async Task<bool> AddRpFriendAsync(AddRpFriendRequest req, CancellationToken ct = default)
+    /// <summary>Motif d'échec d'un ajout d'ami, pour dire lequel à l'utilisateur.</summary>
+    public enum AddFriendResult { Added, NotFound, LimitReached, NoCharacterToken, Failed }
+
+    /// <summary>
+    /// Ouvre sa fiche à un personnage. Idempotent côté serveur.
+    ///
+    /// Le motif d'échec est distingué : « ce personnage n'a pas de fiche visible
+    /// en jeu », « votre liste est pleine » et « liez un personnage » n'appellent
+    /// pas la même réaction, et un message unique les rendait tous incompréhensibles.
+    /// </summary>
+    public async Task<AddFriendResult> AddRpFriendAsync(AddRpFriendRequest req,
+                                                        CancellationToken ct = default)
     {
         try
         {
             var res = await _http.PostAsJsonAsync("api/rp-friends", req, JsonOptions, ct);
             HandleAuthResponse(res);
-            return res.IsSuccessStatusCode;
+
+            if (res.IsSuccessStatusCode) return AddFriendResult.Added;
+
+            return res.StatusCode switch
+            {
+                System.Net.HttpStatusCode.NotFound  => AddFriendResult.NotFound,
+                System.Net.HttpStatusCode.Conflict  => await IsLimitAsync(res, ct),
+                _                                   => AddFriendResult.Failed,
+            };
         }
-        catch { return false; }
+        catch { return AddFriendResult.Failed; }
+    }
+
+    /// <summary>
+    /// Deux refus partagent le code 409 : la liste pleine et le jeton qui ne
+    /// désigne aucun personnage. Seul le corps les sépare.
+    /// </summary>
+    private static async Task<AddFriendResult> IsLimitAsync(HttpResponseMessage res,
+                                                            CancellationToken ct)
+    {
+        try
+        {
+            var body = await res.Content.ReadAsStringAsync(ct);
+            return body.Contains("friend_limit", StringComparison.Ordinal)
+                ? AddFriendResult.LimitReached
+                : AddFriendResult.NoCharacterToken;
+        }
+        catch { return AddFriendResult.Failed; }
     }
 
     /// <summary>Retire l'accès accordé à un personnage. Idempotent.</summary>

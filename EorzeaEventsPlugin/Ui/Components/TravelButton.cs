@@ -32,10 +32,16 @@ internal static class TravelButton
         }
     }
 
-    /// <summary>Variante pour les cartes d'événement, qui n'ont que le résumé du lieu.</summary>
+    /// <summary>
+    /// Variante pour les cartes d'événement.
+    ///
+    /// Le résumé porte désormais l'appartement et l'aile : ils étaient passés en
+    /// dur à null, si bien qu'un événement en appartement n'était pas atteignable
+    /// depuis sa carte.
+    /// </summary>
     public static void Draw(EstablishmentSummaryDto venue, string id, bool sameLine = false) =>
         Draw(HousingAddress.From(venue.Server, venue.District, venue.Ward, venue.Plot,
-                                 apartmentNumber: null, wing: false, venue.HousingType),
+                                 venue.ApartmentNumber, venue.Wing, venue.HousingType),
              id, sameLine);
 
     /// <summary>Variante pour la fiche complète, seule à porter l'aile et le numéro d'appartement.</summary>

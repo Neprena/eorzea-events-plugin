@@ -1,4 +1,5 @@
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Windowing;
 using System.Numerics;
@@ -48,10 +49,32 @@ public abstract class ThemedWindow : Window
     protected virtual float BackgroundOpacity => 0.94f;
 
     protected ThemedWindow(string name, ImGuiWindowFlags flags = ImGuiWindowFlags.None)
-        : base(name, flags)
+        : base(name, flags | ImGuiWindowFlags.NoCollapse)
     {
         AllowBackgroundBlur = true;
+
+        // Boutons de titre redessinés plutôt que natifs.
+        //
+        // ImGui pose le bouton de repli et la croix l'un contre l'autre, sans
+        // espacement réglable : élargir ItemInnerSpacing n'écartait que le bouton
+        // de menu, celui que Dalamud ajoute, d'où un rendu bancal. Dalamud espace
+        // en revanche correctement les boutons qu'on lui fournit. On retire donc
+        // le repli, dont personne ne se sert en jeu, et on redessine la
+        // fermeture.
+        ShowCloseButton = false;
+        TitleBarButtons.Add(new TitleBarButton
+        {
+            Icon       = FontAwesomeIcon.Times,
+            IconOffset = new Vector2(1.5f, 1f),
+            Click      = _ => OnCloseButton(),
+        });
     }
+
+    /// <summary>
+    /// Fermeture demandée depuis la barre de titre. Les fenêtres qui ferment
+    /// autrement (chrome maison, lightbox) la neutralisent.
+    /// </summary>
+    protected virtual void OnCloseButton() => IsOpen = false;
 
     public override void PreDraw()
     {
@@ -93,7 +116,9 @@ public abstract class ThemedWindow : Window
                                                   : Theme.S(Theme.PadWindowX, Theme.PadWindowY))
             .Var(ImGuiStyleVar.FramePadding,     Theme.S(11f, 6f))
             .Var(ImGuiStyleVar.ItemSpacing,      Theme.S(Theme.GapM, 5f))
-            .Var(ImGuiStyleVar.ItemInnerSpacing, Theme.S(Theme.GapS, 4f))
+            // Sépare aussi les boutons de la barre de titre, ceux que Dalamud
+            // dessine : c'est ce qui leur donne de l'air.
+            .Var(ImGuiStyleVar.ItemInnerSpacing, Theme.S(Theme.GapL, 4f))
             .Var(ImGuiStyleVar.CellPadding,      Theme.S(Theme.GapM, Theme.GapS))
             .Var(ImGuiStyleVar.IndentSpacing,    Theme.S(18f))
             .Var(ImGuiStyleVar.ScrollbarSize,    Theme.S(10f))

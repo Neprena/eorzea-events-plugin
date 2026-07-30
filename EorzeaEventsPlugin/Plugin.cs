@@ -336,7 +336,15 @@ public sealed class Plugin : IDalamudPlugin
     internal static string BlockedUpdateUrl { get; private set; } = string.Empty;
     private static PluginGateMode _gateMode = PluginGateMode.None;
     private DateTime _lastVersionCheck = DateTime.MinValue;
-    private const int VersionCheckIntervalSeconds = 10;
+    /// <summary>
+    /// Intervalle du contrôle de version.
+    ///
+    /// Il était de dix secondes, pour une valeur qui change quelques fois par an :
+    /// chaque client interrogeait donc le site six fois par minute. Cinq minutes
+    /// suffisent largement, y compris pour un blocage d'urgence, qui n'a pas
+    /// besoin de prendre effet à la seconde près.
+    /// </summary>
+    private const int VersionCheckIntervalSeconds = 300;
 
     // Token invalide — notification envoyée une seule fois jusqu'au prochain renouvellement
     private bool _tokenInvalidNotified = false;
@@ -441,7 +449,10 @@ public sealed class Plugin : IDalamudPlugin
         if (!string.IsNullOrWhiteSpace(Config.ApiToken))
             Task.Run(async () =>
             {
-                MySessionIds = await Api.GetMySessionIdsAsync();
+                // Null vaut « je n'ai pas pu demander » : on garde la liste
+                // connue, sans quoi une panne ferait disparaître le bouton de
+                // reprise de session.
+                if (await Api.GetMySessionIdsAsync() is { } ids) MySessionIds = ids;
                 CheckTokenValidity();
             });
 
@@ -793,11 +804,27 @@ public sealed class Plugin : IDalamudPlugin
 
         Task.Run(async () =>
         {
-            var ok = await Api.AddRpFriendAsync(request);
+            var result = await Api.AddRpFriendAsync(request);
             await Framework.RunOnFrameworkThread(() =>
             {
-                if (ok) ChatGui.Print(string.Format(L.RpFriendAdded, label));
-                else    ChatGui.PrintError($"[Eorzea Events] {L.RpFriendAddFailed}");
+                switch (result)
+                {
+                    case EorzeaEventsPlugin.Api.ApiClient.AddFriendResult.Added:
+                        ChatGui.Print(string.Format(L.RpFriendAdded, label));
+                        break;
+                    case EorzeaEventsPlugin.Api.ApiClient.AddFriendResult.NotFound:
+                        ChatGui.PrintError($"[Eorzea Events] {L.RpFriendAddNotFound}");
+                        break;
+                    case EorzeaEventsPlugin.Api.ApiClient.AddFriendResult.LimitReached:
+                        ChatGui.PrintError($"[Eorzea Events] {L.RpFriendAddLimit}");
+                        break;
+                    case EorzeaEventsPlugin.Api.ApiClient.AddFriendResult.NoCharacterToken:
+                        ChatGui.PrintError($"[Eorzea Events] {L.RpFriendNoToken}");
+                        break;
+                    default:
+                        ChatGui.PrintError($"[Eorzea Events] {L.RpFriendAddFailed}");
+                        break;
+                }
 
                 RefreshFriends(force: true);
             });
@@ -1109,7 +1136,10 @@ public sealed class Plugin : IDalamudPlugin
             && (now - _lastMySessionsCheck).TotalSeconds >= MySessionsIntervalSeconds)
         {
             _lastMySessionsCheck = now;
-            Task.Run(async () => { MySessionIds = await Api.GetMySessionIdsAsync(); });
+            Task.Run(async () =>
+            {
+                if (await Api.GetMySessionIdsAsync() is { } ids) MySessionIds = ids;
+            });
         }
 
         // Présence en venue (60 s) — toujours actif si joueur connecté (pas de token requis)
@@ -1406,6 +1436,11 @@ public sealed class Plugin : IDalamudPlugin
 
         if (ev.Establishment.Plot.HasValue)
             parts.Add($"{L.FieldPlot} {ev.Establishment.Plot.Value}");
+
+        // Un appartement n'a pas de parcelle : sans son numéro, l'adresse
+        // annoncée s'arrêtait au quartier.
+        if (ev.Establishment.ApartmentNumber.HasValue)
+            parts.Add($"{L.EstabApartment} {ev.Establishment.ApartmentNumber.Value}");
 
         return parts.Count > 0 ? string.Join(", ", parts) : null;
     }

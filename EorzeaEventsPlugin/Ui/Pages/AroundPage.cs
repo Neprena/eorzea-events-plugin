@@ -101,6 +101,11 @@ internal sealed class AroundPage
         if (entry.Zone is { Length: > 0 } zone)
             Text.WithIcon(Icons.Location, zone, wrap: true);
 
+        // La citation accompagne le portrait dans la charge utile, envoyée pour
+        // étoffer cette liste sans second appel. Elle n'était pas affichée.
+        if (entry.Profile?.Quote is { Length: > 0 } quote)
+            Text.Small($"« {quote} »", Theme.Accent);
+
         if (entry.Profile is { } profile)
         {
             Layout.Spacer(Theme.GapXs);

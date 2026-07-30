@@ -230,7 +230,7 @@ public class MySessionWindow : ThemedWindow
                 {
                     try
                     {
-                        var ids     = await Plugin.Api.GetMySessionIdsAsync();
+                        var ids     = await Plugin.Api.GetMySessionIdsAsync() ?? [];
                         var firstId = ids.Count > 0 ? System.Linq.Enumerable.First(ids) : null;
                         var existing = firstId != null ? await Plugin.Api.GetSessionAsync(firstId) : null;
                         if (existing != null)

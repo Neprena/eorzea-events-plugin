@@ -1,4 +1,5 @@
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface;
 using Dalamud.Interface.Utility.Raii;
 using EorzeaEventsPlugin.Ui.Components;
 using System.Numerics;
@@ -35,7 +36,15 @@ internal static class TitleBar
         var clear = ImGui.GetColorU32(Theme.Alpha(Theme.Accent, 0f));
         dl.AddRectFilledMultiColor(origin, end, glow, clear, clear, glow);
 
-        var buttons    = ImGui.GetFrameHeight() * 2f + Theme.S(Theme.GapM) * 3f;
+        // Boutons carrés calés sur la hauteur de la barre, et non sur la hauteur
+        // d'un cadre ImGui : celle-ci dépend de la police et du padding, si bien
+        // que le fond ne tombait jamais au centre du bandeau. Marge identique en
+        // haut, en bas et à droite.
+        var margin = MathF.Round(Theme.S(Theme.GapS));
+        var side   = MathF.Round(height - margin * 2f);
+        var gap    = MathF.Round(Theme.S(Theme.GapXs));
+        var buttons = side * 2f + gap + margin;
+
         var closeAsked = false;
 
         // ── Zone de déplacement ───────────────────────────────────────────────
@@ -54,23 +63,53 @@ internal static class TitleBar
         }
 
         // ── Actions ───────────────────────────────────────────────────────────
-        var side = ImGui.GetFrameHeight();
-        ImGui.SetCursorScreenPos(new Vector2(end.X - buttons + Theme.S(Theme.GapM),
-                                             origin.Y + (height - side) * 0.5f));
+        var top   = MathF.Round(origin.Y + margin);
+        var right = MathF.Round(end.X - margin);
 
-        // Les boutons héritent du contraste calculé pour le bandeau.
-        using (ImRaii.PushColor(ImGuiCol.Text, Theme.Text))
-        {
-            if (Btn.Icon(Icons.External, "shell_site", BtnTone.Ghost, Plugin.L.ViewOnline))
-                OpenSite();
+        if (IconButton(dl, new Vector2(right - side * 2f - gap, top), side,
+                       Icons.External, "shell_site", Plugin.L.ViewOnline))
+            OpenSite();
 
-            ImGui.SameLine(0f, Theme.S(Theme.GapM));
-            if (Btn.Icon(Icons.Close, "shell_close", BtnTone.Ghost))
-                closeAsked = true;
-        }
+        if (IconButton(dl, new Vector2(right - side, top), side,
+                       Icons.Close, "shell_close"))
+            closeAsked = true;
 
         ImGui.SetCursorScreenPos(new Vector2(origin.X, origin.Y + height));
         return closeAsked;
+    }
+
+    /// <summary>
+    /// Bouton d'icône dessiné à la main.
+    ///
+    /// <c>ImGui.Button</c> dimensionne son fond à partir du cadre courant, donc
+    /// de la police et du padding : sur un bandeau de hauteur fixe, il ne tombait
+    /// pas au centre. Ici le carré est posé aux coordonnées voulues, et le glyphe
+    /// centré sur son encombrement réel.
+    /// </summary>
+    private static bool IconButton(ImDrawListPtr dl, Vector2 position, float side,
+                                   FontAwesomeIcon icon, string id, string? tooltip = null)
+    {
+        ImGui.SetCursorScreenPos(position);
+        var clicked = ImGui.InvisibleButton($"##{id}", new Vector2(side, side));
+        var hovered = ImGui.IsItemHovered();
+
+        if (hovered)
+        {
+            dl.AddRectFilled(position, position + new Vector2(side, side),
+                             ImGui.GetColorU32(Theme.Alpha(Theme.Text, 0.16f)),
+                             Theme.S(Theme.RadiusFrame));
+            ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
+        }
+
+        var glyph = icon.S();
+        var size  = ImGui.CalcTextSize(glyph);
+        dl.AddText(new Vector2(MathF.Round(position.X + (side - size.X) * 0.5f),
+                               MathF.Round(position.Y + (side - size.Y) * 0.5f)),
+                   ImGui.GetColorU32(Theme.Text), glyph);
+
+        if (tooltip != null && hovered) Feedback.Tooltip(tooltip);
+
+        return clicked;
     }
 
     private static void OpenSite() =>

@@ -22,6 +22,9 @@ internal sealed class Loc
     public required string Save       { get; init; }
     public required string Cancel     { get; init; }
     public required string Search     { get; init; }
+    public required string LoadFailed { get; init; }
+    public required string SaveFailed { get; init; }
+    public required string OnSiteCount { get; init; }   // {0} = joueurs présents
     public required string Show       { get; init; }
     public required string Hide       { get; init; }
     public required string Ignore     { get; init; }
@@ -319,6 +322,12 @@ internal sealed class Loc
     public required string RpProfileThemeSong      { get; init; }
     public required string RpProfileExternalLink   { get; init; }
     public required string RpProfileLinks          { get; init; }
+
+    // Thèmes et races : traduits, et non figés dans le code. Ils l'étaient au
+    // motif qu'ils seraient « identiques dans les deux langues », ce qui est
+    // faux pour huit thèmes sur douze et pour deux races.
+    public required Dictionary<string, string> RpThemeLabels { get; init; }
+    public required Dictionary<string, string> RpRaceLabels  { get; init; }
     public required string RpProfileOpenLink       { get; init; }
     public required string RpProfileLimits        { get; init; }
 
@@ -406,6 +415,9 @@ internal sealed class Loc
     public required string RpFriendAdded       { get; init; }
     public required string RpFriendRemoved     { get; init; }
     public required string RpFriendAddFailed   { get; init; }
+    public required string RpFriendAddNotFound { get; init; }
+    public required string RpFriendAddLimit    { get; init; }
+    public required string RpFriendNoToken     { get; init; }
     public required string RpFriendChip        { get; init; }
     public required string RpFriendMutual      { get; init; }
     public required string RpFriendRenamed     { get; init; }
@@ -479,6 +491,9 @@ internal sealed class Loc
         Save       = "Enregistrer",
         Cancel     = "Annuler",
         Search     = "Rechercher",
+        LoadFailed = "Le chargement a échoué. Le site est peut-être injoignable.",
+        SaveFailed = "L'enregistrement a échoué. Rien n'a été modifié sur le site.",
+        OnSiteCount = "{0} sur place",
         Show       = "Afficher",
         Hide       = "Masquer",
         Ignore     = "Ignorer",
@@ -754,6 +769,20 @@ internal sealed class Loc
         RpProfileThemeSong      = "Thème musical",
         RpProfileExternalLink   = "En savoir plus",
         RpProfileLinks          = "Liens",
+        RpThemeLabels = new()
+        {
+            ["tavern"] = "Taverne", ["adventure"] = "Aventure", ["drama"] = "Drame",
+            ["romance"] = "Romance", ["lore"] = "Lore-friendly", ["dark"] = "Thèmes sombres",
+            ["mystery"] = "Mystère", ["intrigue"] = "Intrigue", ["combat"] = "Combat",
+            ["craft"] = "Artisanat", ["slice_of_life"] = "Tranche de vie",
+            ["politics"] = "Politique",
+        },
+        RpRaceLabels = new()
+        {
+            ["hyur"] = "Hyur", ["elezen"] = "Elézen", ["lalafell"] = "Lalafell",
+            ["miqote"] = "Miqo'te", ["roegadyn"] = "Roegadyn", ["aura"] = "Au Ra",
+            ["hrothgar"] = "Hrothgar", ["viera"] = "Viéra", ["other"] = "Autre",
+        },
         RpProfileOpenLink       = "Ouvrir",
         RpProfileLimits         = "Limites",
         RpProfileTraits         = "Traits physiques",
@@ -831,7 +860,10 @@ internal sealed class Loc
         RpFriendAddHint     = "Lui ouvre les sections de VOTRE fiche réservées aux amis. Ne vous donne rien sur la sienne, et il n'en sera pas informé.",
         RpFriendAdded       = "[Eorzea Events] {0} peut désormais voir les sections de votre fiche réservées à vos amis.",
         RpFriendRemoved     = "[Eorzea Events] {0} ne voit plus les sections réservées à vos amis.",
-        RpFriendAddFailed   = "La liste d'amis n'a pas pu être modifiée. Ce personnage n'a peut-être pas de fiche visible en jeu.",
+        RpFriendAddFailed   = "La liste d'amis n'a pas pu être modifiée.",
+        RpFriendAddNotFound = "Ce personnage n'a pas de fiche visible en jeu : il n'y a rien à ouvrir pour lui.",
+        RpFriendAddLimit    = "Votre liste d'amis est pleine. Retirez quelqu'un avant d'ajouter.",
+        RpFriendNoToken     = "Liez ce personnage depuis les réglages pour gérer ses amis RP.",
         RpFriendChip        = "Ami",
         RpFriendMutual      = "Vous a ajouté aussi",
         RpFriendRenamed     = "ajouté sous {0}",
@@ -902,6 +934,9 @@ internal sealed class Loc
         Save       = "Save",
         Cancel     = "Cancel",
         Search     = "Search",
+        LoadFailed = "Loading failed. The website may be unreachable.",
+        SaveFailed = "Saving failed. Nothing was changed on the website.",
+        OnSiteCount = "{0} on site",
         Show       = "Show",
         Hide       = "Hide",
         Ignore     = "Dismiss",
@@ -1177,6 +1212,20 @@ internal sealed class Loc
         RpProfileThemeSong      = "Theme song",
         RpProfileExternalLink   = "Learn more",
         RpProfileLinks          = "Links",
+        RpThemeLabels = new()
+        {
+            ["tavern"] = "Tavern", ["adventure"] = "Adventure", ["drama"] = "Drama",
+            ["romance"] = "Romance", ["lore"] = "Lore-friendly", ["dark"] = "Dark themes",
+            ["mystery"] = "Mystery", ["intrigue"] = "Intrigue", ["combat"] = "Combat",
+            ["craft"] = "Crafting", ["slice_of_life"] = "Slice of life",
+            ["politics"] = "Politics",
+        },
+        RpRaceLabels = new()
+        {
+            ["hyur"] = "Hyur", ["elezen"] = "Elezen", ["lalafell"] = "Lalafell",
+            ["miqote"] = "Miqo'te", ["roegadyn"] = "Roegadyn", ["aura"] = "Au Ra",
+            ["hrothgar"] = "Hrothgar", ["viera"] = "Viera", ["other"] = "Other",
+        },
         RpProfileOpenLink       = "Open",
         RpProfileLimits         = "Limits",
         RpProfileTraits         = "Physical traits",
@@ -1254,7 +1303,10 @@ internal sealed class Loc
         RpFriendAddHint     = "Opens the sections of YOUR profile reserved for friends. Gives you nothing on theirs, and they will not be told.",
         RpFriendAdded       = "[Eorzea Events] {0} can now see the sections of your profile reserved for your friends.",
         RpFriendRemoved     = "[Eorzea Events] {0} no longer sees the sections reserved for your friends.",
-        RpFriendAddFailed   = "The friend list could not be changed. That character may not have a profile visible in game.",
+        RpFriendAddFailed   = "The friend list could not be changed.",
+        RpFriendAddNotFound = "That character has no profile visible in game: there is nothing to open for them.",
+        RpFriendAddLimit    = "Your friend list is full. Remove someone before adding.",
+        RpFriendNoToken     = "Link this character in the settings to manage its RP friends.",
         RpFriendChip        = "Friend",
         RpFriendMutual      = "Added you back",
         RpFriendRenamed     = "added as {0}",

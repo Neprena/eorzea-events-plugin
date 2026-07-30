@@ -3,8 +3,8 @@
     "Author": "Neprena",
     "Name": "Eorzea Events",
     "InternalName": "EorzeaEventsPlugin",
-    "AssemblyVersion": "2.4.0.0",
-    "TestingAssemblyVersion": "2.4.0.0",
+    "AssemblyVersion": "2.4.1.0",
+    "TestingAssemblyVersion": "2.4.1.0",
     "Description": "Gérez vos sessions RP Eorzea Events directement depuis le jeu.",
     "Punchline": "Sessions RP Eorzea Events en un clic.",
     "ApplicableVersion": "any",
@@ -15,10 +15,10 @@
     "DalamudApiLevel": 15,
     "IconUrl": "https://raw.githubusercontent.com/Neprena/eorzea-events-plugin/main/Plugin_Logo.png",
     "RepoUrl": "https://github.com/Neprena/eorzea-events-plugin",
-    "DownloadLinkInstall": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.4.0/EorzeaEventsPlugin.zip",
-    "DownloadLinkTesting": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.4.0/EorzeaEventsPlugin.zip",
-    "DownloadLinkUpdate": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.4.0/EorzeaEventsPlugin.zip",
+    "DownloadLinkInstall": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.4.1/EorzeaEventsPlugin.zip",
+    "DownloadLinkTesting": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.4.1/EorzeaEventsPlugin.zip",
+    "DownloadLinkUpdate": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.4.1/EorzeaEventsPlugin.zip",
     "Changelog": "Nouvelle interface à navigation latérale, agenda des événements par jour, bouton « Y aller » via Lifestream, fiche RP par personnage avec portrait.\nPage « Autour de moi » et clic droit sur un joueur pour consulter sa fiche RP, avec une page partageable sur le site.\nConfidentialité : tu choisis section par section ce que tu montres, et le référencement par les moteurs de recherche est désactivé par défaut.\nOuvre le plugin pour l'historique complet des nouveautés.",
-    "LastUpdate": 1785448679
+    "LastUpdate": 1785455315
   }
 ]

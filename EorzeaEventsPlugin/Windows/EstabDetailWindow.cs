@@ -81,6 +81,20 @@ public class EstabDetailWindow : ThemedWindow, IDisposable
 
         // ── Nom ───────────────────────────────────────────────────────────────
         Text.Title(_estab.Name, Theme.Accent);
+
+        // L'avertissement de contenu figurait sur la carte de la liste et
+        // disparaissait ici, sur l'écran le plus détaillé : c'est précisément
+        // celui où il doit rester.
+        // Mêmes puces que la carte de la liste, qui ne signale que le semi-RP :
+        // le RP complet est l'attendu, il n'a pas de libellé.
+        if (_estab.RpType == "semi_rp")
+        {
+            Chip.Draw(l.EstabSemiRp, ChipTone.Warning);
+            if (_estab.IsNsfw) ImGui.SameLine(0f, Theme.S(Theme.GapXs));
+        }
+
+        if (_estab.IsNsfw) Chip.Draw("18+", ChipTone.Danger);
+
         ImGui.Spacing();
 
         // ── Description ───────────────────────────────────────────────────────

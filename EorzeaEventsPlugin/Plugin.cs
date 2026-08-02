@@ -709,6 +709,62 @@ public sealed class Plugin : IDalamudPlugin
         return ((FFXIVClientStructs.FFXIV.Client.Game.Character.Character*)player.Address)->ContentId;
     }
 
+    /// <summary>
+    /// Instance publique de la zone courante (« Thanalan occidental 2 »).
+    /// 0 = zone non instanciée, cas de la plupart des lieux de RP. null = inconnu.
+    /// </summary>
+    /// <remarks>
+    /// Sert à ne pas compter ensemble, sur un RP ouvert, des joueurs qui ne peuvent
+    /// pas se voir. Dalamud entretient lui-même la valeur (amorcée depuis
+    /// UIState.PublicInstance.InstanceId, puis suivie par un hook sur le changement
+    /// d'instance) : on lit un champ managé, sans pointeur ni contrainte de thread,
+    /// plutôt que de refaire la lecture native.
+    ///
+    /// 0 et null sont deux réponses distinctes : le serveur traite 0 comme une
+    /// valeur exacte et null comme une absence d'information.
+    /// </remarks>
+    internal static uint? GetPublicInstanceId()
+    {
+        try
+        {
+            var id = ClientState.Instance;
+            // Garde-fou : aucune zone n'a cent copies. Une valeur aberrante trahit
+            // une lecture douteuse, qu'on préfère déclarer inconnue.
+            return id <= 100 ? id : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Coordonnées carte du joueur, dans le même repère que la position d'une
+    /// session RP. À appeler sur le thread de jeu.
+    /// </summary>
+    /// <remarks>
+    /// GetLocalPlayerMapCoords lit la carte active et lève tant qu'elle n'est pas
+    /// chargée, ce qui arrive à chaque écran de transition. Appelée depuis la boucle
+    /// de mise à jour, une exception ferait avorter tout le reste du tick (barre de
+    /// statut, disponibilités) : d'où la garde et le filet.
+    /// </remarks>
+    private static (float x, float y)? GetHeartbeatMapCoords()
+    {
+        try
+        {
+            if (ClientState.MapId == 0) return null;
+            if (MapHelper.GetLocalPlayerMapCoords() is { } coords) return coords;
+
+            var player = ObjectTable.LocalPlayer;
+            if (player == null) return null;
+            return MapHelper.WorldToCurrentMapCoords(player.Position.X, player.Position.Z);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     // ─── Amis RP ─────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -1151,10 +1207,14 @@ public sealed class Plugin : IDalamudPlugin
             var world     = ObjectTable.LocalPlayer?.CurrentWorld.Value.Name.ToString();
             if (territory > 0 && !string.IsNullOrWhiteSpace(world))
             {
-                var housing = GetCurrentHousingForHeartbeat();
+                // Tout se lit ici, sur le thread de jeu ; la tâche ne fait qu'envoyer.
+                var housing  = GetCurrentHousingForHeartbeat();
+                var instance = GetPublicInstanceId();
+                var coords   = GetHeartbeatMapCoords();
                 Task.Run(async () => await Api.PresenceHeartbeatAsync(
                     territory, world, Config.ClientId,
-                    ward: housing?.Ward, plot: housing?.Plot, room: housing?.Room));
+                    ward: housing?.Ward, plot: housing?.Plot, room: housing?.Room,
+                    posX: coords?.x, posZ: coords?.y, instanceId: instance));
             }
         }
 

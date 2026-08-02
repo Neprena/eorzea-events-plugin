@@ -183,6 +183,7 @@ public class MySessionWindow : ThemedWindow
             RawPlot       = housing?.RawPlot,
             Duration      = _duration,
             TerritoryId   = terId,
+            InstanceId    = Plugin.GetPublicInstanceId(),
             MapId         = mapId,
             Force         = force,
         };
@@ -295,7 +296,7 @@ public class MySessionWindow : ThemedWindow
             Ward = housing?.Ward, Plot = housing?.Plot, Room = housing?.Room, RawPlot = housing?.RawPlot,
             Location = GetCurrentZone(), Server = GetCurrentWorld(),
             CharacterName = string.IsNullOrEmpty(charName) ? null : charName,
-            TerritoryId = terId, MapId = mapId,
+            TerritoryId = terId, InstanceId = Plugin.GetPublicInstanceId(), MapId = mapId,
             Silent = silent ? true : null,
         };
 

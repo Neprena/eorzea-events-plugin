@@ -535,6 +535,9 @@ public class CreateSessionRequest
     [JsonPropertyName("rawPlot")]       public int?    RawPlot       { get; set; }
     [JsonPropertyName("duration")]      public int     Duration      { get; set; } = 2;
     [JsonPropertyName("territoryId")]   public uint?   TerritoryId   { get; set; }
+    // Instance publique : sans elle, le comptage des personnes sur place
+    // confond les copies d'une zone divisée.
+    [JsonPropertyName("instanceId")]    public uint?   InstanceId    { get; set; }
     [JsonPropertyName("mapId")]         public uint?   MapId         { get; set; }
     [JsonPropertyName("force")]         public bool    Force         { get; set; } = false;
 }
@@ -585,6 +588,8 @@ public class UpdateSessionRequest
     [JsonPropertyName("rawPlot")]       public int?    RawPlot       { get; set; }
     [JsonPropertyName("duration")]      public int?    Duration      { get; set; }
     [JsonPropertyName("territoryId")]   public uint?   TerritoryId   { get; set; }
+    // Suit la position : on peut changer d'instance sans bouger d'un pas.
+    [JsonPropertyName("instanceId")]    public uint?   InstanceId    { get; set; }
     [JsonPropertyName("mapId")]         public uint?   MapId         { get; set; }
     [JsonPropertyName("silent")]        public bool?   Silent        { get; set; }
 }
@@ -889,14 +894,30 @@ public class ApiClient : IDisposable
 
     // Signale la présence du joueur dans un quartier résidentiel (pour le badge "en ligne" sur le site)
     // Utilise le clientId anonyme — pas de token requis
+    /// <remarks>
+    /// La position et l'instance servent au comptage des personnes sur un RP ouvert
+    /// hors logement. Sans elles, le serveur ne sait rapprocher un joueur d'un RP que
+    /// par l'adresse housing, et un RP en zone ouverte annonce toujours zéro personne
+    /// sur place. Ce sont des coordonnées CARTE (celles affichées en jeu), même repère
+    /// que la position d'une session, et non des coordonnées monde.
+    /// </remarks>
     public async Task PresenceHeartbeatAsync(
         uint territoryId, string worldName, string clientId,
         int? ward = null, int? plot = null, int? room = null,
+        float? posX = null, float? posZ = null, uint? instanceId = null,
         CancellationToken ct = default)
     {
         try
         {
-            var body = new { territoryId, worldName, clientId, ward, plot, room };
+            // Arrondi à la décimale : c'est la précision d'une coordonnée affichée
+            // en jeu, et elle suffit largement à mesurer une distance. Inutile de
+            // transmettre une position plus fine que ce qu'on en fait.
+            var body = new
+            {
+                territoryId, worldName, clientId, ward, plot, room, instanceId,
+                posX = posX.HasValue ? MathF.Round(posX.Value, 1) : (float?)null,
+                posZ = posZ.HasValue ? MathF.Round(posZ.Value, 1) : (float?)null,
+            };
             await _publicHttp.PostAsJsonAsync("api/presence/heartbeat", body, ct);
         }
         catch { /* silencieux */ }

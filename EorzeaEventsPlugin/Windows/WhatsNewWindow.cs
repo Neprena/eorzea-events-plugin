@@ -83,7 +83,14 @@ internal sealed class WhatsNewWindow : ThemedWindow
             return;
         }
 
-        IsOpen = ReleaseNotes.For(_version) != null;
+        // Critère volontairement large : « il reste des notes non lues », et non
+        // « la version installée a des notes ». Les versions 2.3.1 à 2.5.0 sont
+        // parties sans entrée dans ReleaseNotes, et la condition précédente a
+        // silencieusement supprimé la fenêtre pendant cinq versions au lieu de
+        // rattraper l'historique en retard.
+        IsOpen = Array.Exists(
+            ReleaseNotes.All,
+            note => ReleaseNotes.IsUnseen(note.Version, _config.LastSeenVersion));
     }
 
     public override void Draw()

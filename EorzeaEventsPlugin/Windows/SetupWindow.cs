@@ -114,6 +114,11 @@ public class SetupWindow : ThemedWindow
         var l = Plugin.L;
         DrawBanner(80f);
 
+        // L'alerte de révocation est réévaluée à chaque frame : si le token est de nouveau
+        // accepté (bascule terminée, refus transitoire passé), elle doit disparaître au lieu
+        // de rester figée sur l'état qui a ouvert l'assistant.
+        var showTokenInvalid = !_isMigration && _tokenInvalid && Plugin.Api.IsTokenRevoked;
+
         // Bannières contextuelles (au plus une à la fois)
         if (_isMigration)
             UiPrimitives.DrawAlert(new Vector4(0.3f, 0.7f, 1f, 1f),
@@ -122,7 +127,7 @@ public class SetupWindow : ThemedWindow
                     if (ImGui.SmallButton(l.SetupMigrationMore + "##moreinfo"))
                         OpenUrl(_config.BaseUrl.TrimEnd('/') + "/plugin/character-tokens");
                 });
-        else if (_tokenInvalid)
+        else if (showTokenInvalid)
             UiPrimitives.DrawAlert(new Vector4(1f, 0.7f, 0.2f, 1f),
                 "⚠  " + l.SetupTokenInvalid, string.Empty, () => { });
 
@@ -203,7 +208,10 @@ public class SetupWindow : ThemedWindow
                 ImGui.TextColored(UiStyle.TextTitle, $"{name} @ {worldName}");
 
                 var existing = _config.FindCharacterToken(name, worldId);
-                if (existing != null)
+                // La présence d'un token en config ne dit rien de sa validité côté serveur :
+                // tant que l'alerte de révocation est affichée, ne pas annoncer que tout va
+                // bien, les deux messages se contrediraient.
+                if (existing != null && !showTokenInvalid)
                 {
                     ImGui.Spacing();
                     ImGui.TextColored(UiStyle.StatusOpen,

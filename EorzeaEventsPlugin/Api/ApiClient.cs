@@ -622,6 +622,21 @@ public class ApiClient : IDisposable
 
     public bool HasToken => _http.DefaultRequestHeaders.Authorization != null;
 
+    /// <summary>
+    /// Nombre de 401 consécutifs reçus sur des requêtes réellement authentifiées.
+    /// Remis à zéro par toute réponse exploitable non-401 et par SetToken.
+    /// </summary>
+    public int ConsecutiveAuthFailures { get; private set; }
+
+    /// <summary>
+    /// Le token n'est considéré comme révoqué qu'après plusieurs 401 consécutifs : un refus
+    /// isolé peut venir d'un aléa serveur (rate limit par IP, bascule de token en cours) et
+    /// ne doit pas déclencher l'assistant de couplage.
+    /// </summary>
+    public bool IsTokenRevoked => ConsecutiveAuthFailures >= RevocationFailureThreshold;
+
+    private const int RevocationFailureThreshold = 3;
+
     public ApiClient(string baseUrl, string? token = null)
     {
         var baseUri = new Uri(baseUrl.TrimEnd('/') + "/");
@@ -647,15 +662,31 @@ public class ApiClient : IDisposable
         }
         IsTokenValid = true;
         IsTokenDeprecated = false;
+        ConsecutiveAuthFailures = 0;
+    }
+
+    /// <summary>
+    /// Met à jour l'état d'authentification d'après le code de statut. Un 401 reçu sur une
+    /// requête sans header Authorization ne dit rien du token : il est ignoré.
+    /// </summary>
+    private void ApplyAuthStatus(System.Net.HttpStatusCode status)
+    {
+        if (status == System.Net.HttpStatusCode.Unauthorized)
+        {
+            if (!HasToken) return;
+            IsTokenValid = false;
+            ConsecutiveAuthFailures++;
+        }
+        else if ((int)status < 500)
+        {
+            IsTokenValid = true;
+            ConsecutiveAuthFailures = 0;
+        }
     }
 
     private void HandleAuthResponse(HttpResponseMessage res)
     {
-        var status = res.StatusCode;
-        if (status == System.Net.HttpStatusCode.Unauthorized)
-            IsTokenValid = false;
-        else if ((int)status < 500)
-            IsTokenValid = true;
+        ApplyAuthStatus(res.StatusCode);
 
         // Avertissement legacy : le serveur signale que ce token doit être migré.
         if (res.Headers.TryGetValues("X-Token-Deprecated", out var values))
@@ -672,13 +703,7 @@ public class ApiClient : IDisposable
     }
 
     // Backward-compat : ancienne signature acceptant juste le code de statut.
-    private void HandleAuthResponse(System.Net.HttpStatusCode status)
-    {
-        if (status == System.Net.HttpStatusCode.Unauthorized)
-            IsTokenValid = false;
-        else if ((int)status < 500)
-            IsTokenValid = true;
-    }
+    private void HandleAuthResponse(System.Net.HttpStatusCode status) => ApplyAuthStatus(status);
 
     // ─── Public read ─────────────────────────────────────────────────────────
 

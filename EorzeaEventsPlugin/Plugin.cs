@@ -680,6 +680,13 @@ public sealed class Plugin : IDalamudPlugin
                 tokenToApply = string.Empty;
             }
         }
+        else if (ClientState.IsLoggedIn)
+        {
+            // Écran de chargement / téléportation : LocalPlayer est null alors que la session
+            // est toujours active. On conserve le token courant. Le retirer ferait partir le
+            // heartbeat sans header Authorization, donc un 401 pris pour une révocation.
+            return;
+        }
         else if (!string.IsNullOrWhiteSpace(Config.ApiToken))
         {
             key = "legacy";
@@ -1157,8 +1164,11 @@ public sealed class Plugin : IDalamudPlugin
         // (lit ObjectTable, donc doit rester sur le framework thread)
         EnsureTokenForActivePlayer();
 
-        // Heartbeat (60 s) — déclenché dès qu'on a au moins un token (legacy OU perso)
-        var hasAnyToken = !string.IsNullOrWhiteSpace(Config.ApiToken) || Config.CharacterTokens.Count > 0;
+        // Heartbeat (60 s), déclenché dès qu'un token (legacy ou perso) est appliqué.
+        // Conditionné au header Authorization réellement posé, et non à la simple présence
+        // d'un token en config : sinon la requête part sans auth pendant les transitions de
+        // zone, et le 401 qui en découle est pris pour une révocation.
+        var hasAnyToken = Api.HasToken;
         if (hasAnyToken
             && (now - _lastHeartbeat).TotalSeconds >= HeartbeatIntervalSeconds)
         {
@@ -1179,9 +1189,12 @@ public sealed class Plugin : IDalamudPlugin
                     room:          housing?.Room,
                     characterName: !string.IsNullOrWhiteSpace(charName) ? charName : null,
                     contentId:     contentId != 0 ? contentId.ToString() : null);
-                CheckTokenValidity();
             });
         }
+
+        // Contrôle de révocation : sur le framework thread (lecture d'ObjectTable) et non dans
+        // la tâche du heartbeat, pour pouvoir vérifier que le joueur est réellement en jeu.
+        CheckTokenValidity();
 
         // Réinitialise le flag si le token a été renouvelé et est redevenu valide
         if (_tokenInvalidNotified && Api.IsTokenValid)
@@ -1725,8 +1738,10 @@ public sealed class Plugin : IDalamudPlugin
 
     private void CheckTokenValidity()
     {
-        if (Api.IsTokenValid || _tokenInvalidNotified) return;
-        if (!ClientState.IsLoggedIn) return;
+        if (!Api.IsTokenRevoked || _tokenInvalidNotified) return;
+        // Le joueur doit être réellement en jeu : pendant un écran de chargement,
+        // IsLoggedIn reste vrai alors que LocalPlayer est null.
+        if (!ClientState.IsLoggedIn || ObjectTable.LocalPlayer == null) return;
         _tokenInvalidNotified = true;
 
         // Un jeton invalide se règle en relançant le couplage : la bulle y mène
@@ -1752,7 +1767,7 @@ public sealed class Plugin : IDalamudPlugin
             .AddText(L.NotifTokenContent)
             .Build());
 
-        Log.Warning("[EorzeaEvents] Token API invalide — 401 reçu sur le heartbeat.");
+        Log.Warning($"[EorzeaEvents] Token API invalide : {Api.ConsecutiveAuthFailures} réponses 401 consécutives sur des requêtes authentifiées.");
 
         OpenSetup(tokenInvalid: true);
     }

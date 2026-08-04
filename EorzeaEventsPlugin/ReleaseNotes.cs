@@ -39,6 +39,19 @@ internal static class ReleaseNotes
     public static readonly ReleaseNote[] All =
     [
         new(
+            Version: "2.5.2",
+            TitleFr: "Plus de faux « lien expiré » après un téléport",
+            TitleEn: "No more false \"link expired\" after a teleport",
+            BodyFr: """
+                    - Après un téléport ou une connexion, le plugin annonçait parfois à tort que **le lien avec le personnage avait expiré**, et rouvrait l'assistant de couplage. Le jeton est maintenant conservé pendant les écrans de chargement.
+                    - Une vraie révocation reste détectée, mais après plusieurs refus consécutifs : un incident réseau passager ne déclenche plus l'alerte.
+                    """,
+            BodyEn: """
+                    - After a teleport or a login, the plugin sometimes wrongly claimed that **the link with your character had expired**, and reopened the linking wizard. The token is now kept across loading screens.
+                    - A genuine revocation is still detected, but only after several consecutive rejections: a passing network hiccup no longer triggers the alert.
+                    """),
+
+        new(
             Version: "2.5.1",
             TitleFr: "L'historique des nouveautés, rattrapé",
             TitleEn: "The what's new history, caught up",

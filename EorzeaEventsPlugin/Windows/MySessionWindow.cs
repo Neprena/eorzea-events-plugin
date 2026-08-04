@@ -428,7 +428,7 @@ public class MySessionWindow : ThemedWindow
         var l = Plugin.L;
         WindowName = l.MySessionTitle + "##mysession";
 
-        if (!Plugin.Api.HasToken || !Plugin.Api.IsTokenValid)
+        if (!Plugin.Api.HasToken || Plugin.Api.IsTokenRevoked)
         {
             var tokenMissing = !Plugin.Api.HasToken;
 

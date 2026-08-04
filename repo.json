@@ -3,8 +3,8 @@
     "Author": "Neprena",
     "Name": "Eorzea Events",
     "InternalName": "EorzeaEventsPlugin",
-    "AssemblyVersion": "2.5.1.0",
-    "TestingAssemblyVersion": "2.5.1.0",
+    "AssemblyVersion": "2.5.2.0",
+    "TestingAssemblyVersion": "2.5.2.0",
     "Description": "Gérez vos sessions RP Eorzea Events directement depuis le jeu.",
     "Punchline": "Sessions RP Eorzea Events en un clic.",
     "ApplicableVersion": "any",
@@ -15,10 +15,10 @@
     "DalamudApiLevel": 15,
     "IconUrl": "https://raw.githubusercontent.com/Neprena/eorzea-events-plugin/main/Plugin_Logo.png",
     "RepoUrl": "https://github.com/Neprena/eorzea-events-plugin",
-    "DownloadLinkInstall": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.5.1/EorzeaEventsPlugin.zip",
-    "DownloadLinkTesting": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.5.1/EorzeaEventsPlugin.zip",
-    "DownloadLinkUpdate": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.5.1/EorzeaEventsPlugin.zip",
-    "Changelog": "Les notes des versions 2.3.1 à 2.5.0 n'avaient jamais été écrites : la fenêtre des nouveautés ne s'ouvrait plus après une mise à jour, et cet encart montrait encore le texte de la 2.3.0. C'est réparé, et l'historique manquant est rattrapé.\nEntre-temps : onglet « Amis RP » et visibilité réservée à tes amis, plus aucun écrasement des réglages faits sur le site, compteur « sur place » dans toutes les zones et non plus seulement en quartier résidentiel, et une panne réseau ne se lit plus comme une liste vide.\nOuvre le plugin pour l'historique complet des nouveautés.",
-    "LastUpdate": 1785708590
+    "DownloadLinkInstall": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.5.2/EorzeaEventsPlugin.zip",
+    "DownloadLinkTesting": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.5.2/EorzeaEventsPlugin.zip",
+    "DownloadLinkUpdate": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.5.2/EorzeaEventsPlugin.zip",
+    "Changelog": "Après un téléport ou une connexion, le plugin annonçait parfois à tort que le lien avec ton personnage avait expiré, et rouvrait l'assistant de couplage. Corrigé : le jeton est conservé pendant les écrans de chargement.\nOuvre le plugin pour l'historique complet des nouveautés.",
+    "LastUpdate": 1785868810
   }
 ]

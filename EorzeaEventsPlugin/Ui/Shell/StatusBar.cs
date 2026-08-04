@@ -35,7 +35,7 @@ internal static class StatusBar
         var mid = origin.Y + height * 0.5f;
 
         // État de la liaison, à gauche.
-        var linked = Plugin.Api.HasToken && Plugin.Api.IsTokenValid;
+        var linked = Plugin.Api.HasToken && !Plugin.Api.IsTokenRevoked;
         dl.AddCircleFilled(new Vector2(origin.X + Theme.S(Theme.PadWindowX), mid),
             Theme.S(3.5f), ImGui.GetColorU32(linked ? Theme.Online : Theme.TextFaint));
 

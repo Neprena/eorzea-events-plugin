@@ -224,7 +224,7 @@ public class MainWindow : ThemedWindow, IDisposable
         // refermable.
         System.Action? fullScreen =
             Plugin.IsBlocked                                ? DrawBlockedScreen
-          : Plugin.Api.HasToken && !Plugin.Api.IsTokenValid ? DrawTokenInvalidScreen
+          : Plugin.Api.HasToken && Plugin.Api.IsTokenRevoked ? DrawTokenInvalidScreen
           : null;
 
         _shell.Draw(out var close, fullScreen);

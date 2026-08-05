@@ -344,6 +344,10 @@ internal sealed class Loc
     public required string RpProfileDeity        { get; init; }
     public required string RpProfileDeityNone    { get; init; }
     public required string RpProfileQuote        { get; init; }
+    /// Étiquette de la ligne de disponibilité dans l'entête de la fiche. Le
+    /// texte seul ne se comprenait pas : « Le soir et les weekends » posé sous
+    /// une citation ne dit pas de quoi il parle, là où le site le nomme.
+    public required string RpProfileAvailabilityLabel { get; init; }
     public required string RpProfileQuoteHint    { get; init; }
 
     // Relations : consultables en jeu, éditables sur le site.
@@ -459,7 +463,28 @@ internal sealed class Loc
     public required string RpProfilePreviewHint      { get; init; }
     public required string RpProfilePreviewHidden    { get; init; }
     public required string RpProfileVisSaveFirst     { get; init; }
+    public required string RpProfileRefreshHint      { get; init; }
+    public required string RpProfileRefreshSaveFirst { get; init; }
     public required string RpProfileDescription      { get; init; }
+
+    // ── Statut d'équipe ───────────────────────────────────────────────────────
+    public required string RpProfileStaffModerator   { get; init; }
+    public required string RpProfileStaffAdmin       { get; init; }
+    public required string RpProfileStaffTitle       { get; init; }
+    public required string RpProfileStaffBadge       { get; init; }
+    public required string RpProfileStaffBadgeHint   { get; init; }
+
+    // ── Habillage réservé aux membres ─────────────────────────────────────────
+    // Un libellé par clé de FrameKeys et TitleAnimKeys (RpProfilePage). Ces
+    // propriétés étant « required », ajouter un style sans son libellé ne compile
+    // pas : c'est le seul garde-fou entre le vocabulaire du serveur et le plugin.
+    public required string RpProfileFrameCorners     { get; init; }
+    public required string RpProfileFrameRipple      { get; init; }
+    public required string RpProfileFrameDuo         { get; init; }
+    public required string RpProfileTitleAnimHalo    { get; init; }
+    public required string RpProfileTitleAnimDuotone { get; init; }
+    public required string RpProfileTitleAnimWave    { get; init; }
+    public required string RpProfileTitleAnimNeon    { get; init; }
 
     // ── Autour de moi ─────────────────────────────────────────────────────────
     public required string TabAround         { get; init; }
@@ -739,7 +764,7 @@ internal sealed class Loc
         RpProfileNoCharacter    = "Connectez-vous en jeu pour voir la fiche de votre personnage.",
         RpProfileEditOnline     = "Modifier sur le site",
         RpProfileWebNoticeTitle = "La fiche complète se remplit sur le site",
-        RpProfileWebNoticeBody  = "En jeu se règle ce qui change souvent en jouant : disponibilité, accroches, traits physiques, appartenances, préférences et visibilité.\n\nLe portrait, l'identité (race, âge, pronoms, origine, métier), les thèmes recherchés et évités, les relations, l'apparence, la personnalité, l'histoire et les limites ne se modifient que sur le site. Ils s'affichent ici en lecture seule.",
+        RpProfileWebNoticeBody  = "En jeu se règle ce qui change souvent en jouant : disponibilité, accroches, traits physiques, appartenances, préférences et visibilité.\n\nLe portrait, la bannière, la couleur d'accent, l'identité (race, âge, pronoms, origine, métier), les thèmes recherchés et évités, les relations, l'apparence, la personnalité, l'histoire et les limites ne se modifient que sur le site. Ils s'affichent ici en lecture seule.",
         RpAvailableEnableHint   = "Les autres rôlistes vous voient dans la liste des joueurs disponibles.",
         RpProfileHooks          = "Accroches",
         RpProfileHooksHint      = "Ce qui donne envie de venir vous parler.",
@@ -797,6 +822,7 @@ internal sealed class Loc
         RpProfileDeity          = "Divinité",
         RpProfileDeityNone      = "Non précisé",
         RpProfileQuote          = "Citation",
+        RpProfileAvailabilityLabel = "Disponibilité",
         RpProfileQuoteHint      = "Une réplique qui résume le personnage.",
         RpProfileRelations      = "Relations",
         RpProfileRelationAlly    = "Allié",
@@ -894,7 +920,7 @@ internal sealed class Loc
         RpProfileVisWebPageHint   = "Crée une adresse que tu peux transmettre. N'inscrit pas ta fiche dans les moteurs de recherche.",
         RpProfileVisIndexable     = "Référencée par les moteurs",
         RpProfileVisIndexableHint = "Ta fiche peut apparaître dans les résultats de recherche. Une fois indexée, elle peut y rester un moment.",
-        RpProfileVisAlwaysPublic  = "Niveau, mode d'approche, langues, thèmes, citation et disponibilité restent visibles dès que ta fiche est visible en jeu : ce sont eux qui alimentent le marqueur sur les plaques de nom.",
+        RpProfileVisAlwaysPublic  = "Niveau, mode d'approche, langues, thèmes, citation et disponibilité restent visibles dès que ta fiche est visible en jeu : ce sont eux qui alimentent le marqueur sur les plaques de nom. La bannière et la couleur d'accent restent visibles également : c'est du décor. Le portrait, lui, suit le réglage de la section Identité.",
         RpProfileVisOwnerNote     = "« {0} » veut dire que la section n'est jamais envoyée aux autres joueurs. Ton texte reste enregistré sur le site.",
         RpProfileAudiencePublic   = "Tout le monde",
         RpProfileAudienceOwner    = "Moi seul",
@@ -904,7 +930,23 @@ internal sealed class Loc
         RpProfilePreviewHint      = "Voici exactement ce que les autres joueurs voient. Les sections réservées ne sont pas envoyées par le serveur, elles sont donc absentes d'ici aussi.",
         RpProfilePreviewHidden    = "Ta fiche n'est pas visible en jeu. Coche « Visible en jeu » pour que les autres puissent la consulter.",
         RpProfileVisSaveFirst     = "Enregistre d'abord : l'aperçu montre ce que le serveur a reçu.",
+        RpProfileRefreshHint      = "Recharge ta fiche depuis le site, pour voir ici les modifications que tu viens d'y faire.",
+        RpProfileRefreshSaveFirst = "Enregistre d'abord : recharger remplacerait ce que tu es en train de saisir.",
         RpProfileDescription      = "Description",
+
+        RpProfileStaffModerator   = "Modération Eorzea Events",
+        RpProfileStaffAdmin       = "Équipe Eorzea Events",
+        RpProfileStaffTitle       = "Membre de l'équipe du site Eorzea Events",
+        RpProfileStaffBadge       = "Afficher mon statut d'équipe",
+        RpProfileStaffBadgeHint   = "Une pastille signale aux autres joueurs que tu fais partie de l'équipe. Utile pour savoir à qui s'adresser en jeu.",
+
+        RpProfileFrameCorners     = "Équerres aux quatre coins, sans mouvement",
+        RpProfileFrameRipple      = "Onde qui s'écarte du cadre",
+        RpProfileFrameDuo         = "Filet bicolore fixe",
+        RpProfileTitleAnimHalo    = "Halo lumineux autour du texte",
+        RpProfileTitleAnimDuotone = "Dégradé bicolore, sans mouvement",
+        RpProfileTitleAnimWave    = "Lettres qui ondulent",
+        RpProfileTitleAnimNeon    = "Vacillement néon",
 
         TabAround         = "Autour de moi",
         AroundCount       = "{0} joueur(s) disponible(s)",
@@ -1182,7 +1224,7 @@ internal sealed class Loc
         RpProfileNoCharacter    = "Log in to the game to see your character's profile.",
         RpProfileEditOnline     = "Edit on the website",
         RpProfileWebNoticeTitle = "The full profile is filled in on the website",
-        RpProfileWebNoticeBody  = "In game you set what changes often while playing: availability, hooks, physical traits, allegiances, preferences and visibility.\n\nThe portrait, identity (race, age, pronouns, origin, occupation), sought and avoided themes, relationships, appearance, personality, background and limits can only be edited on the website. They are shown here read-only.",
+        RpProfileWebNoticeBody  = "In game you set what changes often while playing: availability, hooks, physical traits, allegiances, preferences and visibility.\n\nThe portrait, banner, accent colour, identity (race, age, pronouns, origin, occupation), sought and avoided themes, relationships, appearance, personality, background and limits can only be edited on the website. They are shown here read-only.",
         RpAvailableEnableHint   = "Other roleplayers will see you in the available players list.",
         RpProfileHooks          = "Hooks",
         RpProfileHooksHint      = "What makes people want to come and talk to you.",
@@ -1240,6 +1282,7 @@ internal sealed class Loc
         RpProfileDeity          = "Deity",
         RpProfileDeityNone      = "Unspecified",
         RpProfileQuote          = "Quote",
+        RpProfileAvailabilityLabel = "Availability",
         RpProfileQuoteHint      = "A line that sums the character up.",
         RpProfileRelations      = "Relationships",
         RpProfileRelationAlly    = "Ally",
@@ -1337,7 +1380,7 @@ internal sealed class Loc
         RpProfileVisWebPageHint   = "Creates an address you can pass around. Does not list your profile in search engines.",
         RpProfileVisIndexable     = "Listed in search engines",
         RpProfileVisIndexableHint = "Your profile may appear in search results. Once indexed, it can linger there for a while.",
-        RpProfileVisAlwaysPublic  = "Level, approach style, languages, themes, quote and availability stay visible as soon as your profile is visible in game: they are what drives the nameplate marker.",
+        RpProfileVisAlwaysPublic  = "Level, approach style, languages, themes, quote and availability stay visible as soon as your profile is visible in game: they are what drives the nameplate marker. The banner and accent colour stay visible too: they are decoration. The portrait, however, follows the Identity section setting.",
         RpProfileVisOwnerNote     = "\"{0}\" means the section is never sent to other players. Your text stays saved on the site.",
         RpProfileAudiencePublic   = "Everyone",
         // L'anglais ne s'accorde pas : les deux formes sont identiques, mais la
@@ -1349,7 +1392,23 @@ internal sealed class Loc
         RpProfilePreviewHint      = "This is exactly what other players see. Reserved sections are not sent by the server, so they are missing here too.",
         RpProfilePreviewHidden    = "Your profile is not visible in game. Tick \"Visible in game\" so others can view it.",
         RpProfileVisSaveFirst     = "Save first: the preview shows what the server received.",
+        RpProfileRefreshHint      = "Reload your profile from the website, so the changes you just made there show up here.",
+        RpProfileRefreshSaveFirst = "Save first: reloading would replace what you are currently typing.",
         RpProfileDescription      = "Description",
+
+        RpProfileStaffModerator   = "Eorzea Events moderation",
+        RpProfileStaffAdmin       = "Eorzea Events team",
+        RpProfileStaffTitle       = "Member of the Eorzea Events site team",
+        RpProfileStaffBadge       = "Show my team status",
+        RpProfileStaffBadgeHint   = "A badge tells other players you are part of the team. Handy so they know who to reach out to in game.",
+
+        RpProfileFrameCorners     = "Corner brackets, no motion",
+        RpProfileFrameRipple      = "Ripple spreading from the frame",
+        RpProfileFrameDuo         = "Two-tone outline, no motion",
+        RpProfileTitleAnimHalo    = "Glowing halo around the text",
+        RpProfileTitleAnimDuotone = "Two-tone gradient, no motion",
+        RpProfileTitleAnimWave    = "Letters rippling in a wave",
+        RpProfileTitleAnimNeon    = "Neon flicker",
 
         TabAround         = "Around me",
         AroundCount       = "{0} player(s) available",

@@ -39,6 +39,23 @@ internal static class ReleaseNotes
     public static readonly ReleaseNote[] All =
     [
         new(
+            Version: "2.6.0",
+            TitleFr: "Les fiches RP prennent des couleurs",
+            TitleEn: "RP profiles get their colours",
+            BodyFr: """
+                    - La fiche affiche maintenant la **bannière**, la **couleur d'accent** et le **portrait** réglés sur le site, le portrait chevauchant la bannière comme sur la page web.
+                    - Les **adhérents** débloquent un **cadre de portrait** (sept styles, dont trois sans aucun mouvement), un **titre personnalisé** sous le nom et son **animation** (huit effets), plus une seconde couleur pour le dégradé. Ces réglages se choisissent sur le site.
+                    - L'**équipe du site** peut afficher son statut, avec une case dans les réglages de visibilité ci-dessous. Rien n'est activé par défaut.
+                    - La fiche **se met à jour toute seule** à l'ouverture de la fenêtre après une modification faite sur le site. Un bouton permet aussi de la rafraîchir à la demande, et rien n'est rechargé tant qu'une saisie n'est pas enregistrée.
+                    """,
+            BodyEn: """
+                    - Your profile now shows the **banner**, **accent colour** and **portrait** set on the website, with the portrait overlapping the banner just like the web page.
+                    - **Members** unlock a **portrait frame** (seven styles, three of them completely still), a **custom title** under the name and its **animation** (eight effects), plus a second colour for the gradient. These are chosen on the website.
+                    - The **site team** can show its status, using a checkbox in the visibility settings below. Nothing is enabled by default.
+                    - The profile **refreshes on its own** when you open the window after editing it on the website. A button also refreshes it on demand, and nothing is reloaded while you have unsaved changes.
+                    """),
+
+        new(
             Version: "2.5.2",
             TitleFr: "Plus de faux « lien expiré » après un téléport",
             TitleEn: "No more false \"link expired\" after a teleport",

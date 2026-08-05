@@ -57,6 +57,9 @@ internal static class Icons
     public const FontAwesomeIcon Diamond = FontAwesomeIcon.Gem;
     public const FontAwesomeIcon Chevron = FontAwesomeIcon.ChevronRight;
 
+    /// <summary>Statut d'équipe : modération ou administration.</summary>
+    public const FontAwesomeIcon Shield  = FontAwesomeIcon.ShieldAlt;
+
     // ─── Amis RP ──────────────────────────────────────────────────────────────
     public const FontAwesomeIcon Friend    = FontAwesomeIcon.UserFriends;
     public const FontAwesomeIcon FriendAdd = FontAwesomeIcon.UserPlus;
@@ -72,7 +75,7 @@ internal static class Icons
         RpLive, Around, Events, Venues, Profile, Settings, Debug,
         Location, Character, Housing, Map, World, Clock, Recurring, Language,
         Search, Refresh, External, Close, Hide, Show, Copy, Edit, Plus, Trash, Travel,
-        Warning, Info, Check, Blocked, Sparkle, Diamond, Chevron,
+        Warning, Info, Check, Blocked, Sparkle, Diamond, Chevron, Shield,
         Friend, FriendAdd,
     ];
 

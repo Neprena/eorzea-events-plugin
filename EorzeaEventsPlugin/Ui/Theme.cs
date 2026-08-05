@@ -186,7 +186,12 @@ internal static class Theme
         return FromHsv(hash % 360u / 360f, 0.45f, 0.58f);
     }
 
-    private static Vector4 FromHsv(float h, float s, float v)
+    /// <summary>
+    /// Couleur à partir d'une teinte, d'une saturation et d'une valeur, chacune
+    /// dans [0, 1]. Publique pour le dégradé de titre d'AnimatedText, qui balaie
+    /// la roue des teintes à saturation constante.
+    /// </summary>
+    public static Vector4 FromHsv(float h, float s, float v)
     {
         var i = (int)MathF.Floor(h * 6f);
         var f = h * 6f - i;

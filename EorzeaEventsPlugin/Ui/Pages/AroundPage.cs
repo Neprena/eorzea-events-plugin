@@ -103,19 +103,50 @@ internal sealed class AroundPage
 
         // La citation accompagne le portrait dans la charge utile, envoyée pour
         // étoffer cette liste sans second appel. Elle n'était pas affichée.
+        //
+        // Elle porte la couleur d'accent du joueur, seul rappel de son habillage
+        // dans cette liste : le liseré de la carte reste réservé au statut de
+        // disponibilité, et la bannière n'est pas envoyée pour cette vue.
         if (entry.Profile?.Quote is { Length: > 0 } quote)
-            Text.Small($"« {quote} »", Theme.Accent);
+            Text.Small($"« {quote} »", RpProfileView.Accent(entry.Profile));
 
         if (entry.Profile is { } profile)
         {
             Layout.Spacer(Theme.GapXs);
-            Chip.Draw(RpProfileView.LevelLabel(profile.RpLevel, l), ChipTone.Neutral);
-            ImGui.SameLine(0f, Theme.S(Theme.GapXs));
-            Chip.Draw(RpProfileView.ApproachLabel(profile.ApproachMode, l), ChipTone.Accent);
+
+            // Statut d'équipe en tête des pastilles : savoir à qui s'adresser en
+            // jeu est précisément ce qu'on cherche dans cette liste. Le liseré de
+            // la carte n'en est pas teinté pour autant, il reste réservé à la
+            // disponibilité.
+            // Le badge nomme le site (« Équipe Eorzea Events »), il est donc long,
+            // et cette colonne est étroite : le portrait en mange déjà 128. À la
+            // largeur minimale de la fenêtre, la suite de pastilles dépassait du
+            // bord droit de la carte, où elle se faisait rogner. Chacune ne reste
+            // donc sur la ligne que si elle y tient. Chip.Row fait la même chose,
+            // mais il impose un ton unique et pas d'icône : inutilisable ici.
+            var limit = ImGui.GetCursorPosX() + ImGui.GetContentRegionAvail().X;
+            var gap   = Theme.S(Theme.GapXs);
+
+            void SameLineIfRoom(float width)
+            {
+                if (ImGui.GetCursorPosX() + gap + width <= limit) ImGui.SameLine(0f, gap);
+            }
+
+            // Extrait servi par la route publique des disponibilités : le
+            // consentement y est déjà appliqué, `staffBadgeVisible` n'y figure pas.
+            var hasBadge = RpProfileView.StaffBadge(profile, l, requireConsent: false);
+
+            var level = RpProfileView.LevelLabel(profile.RpLevel, l);
+            if (hasBadge) SameLineIfRoom(Chip.Measure(level));
+            Chip.Draw(level, ChipTone.Neutral);
+
+            var approach = RpProfileView.ApproachLabel(profile.ApproachMode, l);
+            SameLineIfRoom(Chip.Measure(approach));
+            Chip.Draw(approach, ChipTone.Accent);
 
             if (profile.Nsfw)
             {
-                ImGui.SameLine(0f, Theme.S(Theme.GapXs));
+                SameLineIfRoom(Chip.Measure(l.RpProfileNsfw, Icons.Warning));
                 Chip.Draw(l.RpProfileNsfw, ChipTone.Danger, Icons.Warning);
             }
         }

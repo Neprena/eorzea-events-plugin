@@ -261,6 +261,62 @@ public class RpProfileDto
     /// <summary>Portrait téléversé depuis le site, cadré en 3:4.</summary>
     [JsonPropertyName("portraitUrl")] public string? PortraitUrl { get; set; }
 
+    /// <summary>
+    /// Bannière téléversée depuis le site, cadrée en 16:9. Absente des entrées de
+    /// /api/rp-availability, qui n'envoie que la couleur : le cache de textures
+    /// est borné, une bannière par ligne de la liste le ferait tourner en boucle.
+    /// </summary>
+    [JsonPropertyName("bannerUrl")] public string? BannerUrl { get; set; }
+
+    /// <summary>
+    /// Couleur d'accent « #RRGGBB », ou null pour le thème par défaut. À passer
+    /// par Theme.TryParseHex puis Theme.EnsureReadable avant tout affichage : la
+    /// couleur est choisie sur le site, sur fond clair, et peut être illisible ici.
+    /// </summary>
+    [JsonPropertyName("accentColor")] public string? AccentColor { get; set; }
+
+    // ─── Habillage réservé aux membres ────────────────────────────────────────
+    //
+    // Le serveur a déjà tranché : si l'adhésion n'est pas active, ces champs
+    // arrivent nuls. Le plugin ne teste donc jamais l'abonnement, il rend ce
+    // qu'il reçoit.
+
+    /// <summary>
+    /// Seconde couleur du dégradé, « #RRGGBB ». Même précaution que
+    /// <see cref="AccentColor"/> : passer par TryParseHex puis EnsureReadable.
+    /// </summary>
+    [JsonPropertyName("accentColor2")] public string? AccentColor2 { get; set; }
+
+    /// <summary>
+    /// Effet de cadre du portrait : glow, shimmer, orbit, gilded, corners, ripple
+    /// ou duo. Toute autre valeur donne le cadre d'origine.
+    /// </summary>
+    [JsonPropertyName("frameStyle")] public string? FrameStyle { get; set; }
+
+    /// <summary>Titre court affiché sous le nom, 40 caractères au maximum.</summary>
+    [JsonPropertyName("rpTitle")] public string? RpTitle { get; set; }
+
+    /// <summary>
+    /// Animation du titre : sweep, pulse, rainbow, sheen, halo, duotone, wave ou
+    /// neon. Toute autre valeur donne le titre en texte ordinaire.
+    /// </summary>
+    [JsonPropertyName("titleAnimation")] public string? TitleAnimation { get; set; }
+
+    // ─── Statut d'équipe ──────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Consentement d'affichage du statut d'équipe. Réglable en jeu, contrairement
+    /// au rôle lui-même.
+    /// </summary>
+    [JsonPropertyName("staffBadgeVisible")] public bool StaffBadgeVisible { get; set; }
+
+    /// <summary>
+    /// Rôle d'équipe (« MODERATOR » ou « ADMIN »), absent pour tout le monde
+    /// d'autre. Strictement en lecture : il n'existe volontairement pas dans
+    /// <see cref="SaveRpProfileRequest"/>.
+    /// </summary>
+    [JsonPropertyName("staffRole")] public string? StaffRole { get; set; }
+
     [JsonPropertyName("height")] public string? Height { get; set; }
     [JsonPropertyName("build")]  public string? Build  { get; set; }
     [JsonPropertyName("marks")]  public string? Marks  { get; set; }
@@ -394,7 +450,29 @@ public class SaveRpProfileRequest
     [JsonPropertyName("externalUrl")]  public string?  ExternalUrl  { get; set; }
     [JsonPropertyName("isPublic")]     public bool?    IsPublic     { get; set; }
 
+    /// <summary>
+    /// Consentement d'affichage du statut d'équipe. Nullable pour la même raison
+    /// que les trois consentements ci-dessus.
+    /// </summary>
+    [JsonPropertyName("staffBadgeVisible")] public bool? StaffBadgeVisible { get; set; }
+
+    // Le rôle d'équipe (staffRole) est délibérément absent : le serveur le relit
+    // en base à chaque sérialisation, un champ qu'on n'envoie jamais est plus sûr
+    // qu'un champ que le serveur ignore. Ne pas l'ajouter « par symétrie ».
+
     [JsonPropertyName("portraitUrl")] public string? PortraitUrl { get; set; }
+
+    // Apparence : non éditable en jeu, mais recopiée par From() pour ne pas
+    // effacer ce que le joueur a réglé sur le site.
+    [JsonPropertyName("bannerUrl")]   public string? BannerUrl   { get; set; }
+    [JsonPropertyName("accentColor")] public string? AccentColor { get; set; }
+
+    // Habillage réservé aux membres : réglé sur le site, jamais en jeu, mais
+    // recopié par From() pour ne pas l'effacer au premier enregistrement.
+    [JsonPropertyName("accentColor2")]   public string? AccentColor2   { get; set; }
+    [JsonPropertyName("frameStyle")]     public string? FrameStyle     { get; set; }
+    [JsonPropertyName("rpTitle")]        public string? RpTitle        { get; set; }
+    [JsonPropertyName("titleAnimation")] public string? TitleAnimation { get; set; }
 
     [JsonPropertyName("height")] public string? Height { get; set; }
     [JsonPropertyName("build")]  public string? Build  { get; set; }
@@ -450,7 +528,10 @@ public class SaveRpProfileRequest
         Hooks = p.Hooks, CurrentQuest = p.CurrentQuest, AvoidThemes = p.AvoidThemes,
         Limits = p.Limits, Nsfw = p.Nsfw, Availability = p.Availability,
         ExternalUrl = p.ExternalUrl, IsPublic = p.IsPublic,
-        PortraitUrl = p.PortraitUrl,
+        PortraitUrl = p.PortraitUrl, BannerUrl = p.BannerUrl, AccentColor = p.AccentColor,
+        AccentColor2 = p.AccentColor2, FrameStyle = p.FrameStyle,
+        RpTitle = p.RpTitle, TitleAnimation = p.TitleAnimation,
+        StaffBadgeVisible = p.StaffBadgeVisible,
         Height = p.Height, Build = p.Build, Marks = p.Marks, Voice = p.Voice,
         FreeCompany = p.FreeCompany, Allegiance = p.Allegiance, Deity = p.Deity,
         Quote = p.Quote, ThemeSongUrl = p.ThemeSongUrl,

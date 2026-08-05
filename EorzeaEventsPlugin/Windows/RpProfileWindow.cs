@@ -225,9 +225,31 @@ public class RpProfileWindow : ThemedWindow
         Layout.Spacer(Theme.GapS);
     }
 
-    private void FetchFullProfile(string characterId)
+    /// <summary>
+    /// Rejoue l'appel public de l'aperçu, quand la page d'édition se recharge.
+    ///
+    /// L'aperçu ne dérive pas de la fiche du propriétaire, il interroge la route
+    /// publique par un appel distinct : une fois ouvert, il resterait donc figé
+    /// sur l'état d'avant. Sans effet sur la fiche d'un autre joueur, qui n'a
+    /// aucune raison de bouger parce qu'on recharge la sienne.
+    /// </summary>
+    public void RefreshPreview()
     {
-        _viewFull = null;
+        if (!IsOpen || !_isPreview) return;
+        if (_viewCharacterId is not { Length: > 0 } characterId) return;
+
+        FetchFullProfile(characterId, keepCurrent: true);
+    }
+
+    /// <param name="keepCurrent">
+    /// Garde la fiche affichée le temps de la requête. Vrai pour un simple
+    /// rafraîchissement, où la vider ferait clignoter un écran déjà correct ; faux
+    /// quand ce qui va s'afficher change de nature (autre personnage, autre
+    /// audience simulée), auquel cas montrer l'ancien contenu mentirait.
+    /// </param>
+    private void FetchFullProfile(string characterId, bool keepCurrent = false)
+    {
+        if (!keepCurrent) _viewFull = null;
         Task.Run(async () =>
         {
             var full = await Plugin.Api.GetPublicRpProfileAsync(characterId, _previewAsFriend);
@@ -237,10 +259,21 @@ public class RpProfileWindow : ThemedWindow
                 // La fenêtre a pu être rouverte sur un autre personnage entre-temps.
                 if (_viewCharacterId != characterId) return;
 
-                if (full != null) _viewFull = full;
-                // Une réponse vide se distingue d'une attente : sur un aperçu, elle
-                // signifie que la fiche n'est pas visible, ce qu'il faut expliquer.
-                else _viewFetchEmpty = true;
+                if (full != null)
+                {
+                    _viewFull       = full;
+                    _viewFetchEmpty = false;
+                }
+                else
+                {
+                    // Une réponse vide se distingue d'une attente : sur un aperçu,
+                    // elle signifie que la fiche n'est pas visible, ce qu'il faut
+                    // expliquer. Et la fiche gardée le temps de la requête doit
+                    // alors partir : elle n'est plus visible, continuer à l'afficher
+                    // dans l'aperçu dirait exactement le contraire du vrai.
+                    _viewFull       = null;
+                    _viewFetchEmpty = true;
+                }
             });
         });
     }

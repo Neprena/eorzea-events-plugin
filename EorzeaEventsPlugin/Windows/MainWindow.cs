@@ -167,6 +167,18 @@ public class MainWindow : ThemedWindow, IDisposable
     /// </summary>
     public void Dispose() => GC.SuppressFinalize(this);
 
+    /// <summary>
+    /// Point d'accroche de l'ouverture, appelé par Dalamud à la transition
+    /// fermé → ouvert, quelle qu'en soit l'origine (commande, icône, OpenAt).
+    ///
+    /// Les pages qui lisent des données modifiables ailleurs qu'en jeu s'y
+    /// abonnent : sans ça, elles gardent jusqu'au déchargement du plugin ce
+    /// qu'elles ont lu la première fois. C'est un simple signal, chaque page reste
+    /// juge de l'appel réseau, qu'elle ne déclenche qu'une fois réellement
+    /// affichée.
+    /// </summary>
+    public override void OnOpen() => _rpProfile.NotifyWindowOpened();
+
     /// <summary>Ouvre la fenêtre sur une page donnée.</summary>
     public void OpenAt(string pageId)
     {

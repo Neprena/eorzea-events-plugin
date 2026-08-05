@@ -131,6 +131,12 @@ internal static class Card
         var dl = ImGui.GetWindowDrawList();
         Surface.Panel(dl, min, max, bg, border ?? Theme.Border, highlight: banner == null);
 
+        // Pas de dégradé de fond ici, à dessein : la liste de dessin ne sait pas
+        // remplir un rectangle arrondi en dégradé. Un rectangle inséré sous le
+        // rayon laisse des encoches aux angles, un rectangle pleine largeur
+        // déborde des arrondis, et un dégradé plus court que la carte crée une
+        // arête horizontale là où il s'arrête. La teinte plate de `background`
+        // suffit : elle est assez discrète pour ne pas réclamer de fondu.
         if (banner != null) DrawBanner(dl, min, width, Theme.S(bannerHeight), banner);
         if (accent is { } accentColor) Surface.AccentBar(dl, min, max, accentColor);
 

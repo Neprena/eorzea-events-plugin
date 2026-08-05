@@ -543,6 +543,16 @@ public sealed class Plugin : IDalamudPlugin
         _rpProfileWindow?.OpenPreview(characterId, characterName, server);
     }
 
+    /// <summary>
+    /// Rejoue l'appel de l'aperçu quand la page « Mon profil RP » se recharge.
+    ///
+    /// L'aperçu passe par la route publique, donc par un appel distinct de celui
+    /// de la page : rafraîchir l'une sans l'autre laisserait à l'écran deux états
+    /// du même profil, ce qui est précisément ce qu'un aperçu ne doit pas faire.
+    /// Sans effet si la fenêtre est fermée ou montre la fiche d'un autre joueur.
+    /// </summary>
+    internal static void RefreshRpProfilePreview() => _rpProfileWindow?.RefreshPreview();
+
     internal static void OpenRpProfileViewer(Api.RpAvailabilityEntryDto entry)
     {
         // Même garde que OpenConfig et OpenSetup : quand le plugin est bloqué par

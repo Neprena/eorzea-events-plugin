@@ -37,6 +37,28 @@ internal sealed class RpProfilePage(Configuration config)
     private DateTime      _savedUntil = DateTime.MinValue;
 
     /// <summary>
+    /// La fenêtre vient de s'ouvrir, un rafraîchissement est à tenter au premier
+    /// rendu de cette page.
+    ///
+    /// Le signal est consommé dans <see cref="Draw"/> et non traité à l'ouverture :
+    /// Draw n'est appelé que si l'onglet est effectivement affiché, ce qui évite
+    /// un appel réseau pour une page que le joueur ne regarde pas. Effet de bord
+    /// utile : ouvrir la fenêtre sur un autre onglet puis venir ici rafraîchit
+    /// quand même.
+    /// </summary>
+    private bool _refreshPending;
+
+    /// <summary>Horodatage du dernier chargement réseau réussi, pour l'anti-rebond.</summary>
+    private DateTime _lastFetchedAt = DateTime.MinValue;
+
+    /// <summary>
+    /// Délai minimal entre deux rafraîchissements automatiques. Ouvrir et refermer
+    /// la fenêtre trois fois de suite ne doit pas déclencher trois requêtes ; le
+    /// bouton explicite, lui, passe outre, puisqu'il exprime une demande.
+    /// </summary>
+    private static readonly TimeSpan AutoRefreshCooldown = TimeSpan.FromSeconds(30);
+
+    /// <summary>
     /// Le dernier enregistrement a échoué.
     ///
     /// Il ne l'était nulle part : le bouton reprenait son état normal, sans
@@ -67,10 +89,25 @@ internal sealed class RpProfilePage(Configuration config)
     private bool _visInGame = true;
     private bool _visWebPage = true;
     private bool _visIndexable;
+
+    /// <summary>Consentement d'affichage du statut d'équipe, pour qui en a un.</summary>
+    private bool _visStaffBadge;
     private readonly int[] _sectionAudience = new int[SectionKeys.Length];
 
     private static readonly string[] LevelKeys    = ["beginner", "casual", "confirmed"];
     private static readonly string[] ApproachKeys = ["come_to_me", "i_approach", "either"];
+
+    /// <summary>
+    /// Habillage réservé aux membres. Vocabulaires finis, à garder alignés sur
+    /// <c>RP_FRAME_STYLES</c> et <c>RP_TITLE_ANIMATIONS</c> (src/lib/rp-vocabulary.ts) :
+    /// une valeur absente d'un côté serait acceptée puis rendue nulle part.
+    /// L'absence de valeur signifie « aucun effet », elle ne figure donc pas ici.
+    /// </summary>
+    private static readonly string[] FrameKeys =
+        ["glow", "shimmer", "orbit", "gilded", "corners", "ripple", "duo"];
+
+    private static readonly string[] TitleAnimKeys =
+        ["sweep", "pulse", "rainbow", "sheen", "halo", "duotone", "wave", "neon"];
 
     private static readonly string[] SectionKeys =
         ["identity", "hooks", "traits", "belonging", "description", "relations", "limits", "links"];
@@ -105,6 +142,14 @@ internal sealed class RpProfilePage(Configuration config)
         "byregot", "rhalgr", "azeyma", "naldthal", "nophica", "althyk", "other",
     ];
 
+    /// <summary>
+    /// Couleur d'accent de la fiche en cours, déjà rendue lisible sur le thème
+    /// sombre. Recalculée à chaque accès plutôt que mise en cache : _profile est
+    /// remplacé au chargement, un champ figé mentirait après un changement de
+    /// personnage.
+    /// </summary>
+    private Vector4 Tone => RpProfileView.Accent(_profile);
+
     public void Draw()
     {
         var l = Plugin.L;
@@ -117,6 +162,7 @@ internal sealed class RpProfilePage(Configuration config)
 
         var key = Configuration.CharacterKey(character.Name, character.WorldId);
         if (_loadedFor != key) Load(key);
+        else if (_refreshPending) AutoRefresh(key);
 
         using var scroll = ImRaii.Child("##rpprofilescroll", new Vector2(-1f, -1f));
         if (!scroll) return;
@@ -129,6 +175,7 @@ internal sealed class RpProfilePage(Configuration config)
             return;
         }
 
+        DrawActionRow(l);
         DrawWebNotice(l);
         DrawAvailability(l);
         DrawHooks(l);
@@ -138,7 +185,7 @@ internal sealed class RpProfilePage(Configuration config)
         DrawIdentity(l);
         DrawRelations(l);
         DrawStory(l);
-        if (_profile is { } linked) RpProfileView.DrawLinks(linked, l);
+        if (_profile is { } linked) RpProfileView.DrawLinks(linked, l, Tone);
         DrawVisibility(l);
 
         // Respiration en fin de page. Sans elle, la dernière carte est collée au
@@ -149,15 +196,54 @@ internal sealed class RpProfilePage(Configuration config)
 
     // ─── Chargement ───────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// Signale que la fenêtre principale vient de s'ouvrir.
+    ///
+    /// Une fiche modifiée sur le site ne se voyait qu'après un redémarrage du
+    /// plugin : la page ne se chargeait qu'au changement de personnage, et gardait
+    /// donc indéfiniment ce qu'elle avait lu la première fois.
+    /// </summary>
+    public void NotifyWindowOpened() => _refreshPending = true;
+
+    /// <summary>
+    /// Rafraîchissement d'ouverture, sous conditions.
+    ///
+    /// Le signal est consommé quoi qu'il arrive : c'est une ouverture précise
+    /// qu'il représente, pas une intention à conserver jusqu'à ce qu'elle devienne
+    /// réalisable.
+    ///
+    /// Il ne recharge jamais pendant une saisie en cours : <see cref="Load"/>
+    /// repasse par <see cref="Reset"/>, et écraser le travail de l'utilisateur
+    /// serait bien pire que la fiche périmée qu'on corrige ici.
+    /// </summary>
+    private void AutoRefresh(string key)
+    {
+        _refreshPending = false;
+
+        if (_dirty || _loading || _saving) return;
+        if (DateTime.UtcNow - _lastFetchedAt < AutoRefreshCooldown) return;
+
+        Load(key);
+    }
+
     private void Load(string key)
     {
-        _loadedFor = key;
+        // Au changement de personnage seulement : le cache évite un écran vide, le
+        // réseau le rafraîchit ensuite. Sur un rechargement à clé constante, y
+        // repasser ferait clignoter la fiche déjà à l'écran, et la ferait régresser
+        // vers une version partielle (le cache ne porte ni les relations, ni le
+        // rôle d'équipe) le temps de la requête.
+        if (_loadedFor != key)
+        {
+            _loadedFor = key;
+            _profile = config.RpProfiles.TryGetValue(key, out var cached) ? ToDto(cached) : null;
+            _profileFromNetwork = false;
+            Reset();
+        }
 
-        // Le cache évite un écran vide au changement de personnage ; le réseau
-        // le rafraîchit ensuite.
-        _profile = config.RpProfiles.TryGetValue(key, out var cached) ? ToDto(cached) : null;
-        _profileFromNetwork = false;
-        Reset();
+        // L'aperçu interroge la route publique par un appel distinct : sans ce
+        // rappel, la fenêtre ouverte à côté continuerait d'afficher l'état d'avant.
+        Plugin.RefreshRpProfilePreview();
 
         _loading = true;
         _ = Task.Run(async () =>
@@ -170,9 +256,14 @@ internal sealed class RpProfilePage(Configuration config)
 
                 _profile = fetched;
                 _profileFromNetwork = true;
+                _lastFetchedAt = DateTime.UtcNow;
                 config.RpProfiles[key] = FromDto(fetched);
                 config.Save();
-                Reset();
+
+                // L'utilisateur a pu commencer à saisir pendant la requête : ses
+                // champs priment alors sur la réponse, que la fiche lue sert de
+                // base à l'enregistrement suivant.
+                if (!_dirty) Reset();
             });
         });
     }
@@ -203,6 +294,7 @@ internal sealed class RpProfilePage(Configuration config)
         _visInGame    = p?.IsPublic        ?? true;
         _visWebPage   = p?.WebPageEnabled  ?? true;
         _visIndexable = p?.SearchIndexable ?? false;
+        _visStaffBadge = p?.StaffBadgeVisible ?? false;
 
         var audience = ParseSectionVisibility(p?.SectionVisibility);
         for (var i = 0; i < SectionKeys.Length; i++)
@@ -238,30 +330,107 @@ internal sealed class RpProfilePage(Configuration config)
 
     private void DrawHeader((string Name, int WorldId) character, Loc l)
     {
-        using var card = Card.Begin("rp_header", interactive: false);
+        // Même habillage que sur la fiche vue par les autres : sans cela, le
+        // joueur ne verrait jamais en jeu ce qu'il a réglé sur le site.
+        var accent    = RpProfileView.Accent(_profile);
+        var accent2   = RpProfileView.Accent2(_profile);
+        var hasAccent = Theme.TryParseHex(_profile?.AccentColor) != null;
+
+        var banner = Textures.Get(_profile?.BannerUrl);
+
+        // Un effet de cadre sans couleur choisie mérite quand même son liseré.
+        var hasFrame = hasAccent || _profile?.FrameStyle is { Length: > 0 };
+
+        // Relevée avant la carte, comme sur la fiche vue par les autres : c'est
+        // d'elle que se déduit le bas de la bannière, sous lequel le bloc de nom
+        // doit rester.
+        var cardOrigin = ImGui.GetCursorScreenPos();
+
+        using var card = Card.Begin("rp_header", interactive: false,
+            background:   hasAccent ? RpProfileView.HeaderBackground(accent, accent2) : null,
+            accent:       hasAccent ? accent : null,
+            banner:       banner,
+            bannerHeight: RpProfileView.HeaderBanner);
+
+        var overlap = RpProfileView.HeaderOverlap(banner != null);
+        if (overlap > 0f)
+            ImGui.SetCursorPosY(ImGui.GetCursorPosY() - Theme.S(overlap));
 
         RpProfileView.DrawPortrait(_profile?.PortraitUrl, character.Name,
-            status: Plugin.CurrentCharacterAvailable ? Theme.Online : null);
+            height:     RpProfileView.HeaderPortrait,
+            status:     Plugin.CurrentCharacterAvailable ? Theme.Online : null,
+            frame:      hasFrame ? accent : null,
+            frameStyle: _profile?.FrameStyle,
+            frame2:     accent2);
         ImGui.SameLine(0f, Theme.S(Theme.GapM));
 
         ImGui.BeginGroup();
 
         // Le portrait mange une bonne part de la largeur, et ces textes ne se
-        // replient pas d'eux-mêmes : sans borne, un nom RP ou une citation un peu
-        // longue sort de la carte.
+        // replient pas d'eux-mêmes : sans borne, un nom RP un peu long sort de
+        // la carte.
         ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + ImGui.GetContentRegionAvail().X
                               - Card.RightInset);
 
-        Text.Title(_profile?.RpName is { Length: > 0 } rpName ? rpName : character.Name);
-        if (_profile?.Nickname is { Length: > 0 } nickname) Text.Small($"« {nickname} »");
-        if (_profile?.Quote is { Length: > 0 } quote)
-        {
-            Layout.Spacer(Theme.GapXs);
-            Text.Small($"« {quote} »", Theme.Accent);
-        }
+        // Mêmes chaînes pour la mesure et pour le dessin : le bloc de nom est
+        // centré sur la hauteur du portrait, un écart entre les deux se verrait.
+        // Pas de ligne « personnage · serveur » ici, on est sur sa propre fiche.
+        var displayName = _profile?.RpName is { Length: > 0 } rpName ? rpName : character.Name;
+        var nickname    = _profile?.Nickname is { Length: > 0 } nick ? $"« {nick} »" : null;
+
+        // Pas de badge d'équipe dans ce bloc : sur sa propre fiche il reste avec
+        // les chips de synthèse, cet écran ayant sa propre mise en page.
+        RpProfileView.HeaderNameFiller(null, displayName, _profile?.RpTitle, null, nickname,
+                                       RpProfileView.HeaderNameMinTop(cardOrigin, banner != null));
+
+        Text.Title(displayName);
+
+        // Titre court réservé aux membres, à la même place que sur la fiche vue
+        // par les autres.
+        AnimatedText.Draw(_profile?.RpTitle, accent2, _profile?.TitleAnimation, accent);
+
+        if (nickname != null) Text.Small(nickname);
 
         ImGui.PopTextWrapPos();
         ImGui.EndGroup();
+
+        // Citation, disponibilité et chips sous le portrait, comme sur la fiche
+        // vue par les autres.
+        if (_profile?.Quote is { Length: > 0 } quote)
+        {
+            Layout.Spacer(Theme.GapS);
+            Text.Small($"« {quote} »", accent);
+        }
+
+        // Les chips manquaient ici : on ne voyait sur sa propre fiche ni son
+        // niveau, ni ses langues, ni son marquage sensible, alors que les autres
+        // joueurs, eux, les voyaient. Les deux entêtes doivent concorder, au
+        // statut de disponibilité près, qui n'a de sens que sur la sienne.
+        if (_profile is { } p)
+        {
+            Layout.Spacer(Theme.GapS);
+
+            // Sa propre fiche : le payload porte le rôle même sans consentement,
+            // pour que la case qui l'active reste atteignable. C'est donc ici, et
+            // seulement ici, que la case doit être relue avant d'afficher.
+            if (RpProfileView.StaffBadge(p, l, requireConsent: true))
+                ImGui.SameLine(0f, Theme.S(Theme.GapXs));
+
+            Chip.Colored(RpProfileView.LevelLabel(p.RpLevel, l), accent);
+
+            if (p.Languages.Length > 0)
+            {
+                ImGui.SameLine(0f, Theme.S(Theme.GapXs));
+                Chip.Draw(string.Join(" / ", p.Languages.Select(RpProfileView.LanguageLabel)),
+                          ChipTone.Neutral);
+            }
+
+            if (p.Nsfw)
+            {
+                ImGui.SameLine(0f, Theme.S(Theme.GapXs));
+                Chip.Draw(l.RpProfileNsfw, ChipTone.Danger, Icons.Warning);
+            }
+        }
 
         // Le lien vers l'éditeur en ligne vit maintenant dans le bandeau
         // explicatif juste en dessous : deux boutons identiques à l'écran, dont un
@@ -303,7 +472,7 @@ internal sealed class RpProfilePage(Configuration config)
     {
         using var card = Card.Begin("rp_hooks", interactive: false);
 
-        Layout.SectionHeader(l.RpProfileHooks, Icons.Sparkle);
+        Layout.SectionHeader(l.RpProfileHooks, Icons.Sparkle, tone: Tone);
         Text.Small(l.RpProfileHooksHint);
         Layout.Spacer(Theme.GapS);
 
@@ -325,7 +494,7 @@ internal sealed class RpProfilePage(Configuration config)
     {
         using var card = Card.Begin("rp_traits", interactive: false);
 
-        Layout.SectionHeader(l.RpProfileTraits, Icons.Character);
+        Layout.SectionHeader(l.RpProfileTraits, Icons.Character, tone: Tone);
         Text.Small(l.RpProfileTraitsHint);
         Layout.Spacer(Theme.GapS);
 
@@ -344,7 +513,7 @@ internal sealed class RpProfilePage(Configuration config)
     {
         using var card = Card.Begin("rp_belonging", interactive: false);
 
-        Layout.SectionHeader(l.RpProfileBelonging, Icons.World);
+        Layout.SectionHeader(l.RpProfileBelonging, Icons.World, tone: Tone);
 
         if (Inputs.Field("##fc", l.RpProfileFreeCompany, ref _freeCompany, 80)) _dirty = true;
         Layout.Spacer(Theme.GapXs);
@@ -372,7 +541,7 @@ internal sealed class RpProfilePage(Configuration config)
         if (_profile is not { Relations.Length: > 0 } p) return;
 
         using var card = Card.Begin("rp_relations", interactive: false);
-        Layout.SectionHeader(l.RpProfileRelations, Icons.Around, p.Relations.Length);
+        Layout.SectionHeader(l.RpProfileRelations, Icons.Around, p.Relations.Length, tone: Tone);
 
         foreach (var relation in p.Relations)
         {
@@ -392,7 +561,7 @@ internal sealed class RpProfilePage(Configuration config)
     {
         using var card = Card.Begin("rp_prefs", interactive: false);
 
-        Layout.SectionHeader(l.RpProfilePreferences, Icons.Settings);
+        Layout.SectionHeader(l.RpProfilePreferences, Icons.Settings, tone: Tone);
 
         if (Inputs.Select("##rplevel", l.RpProfileLevel, ref _levelIndex,
                           [l.RpProfileLevelBeginner, l.RpProfileLevelCasual, l.RpProfileLevelConfirmed]))
@@ -427,7 +596,7 @@ internal sealed class RpProfilePage(Configuration config)
             Layout.Spacer(Theme.GapS);
             Text.Muted(l.RpProfileThemes);
             Layout.Spacer(Theme.GapXs);
-            RpProfileView.DrawThemeChips(_profile.Themes, ChipTone.Accent);
+            RpProfileView.DrawThemeChips(_profile.Themes, ChipTone.Accent, Tone);
         }
 
         if (_profile is { AvoidThemes.Length: > 0 })
@@ -452,7 +621,8 @@ internal sealed class RpProfilePage(Configuration config)
         if (!hasIdentity) return;
 
         using var card = Card.Begin("rp_identity", interactive: false);
-        Layout.SectionHeader(l.RpProfileIdentity, Icons.Profile);
+        Layout.SectionHeader(l.RpProfileIdentity, Icons.Profile, tone: Tone);
+        RpProfileView.BeginRows();
 
         if (p.Race is { Length: > 0 } race)            RpProfileView.Row(l.RpProfileRace, RpProfileView.RaceLabel(race, l));
         if (p.Age is { Length: > 0 } age)              RpProfileView.Row(l.RpProfileAge, age);
@@ -466,10 +636,16 @@ internal sealed class RpProfilePage(Configuration config)
         var p = _profile;
         if (p == null) return;
 
-        RpProfileView.DrawTextBlock("rp_appearance",  l.RpProfileAppearance,  p.Appearance);
-        RpProfileView.DrawTextBlock("rp_personality", l.RpProfilePersonality, p.Personality);
-        RpProfileView.DrawTextBlock("rp_background",  l.RpProfileBackground,  p.Background);
-        RpProfileView.DrawTextBlock("rp_limits",      l.RpProfileLimits,      p.Limits, Theme.Danger);
+        // Mêmes icônes et même teinte que sur la fiche vue par les autres : les
+        // deux écrans affichent la même fiche et doivent rendre à l'identique.
+        RpProfileView.DrawTextBlock("rp_appearance",  l.RpProfileAppearance,  p.Appearance,
+                                    Icons.Diamond, Tone);
+        RpProfileView.DrawTextBlock("rp_personality", l.RpProfilePersonality, p.Personality,
+                                    Icons.RpLive, Tone);
+        RpProfileView.DrawTextBlock("rp_background",  l.RpProfileBackground,  p.Background,
+                                    Icons.Clock, Tone);
+        RpProfileView.DrawTextBlock("rp_limits",      l.RpProfileLimits,      p.Limits,
+                                    Icons.Warning, Theme.Danger);
     }
 
     /// <summary>
@@ -484,7 +660,7 @@ internal sealed class RpProfilePage(Configuration config)
         if (_profile == null) return;
 
         using var card = Card.Begin("rp_visibility", interactive: false);
-        Layout.SectionHeader(l.RpProfileVisibility, Icons.Hide);
+        Layout.SectionHeader(l.RpProfileVisibility, Icons.Hide, tone: Tone);
 
         Text.Muted(l.RpProfileVisWhere);
         Layout.Spacer(Theme.GapXs);
@@ -495,6 +671,17 @@ internal sealed class RpProfilePage(Configuration config)
             _dirty = true;
         if (Inputs.ToggleRow(l.RpProfileVisIndexable, ref _visIndexable, l.RpProfileVisIndexableHint))
             _dirty = true;
+
+        // Réservé à qui a effectivement un rôle. L'exposition est inoffensive :
+        // le serveur relit le rôle en base au moment de sérialiser la fiche, si
+        // bien qu'un binaire modifié qui afficherait la case malgré tout ne
+        // gagnerait aucun badge.
+        if (_profile?.StaffRole is { Length: > 0 })
+        {
+            if (Inputs.ToggleRow(l.RpProfileStaffBadge, ref _visStaffBadge,
+                                 l.RpProfileStaffBadgeHint, Icons.Shield))
+                _dirty = true;
+        }
 
         Layout.Divider(Theme.GapS);
 
@@ -542,18 +729,43 @@ internal sealed class RpProfilePage(Configuration config)
         Text.Small(l.RpProfileVisAlwaysPublic);
 
         DrawSaveRow(l);
+    }
 
-        // L'aperçu vient après la ligne d'enregistrement : il interroge le
-        // serveur, donc il montre l'état enregistré et non les réglages en cours
-        // de modification. Le placer avant laisserait croire l'inverse.
+    /// <summary>
+    /// Aperçu et rafraîchissement, en tête de page.
+    ///
+    /// L'aperçu vivait en bas, après la ligne d'enregistrement, pour ne pas
+    /// laisser croire qu'il montrerait les réglages en cours : il interroge le
+    /// serveur et rend donc l'état enregistré. Ce n'est pas la position qui
+    /// protège de ce malentendu mais le verrou `disabled: _dirty`, conservé ici,
+    /// qui grise le bouton tant que des modifications ne sont pas enregistrées et
+    /// dit pourquoi en infobulle. En haut, il se trouve là où on le cherche.
+    ///
+    /// Le rafraîchissement porte le même verrou, et pour la même raison en plus
+    /// littérale : recharger écrase la copie de travail.
+    /// </summary>
+    private void DrawActionRow(Loc l)
+    {
         if (_profile?.CharacterId is { Length: > 0 } characterId
             && Plugin.CurrentCharacter is { } character)
         {
-            Layout.Spacer(Theme.GapS);
             if (Btn.Draw(l.RpProfilePreview, BtnTone.Secondary, BtnSize.Medium, Icons.Show,
                          disabled: _dirty, tooltip: _dirty ? l.RpProfileVisSaveFirst : null))
                 Plugin.OpenRpProfilePreview(characterId, character.Name, Plugin.CurrentWorldName());
+
+            ImGui.SameLine(0f, Theme.S(Theme.GapS));
         }
+
+        // Demande explicite : elle ignore l'anti-rebond de l'ouverture. Seule la
+        // saisie en cours la bloque, l'utilisateur perdrait sinon son texte d'un
+        // clic sur un bouton qui ne promet rien de tel.
+        if (Btn.Draw(l.Refresh, BtnTone.Ghost, BtnSize.Medium, Icons.Refresh,
+                     disabled: _dirty || _loading || _saving,
+                     tooltip: _dirty ? l.RpProfileRefreshSaveFirst : l.RpProfileRefreshHint,
+                     id: "rp_refresh"))
+            Load(_loadedFor);
+
+        Layout.Spacer(Theme.GapS);
     }
 
     /// <summary>Libellé d'une section, réutilisant les intitulés déjà traduits.</summary>
@@ -632,6 +844,16 @@ internal sealed class RpProfilePage(Configuration config)
         // Chaîne vide et non null : « non précisé » est un choix, et un null
         // serait omis, donc l'ancienne divinité resterait en base.
         request.Deity = _deityIndex > 0 ? DeityKeys[_deityIndex] : string.Empty;
+
+        // Statut d'équipe : envoyé seulement si le rôle et le consentement ont
+        // été lus du serveur. From() l'a recopié de la fiche connue, mais une
+        // fiche reconstituée du cache le donnerait à false, le cache ne le
+        // stockant pas. Remis à null, il est omis du corps et le serveur garde
+        // le sien.
+        request.StaffBadgeVisible =
+            _profileFromNetwork && _profile?.StaffRole is { Length: > 0 }
+                ? _visStaffBadge
+                : null;
 
         // Confidentialité : envoyée seulement si elle a été lue du serveur.
         // Laissés nuls, ces champs sont omis du corps et le serveur conserve les

@@ -23,6 +23,13 @@ internal enum ChipTone
 /// </summary>
 internal static class Chip
 {
+    /// <summary>
+    /// Rembourrage commun à toutes les pastilles. Regroupé ici plutôt que recopié
+    /// dans chaque fonction : <see cref="Measure"/> et <see cref="Height"/>
+    /// doivent annoncer exactement l'encombrement que <see cref="Draw"/> produit.
+    /// </summary>
+    private static Vector2 Padding => new(Theme.S(Theme.GapM), Theme.S(3f));
+
     /// <summary>Affiche une pastille. Enchaîner avec <c>ImGui.SameLine</c>.</summary>
     /// <param name="alignToFrame">
     /// Centre la pastille sur la hauteur d'un widget encadré. À activer quand
@@ -37,7 +44,7 @@ internal static class Chip
         using var font = Fonts.PushSmall();
 
         var caption = Compose(text, icon);
-        var padding = new Vector2(Theme.S(Theme.GapM), Theme.S(3f));
+        var padding = Padding;
         var size    = ImGui.CalcTextSize(caption) + padding * 2f;
 
         // Le décalage se pose avant de lire la position : le rectangle est peint
@@ -74,7 +81,7 @@ internal static class Chip
         using var font = Fonts.PushSmall();
 
         var caption    = Compose(text, icon);
-        var padding    = new Vector2(Theme.S(Theme.GapM), Theme.S(3f));
+        var padding    = Padding;
         var size       = ImGui.CalcTextSize(caption) + padding * 2f;
         var origin     = ImGui.GetCursorScreenPos();
         var dl         = ImGui.GetWindowDrawList();
@@ -115,7 +122,18 @@ internal static class Chip
     public static float Measure(string text, FontAwesomeIcon? icon = null)
     {
         using var font = Fonts.PushSmall();
-        return ImGui.CalcTextSize(Compose(text, icon)).X + Theme.S(Theme.GapM) * 2f;
+        return ImGui.CalcTextSize(Compose(text, icon)).X + Padding.X * 2f;
+    }
+
+    /// <summary>
+    /// Hauteur qu'occupe une pastille. Indépendante du libellé, toutes étant
+    /// écrites dans la même police : les appelants qui doivent réserver une
+    /// hauteur avant de connaître le texte n'ont donc rien à passer.
+    /// </summary>
+    public static float Height()
+    {
+        using var font = Fonts.PushSmall();
+        return ImGui.GetTextLineHeight() + Padding.Y * 2f;
     }
 
     private static string Compose(string text, FontAwesomeIcon? icon)

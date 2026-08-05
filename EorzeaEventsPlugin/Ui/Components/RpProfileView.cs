@@ -1,5 +1,7 @@
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface;
 using EorzeaEventsPlugin.Api;
+using System.Linq;
 using System.Numerics;
 
 namespace EorzeaEventsPlugin.Ui.Components;
@@ -33,60 +35,408 @@ internal static class RpProfileView
             return;
         }
 
-        DrawHooks(profile, l);
-        DrawPreferences(profile, l);
-        DrawIdentity(profile, l);
-        DrawTraits(profile, l);
-        DrawBelonging(profile, l);
-        DrawRelations(profile, l);
-        DrawStory(profile, l);
-        DrawLinks(profile, l);
+        // Une seule fois par fiche : EnsureReadable coûte un calcul de luminance,
+        // et surtout toutes les sections doivent porter exactement la même teinte.
+        var tone = Accent(profile);
+
+        DrawHooks(profile, l, tone);
+        DrawPreferences(profile, l, tone);
+        DrawIdentity(profile, l, tone);
+        DrawTraits(profile, l, tone);
+        DrawBelonging(profile, l, tone);
+        DrawRelations(profile, l, tone);
+        DrawStory(profile, l, tone);
+        DrawLinks(profile, l, tone);
+    }
+
+    /// <summary>
+    /// Couleur d'accent de la fiche, toujours lisible sur le thème sombre.
+    ///
+    /// La couleur est saisie sur le site, sur un fond clair : une teinte très
+    /// sombre y passe pour élégante et devient invisible ici. EnsureReadable la
+    /// remonte au besoin. Une valeur absente ou malformée retombe sur l'accent
+    /// du thème, ce qui reproduit exactement le rendu d'avant.
+    /// </summary>
+    public static Vector4 Accent(RpProfileDto? profile) =>
+        Theme.EnsureReadable(Theme.TryParseHex(profile?.AccentColor) ?? Theme.Accent);
+
+    /// <summary>
+    /// Seconde couleur du dégradé, réservée aux membres. Symétrique de
+    /// <see cref="Accent"/>, EnsureReadable compris.
+    ///
+    /// Elle retombe sur la première et non sur l'accent du thème : toute moyenne
+    /// des deux vaut alors exactement la première, ce qui rend le rendu d'une
+    /// fiche à une seule couleur strictement identique à celui d'avant.
+    /// </summary>
+    public static Vector4 Accent2(RpProfileDto? profile) =>
+        Theme.EnsureReadable(Theme.TryParseHex(profile?.AccentColor2)
+                             ?? Theme.TryParseHex(profile?.AccentColor)
+                             ?? Theme.Accent);
+
+    /// <summary>
+    /// Teinte de fond de l'entête, moyenne des deux couleurs de la fiche.
+    ///
+    /// Un vrai dégradé bicolore demanderait un AddRectFilledMultiColor sur la
+    /// carte, hors de l'API de <see cref="Card.Begin"/>. Le facteur 0,12 reste le
+    /// plafond, appliqué à la moyenne.
+    /// </summary>
+    internal static Vector4 HeaderBackground(Vector4 accent, Vector4 accent2) =>
+        Theme.Mix(Theme.BgSurface, Theme.Mix(accent, accent2, 0.5f), 0.12f);
+
+    /// <summary>
+    /// Libellé du statut d'équipe, ou null s'il n'y a rien à afficher.
+    ///
+    /// Un rôle inconnu ne donne pas de pastille, plutôt qu'une pastille au
+    /// libellé brut : c'est un signe d'autorité, il ne doit rien afficher qu'on
+    /// ne sache nommer.
+    ///
+    /// <paramref name="requireConsent"/> porte une asymétrie voulue entre les
+    /// deux vues, à NE PAS unifier :
+    ///
+    /// • Vue publique (aperçu, fiche d'autrui, « Autour de moi ») : faux. Ces
+    ///   payloads viennent de la sérialisation publique, qui n'expose PAS
+    ///   `staffBadgeVisible` (exprès : masquer son rôle et ne pas en avoir doivent
+    ///   y être indiscernables, sinon la route anonyme devient un annuaire du
+    ///   staff) et qui met déjà `staffRole` à null quand le consentement manque.
+    ///   Le champ absent du JSON valant false en C#, exiger le consentement ici
+    ///   n'affichait le badge de personne, jamais.
+    ///
+    /// • Vue propriétaire (page d'édition) : vrai. Ce payload-là renvoie
+    ///   `staffRole` même sans consentement, faute de quoi le plugin ne pourrait
+    ///   pas proposer la case qui l'active. C'est donc au client de respecter la
+    ///   case, sinon le badge s'afficherait dans la page d'édition alors qu'elle
+    ///   est décochée.
+    /// </summary>
+    public static string? StaffBadgeLabel(RpProfileDto? profile, Loc l, bool requireConsent)
+    {
+        if (profile == null) return null;
+        if (requireConsent && !profile.StaffBadgeVisible) return null;
+
+        return profile.StaffRole switch
+        {
+            "ADMIN"     => l.RpProfileStaffAdmin,
+            "MODERATOR" => l.RpProfileStaffModerator,
+            _           => null,
+        };
+    }
+
+    /// <summary>
+    /// Pastille de statut d'équipe, dans une couleur de thème FIXE.
+    ///
+    /// Jamais l'accent de la fiche : n'importe qui peut choisir sa couleur sur le
+    /// site, et une pastille teintée par son porteur permettrait de maquiller sa
+    /// fiche pour imiter le vrai badge.
+    /// </summary>
+    /// <param name="requireConsent">
+    /// Voir <see cref="StaffBadgeLabel"/> : faux pour toute vue alimentée par la
+    /// sérialisation publique, vrai pour la page d'édition du propriétaire.
+    /// </param>
+    public static bool StaffBadge(RpProfileDto? profile, Loc l, bool requireConsent)
+    {
+        if (StaffBadgeLabel(profile, l, requireConsent) is not { } label) return false;
+
+        // Le libellé nomme le site, et l'infobulle le redit en toutes lettres,
+        // comme sur la page web : une pastille dorée marquée « Administration »
+        // au-dessus d'un nom se confondrait avec un rang de compagnie libre ou un
+        // rôle Discord. Nommer l'autorité fait partie du badge, au même titre que
+        // sa couleur fixe. L'infobulle ne rend pas la pastille interactive :
+        // Chip.Draw pose un Dummy, le survol suffit.
+        Chip.Draw(label, ChipTone.Gold, Icons.Shield, tooltip: l.RpProfileStaffTitle);
+        return true;
     }
 
     // ─── En-tête ──────────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// Dimensions de l'entête, partagées avec RpProfilePage : les deux écrans
+    /// affichent la même fiche et doivent chevaucher de la même façon.
+    /// </summary>
+    internal const float HeaderPortrait = 200f;
+    internal const float HeaderBanner   = 160f;
+
+    /// <summary>
+    /// Décalage du portrait sur la bannière. Nul sans bannière : il n'y aurait
+    /// rien à chevaucher et le portrait mordrait sur le bord de la carte.
+    /// </summary>
+    /// <summary>
+    /// Écart entre la pastille de statut d'équipe et le nom qu'elle surmonte.
+    /// Partagé entre le dessin et le calcul de hauteur du bloc de nom : deux
+    /// valeurs distinctes décaleraient le centrage vertical.
+    /// </summary>
+    private const float HeaderBadgeGap = Theme.GapXs;
+
+    internal static float HeaderOverlap(bool hasBanner) =>
+        hasBanner ? HeaderPortrait * 0.5f : 0f;
+
+    /// <summary>
+    /// Centre verticalement le bloc de nom sur la hauteur du portrait, en
+    /// poussant devant lui la moitié du vide disponible.
+    ///
+    /// Le bloc était auparavant calé en bas du portrait, avec une hauteur estimée
+    /// à 2,4 interlignes. En jeu, la bannière étant chevauchée de la demi-hauteur
+    /// du portrait, tout ce vide s'accumulait entre le bas de la bannière et le
+    /// nom : une centaine de pixels de trou à droite du portrait.
+    ///
+    /// Le centrage ne pardonne pas une hauteur approximative : un écart de
+    /// quelques pixels se voit immédiatement, puisqu'il se partage entre le haut
+    /// et le bas. La hauteur est donc mesurée sur ce qui sera réellement dessiné,
+    /// dans les polices qui serviront à le dessiner, y compris la pastille de
+    /// titre dont la taille dépend de la place disponible. Les paramètres portent
+    /// exactement les chaînes que l'appelant s'apprête à afficher : les deviner
+    /// ici rouvrirait l'écart entre la mesure et le rendu.
+    ///
+    /// Appelée par les deux écrans qui affichent la fiche, qui doivent chevaucher
+    /// et cadrer de la même façon.
+    /// </summary>
+    /// <param name="badge">
+    /// Libellé du statut d'équipe, dessiné en pastille au-dessus du nom. Nul, il
+    /// ne compte pas : un profil sans rôle ne doit pas gagner de vide.
+    /// </param>
+    /// <param name="name">Nom affiché en gros, rendu par <see cref="Text.Title"/>.</param>
+    /// <param name="title">Titre RP, rendu en pastille. Nul, il ne compte pas.</param>
+    /// <param name="identity">Ligne « personnage · serveur », absente sur sa propre fiche.</param>
+    /// <param name="nickname">Surnom entre guillemets, facultatif.</param>
+    /// <param name="minTop">
+    /// Ordonnée écran sous laquelle le bloc doit commencer, ou 0 pour ne rien
+    /// borner. Le portrait remonte de sa demi-hauteur sur la bannière, et le
+    /// centrage part donc du haut du portrait : sans borne, le vide de centrage
+    /// laisse le premier élément dessiné, pastille d'équipe ou nom, au-dessus du
+    /// bord bas de la bannière, et le nom se lit par-dessus l'image.
+    ///
+    /// C'est bien le vide qu'on borne, et pas le chevauchement du portrait :
+    /// celui-ci est calé sur le rendu du site et les deux surfaces doivent rester
+    /// identiques. Le centrage reste donc la règle, il ne peut simplement plus
+    /// faire déborder le bloc vers le haut.
+    /// </param>
+    internal static void HeaderNameFiller(string? badge, string name, string? title,
+                                          string? identity, string? nickname,
+                                          float minTop = 0f)
+    {
+        var block  = HeaderNameHeight(badge, name, title, identity, nickname);
+        var filler = (Theme.S(HeaderPortrait) - block) * 0.5f;
+
+        if (minTop > 0f)
+            filler = MathF.Max(filler, minTop - ImGui.GetCursorScreenPos().Y);
+
+        if (filler > 0f) ImGui.Dummy(new Vector2(0f, filler));
+    }
+
+    /// <summary>
+    /// Ordonnée écran à partir de laquelle le bloc de nom peut être dessiné :
+    /// le bas de la bannière, plus une respiration.
+    ///
+    /// Mesurée depuis l'origine de la carte plutôt que déduite des rembourrages
+    /// internes de <see cref="Card.Begin"/> : ceux-ci peuvent bouger, la hauteur
+    /// de bannière que l'on vient de demander, non.
+    /// </summary>
+    internal static float HeaderNameMinTop(Vector2 cardOrigin, bool hasBanner) =>
+        hasBanner ? cardOrigin.Y + Theme.S(HeaderBanner) + Theme.S(Theme.GapS) : 0f;
+
+    /// <summary>
+    /// Hauteur réelle du bloc de nom, interlignes compris.
+    ///
+    /// Chaque ligne est mesurée dans sa propre police : la police courante
+    /// détermine CalcTextSize, et le nom est écrit dans la police de titre, plus
+    /// haute qu'une ligne ordinaire. La largeur de repli est celle que les
+    /// appelants viennent de pousser, sans quoi un nom long compterait pour une
+    /// ligne alors qu'il en occupera deux.
+    /// </summary>
+    private static float HeaderNameHeight(string? badge, string name, string? title,
+                                          string? identity, string? nickname)
+    {
+        var wrap  = MathF.Max(ImGui.GetContentRegionAvail().X - Card.RightInset, Theme.S(40f));
+        var block = 0f;
+        var lines = 0;
+
+        // Badge d'équipe et son écart : deux éléments, donc deux interlignes à
+        // compter. Sans ce terme, le centrage serait faux pour les seuls comptes
+        // d'équipe, c'est-à-dire là où personne ne pense à le vérifier.
+        if (badge is { Length: > 0 })
+        {
+            block += Chip.Height() + Theme.S(HeaderBadgeGap);
+            lines += 2;
+        }
+
+        using (Fonts.PushTitle())
+        {
+            block += ImGui.CalcTextSize(Glyphs.Safe(name), false, wrap).Y;
+            lines++;
+        }
+
+        // La pastille connaît seule sa police et son rembourrage : lui demander
+        // sa taille est le seul moyen de rester d'accord avec ce qu'elle dessine.
+        var pill = AnimatedText.Measure(title);
+        if (pill.Y > 0f)
+        {
+            block += pill.Y;
+            lines++;
+        }
+
+        // Même police que le dessin ci-dessus. Mesurer en 12 px ce qui est
+        // dessiné en 15 fausserait le centrage de plusieurs pixels par ligne.
+        using (Fonts.PushBody())
+        {
+            if (!string.IsNullOrWhiteSpace(identity))
+            {
+                block += ImGui.CalcTextSize(Glyphs.Safe(identity), false, wrap).Y;
+                lines++;
+            }
+
+            if (!string.IsNullOrWhiteSpace(nickname))
+            {
+                block += ImGui.CalcTextSize(Glyphs.Safe(nickname), false, wrap).Y;
+                lines++;
+            }
+        }
+
+        // ImGui insère son interligne entre deux éléments, donc une fois de moins
+        // qu'il n'y a de lignes.
+        return block + ImGui.GetStyle().ItemSpacing.Y * MathF.Max(lines - 1, 0);
+    }
+
     private static void DrawHeader(RpProfileDto? profile, string characterName, string? server, Loc l)
     {
-        using var card = Card.Begin("rpview_header", interactive: false);
+        // Habillage choisi par l'auteur sur le site. EnsureReadable n'est pas
+        // optionnel : la couleur est choisie sur un fond clair et peut être
+        // quasi noire, ce qui rendrait la citation invisible ici.
+        var accent    = Accent(profile);
+        var accent2   = Accent2(profile);
+        var hasAccent = Theme.TryParseHex(profile?.AccentColor) != null;
+        var banner    = Textures.Get(profile?.BannerUrl);
 
-        DrawPortrait(profile?.PortraitUrl, characterName);
+        // Un effet de cadre sans couleur choisie mérite quand même son liseré :
+        // sinon l'habillage payé sur le site ne se voit nulle part en jeu.
+        var hasFrame = hasAccent || profile?.FrameStyle is { Length: > 0 };
+
+        // Relevée avant la carte : c'est le seul moment où le curseur est encore
+        // sur son coin haut gauche, d'où se déduit le bas de la bannière.
+        var cardOrigin = ImGui.GetCursorScreenPos();
+
+        using var card = Card.Begin("rpview_header", interactive: false,
+            background:   hasAccent ? HeaderBackground(accent, accent2) : null,
+            accent:       hasAccent ? accent : null,
+            banner:       banner,
+            bannerHeight: HeaderBanner);
+
+        // Le portrait remonte sur la bannière, à la manière d'un profil Discord.
+        var overlap = HeaderOverlap(banner != null);
+        if (overlap > 0f)
+            ImGui.SetCursorPosY(ImGui.GetCursorPosY() - Theme.S(overlap));
+
+        DrawPortrait(profile?.PortraitUrl, characterName,
+                     height:     HeaderPortrait,
+                     frame:      hasFrame ? accent : null,
+                     frameStyle: profile?.FrameStyle,
+                     frame2:     accent2);
+
         ImGui.SameLine(0f, Theme.S(Theme.GapM));
 
         ImGui.BeginGroup();
 
         // Le portrait mange une bonne part de la largeur : sans repli, un nom RP
-        // ou une citation un peu longue sort de la carte, ces textes ne bouclant
-        // pas d'eux-mêmes.
+        // un peu long sort de la carte, ces textes ne bouclant pas d'eux-mêmes.
         ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + ImGui.GetContentRegionAvail().X
                               - Card.RightInset);
 
-        Text.Title(profile?.RpName is { Length: > 0 } rpName ? rpName : characterName);
+        // Les chaînes sont composées avant d'être mesurées puis dessinées : le
+        // centrage vertical se fait sur ce qui sera affiché, pas sur une
+        // approximation reconstituée deux fois.
+        var displayName = profile?.RpName is { Length: > 0 } rpName ? rpName : characterName;
 
-        if (!string.IsNullOrWhiteSpace(server))
-            Text.Small($"{characterName} · {server}");
+        // Le nom du personnage ne se répète pas sous lui-même. Le cas le plus
+        // fréquent est de jouer sous son nom de personnage : la ligne affichait
+        // alors le même nom en petit juste sous le même nom en gros. Quand les
+        // deux diffèrent, la ligne complète reste indispensable, c'est elle qui dit
+        // qui joue derrière le nom RP.
+        //
+        // La chaîne est composée une seule fois, puis mesurée et dessinée : la
+        // mesure sert au centrage vertical du bloc, une chaîne reconstituée
+        // autrement décalerait tout l'entête dans ce cas pourtant courant.
+        var identity = string.IsNullOrWhiteSpace(server)
+            ? null
+            : string.Equals(displayName.Trim(), characterName.Trim(),
+                            StringComparison.OrdinalIgnoreCase)
+                ? server
+                : $"{characterName} · {server}";
 
-        if (profile?.Nickname is { Length: > 0 } nickname) Text.Small($"« {nickname} »");
+        var nickname    = profile?.Nickname is { Length: > 0 } nick ? $"« {nick} »" : null;
+        // Vue publique : le serveur a déjà appliqué le consentement.
+        var badge       = StaffBadgeLabel(profile, l, requireConsent: false);
 
-        if (profile?.Quote is { Length: > 0 } quote)
-        {
-            Layout.Spacer(Theme.GapXs);
-            Text.Small($"« {quote} »", Theme.Accent);
-        }
+        HeaderNameFiller(badge, displayName, profile?.RpTitle, identity, nickname,
+                         HeaderNameMinTop(cardOrigin, banner != null));
 
-        if (profile?.Availability is { Length: > 0 } availability)
-        {
-            Layout.Spacer(Theme.GapXs);
-            Text.Small(availability);
-        }
+        // Statut d'équipe au-dessus du nom : c'est l'information qui change la
+        // façon dont on lit tout le reste de la fiche, elle doit être vue avant
+        // le nom et non reléguée parmi les chips de synthèse.
+        if (StaffBadge(profile, l, requireConsent: false))
+            Layout.Spacer(HeaderBadgeGap);
 
-        if (profile?.Nsfw == true)
-        {
-            Layout.Spacer(Theme.GapXs);
-            Chip.Draw(l.RpProfileNsfw, ChipTone.Danger, Icons.Warning);
-        }
+        Text.Title(displayName);
+
+        // Titre court réservé aux membres, juste sous le nom : c'est là qu'un
+        // titre se lit, avant l'identité technique du personnage.
+        AnimatedText.Draw(profile?.RpTitle, accent2, profile?.TitleAnimation, accent);
+
+        // Police de corps, et non la petite : ces lignes appartiennent à
+        // l'entête, que le reste de la fiche lit en 15 px. En 12 px elles
+        // paraissaient reléguées, alors qu'elles portent l'identité du
+        // personnage. Le retrait passe par la couleur, pas par la taille.
+        if (identity != null) Text.Body(identity, Theme.TextMuted);
+        if (nickname != null) Text.Body(nickname, Theme.TextMuted);
 
         ImGui.PopTextWrapPos();
         ImGui.EndGroup();
+
+        DrawHeaderFooter(profile, accent, l);
+    }
+
+    /// <summary>
+    /// Bande basse de l'entête : citation, disponibilité et chips de synthèse.
+    ///
+    /// Le niveau et les langues figurent aussi dans la carte Préférences. La
+    /// répétition est assumée : ce sont les deux critères sur lesquels on décide
+    /// d'aborder quelqu'un, ils doivent se lire sans faire défiler. Même parti
+    /// pris que la liste « Autour de moi ».
+    /// </summary>
+    private static void DrawHeaderFooter(RpProfileDto? profile, Vector4 accent, Loc l)
+    {
+        if (profile == null) return;
+
+        Layout.Spacer(Theme.GapS);
+
+        if (profile.Quote is { Length: > 0 } quote)
+        {
+            Text.Body($"« {quote} »", accent);
+            Layout.Spacer(Theme.GapXs);
+        }
+
+        // La disponibilité porte son étiquette, comme sur le site. Sans elle,
+        // « Le soir et les weekends » s'affichait sous la citation sans que rien
+        // ne dise de quoi il s'agissait, et se lisait comme la suite du texte
+        // libre du joueur.
+        if (profile.Availability is { Length: > 0 } availability)
+        {
+            Text.Body($"{l.RpProfileAvailabilityLabel} : {availability}", Theme.TextMuted);
+            Layout.Spacer(Theme.GapXs);
+        }
+
+        // Le statut d'équipe est remonté dans le bloc de nom : la ligne de chips
+        // s'ouvre donc sur le niveau, qui n'a plus de SameLine à recevoir.
+        Chip.Colored(LevelLabel(profile.RpLevel, l), accent);
+
+        if (profile.Languages.Length > 0)
+        {
+            ImGui.SameLine(0f, Theme.S(Theme.GapXs));
+            Chip.Draw(string.Join(" / ", profile.Languages.Select(LanguageLabel)),
+                      ChipTone.Neutral);
+        }
+
+        if (profile.Nsfw)
+        {
+            ImGui.SameLine(0f, Theme.S(Theme.GapXs));
+            Chip.Draw(l.RpProfileNsfw, ChipTone.Danger, Icons.Warning);
+        }
     }
 
     /// <summary>
@@ -102,9 +452,25 @@ internal static class RpProfileView
     /// Un clic ouvre le portrait en grand, seul moyen de le voir à sa résolution
     /// réelle sans passer par le site.
     /// </summary>
+    /// <param name="frame">
+    /// Couleur d'un cadre de 2 px autour du portrait. Sert à faire porter la
+    /// couleur de la fiche par le portrait quand il chevauche la bannière.
+    /// Null, aucun cadre n'est dessiné.
+    /// </param>
+    /// <param name="frameStyle">
+    /// Effet de cadre réservé aux membres, servi par le serveur. Nul ou inconnu,
+    /// le cadre est celui d'origine : voir <see cref="PortraitFrame"/>.
+    /// </param>
+    /// <param name="frame2">
+    /// Seconde couleur de la fiche, dont seul le cadre bicolore se sert. Absente,
+    /// le cadre retombe sur <paramref name="frame"/> : les listes qui n'ont pas
+    /// de fiche complète sous la main n'ont donc rien à passer.
+    /// </param>
     public static void DrawPortrait(string? portraitUrl, string characterName,
                                     float height = 200f, Vector4? status = null,
-                                    string? id = null, bool zoomable = true)
+                                    string? id = null, bool zoomable = true,
+                                    Vector4? frame = null, string? frameStyle = null,
+                                    Vector4? frame2 = null)
     {
         var width  = height * 3f / 4f;
         var size   = new Vector2(Theme.S(width), Theme.S(height));
@@ -124,6 +490,10 @@ internal static class RpProfileView
         {
             DrawInitialsFrame(dl, origin, size, characterName, radius);
         }
+
+        // Après l'image : le cadre doit border le portrait, pas passer dessous.
+        if (frame is { } frameColor)
+            PortraitFrame.Draw(dl, origin, origin + size, radius, frameColor, frameStyle, frame2);
 
         // Un bouton invisible plutôt qu'un Dummy : mêmes dimensions réservées,
         // mais le survol et le clic deviennent détectables. Le retour vaut au
@@ -180,13 +550,14 @@ internal static class RpProfileView
 
     // ─── Sections ─────────────────────────────────────────────────────────────
 
-    public static void DrawHooks(RpProfileDto p, Loc l)
+    public static void DrawHooks(RpProfileDto p, Loc l, Vector4? tone = null)
     {
         var hooks = p.Hooks.Where(h => !string.IsNullOrWhiteSpace(h)).ToArray();
         if (hooks.Length == 0 && string.IsNullOrWhiteSpace(p.CurrentQuest)) return;
 
         using var card = Card.Begin("rpview_hooks", interactive: false);
-        Layout.SectionHeader(l.RpProfileHooks, Icons.Sparkle);
+        Layout.SectionHeader(l.RpProfileHooks, Icons.Sparkle, tone: tone);
+        BeginRows();
 
         if (p.CurrentQuest is { Length: > 0 } quest)
         {
@@ -195,13 +566,14 @@ internal static class RpProfileView
         }
 
         foreach (var hook in hooks)
-            Text.WithIcon(Icons.Chevron, hook, Theme.Accent, wrap: true);
+            Text.WithIcon(Icons.Chevron, hook, tone ?? Theme.Accent, wrap: true);
     }
 
-    public static void DrawPreferences(RpProfileDto p, Loc l)
+    public static void DrawPreferences(RpProfileDto p, Loc l, Vector4? tone = null)
     {
         using var card = Card.Begin("rpview_prefs", interactive: false);
-        Layout.SectionHeader(l.RpProfilePreferences, Icons.Settings);
+        Layout.SectionHeader(l.RpProfilePreferences, Icons.Settings, tone: tone);
+        BeginRows();
 
         Row(l.RpProfileLevel,    LevelLabel(p.RpLevel, l));
         Row(l.RpProfileApproach, ApproachLabel(p.ApproachMode, l));
@@ -221,7 +593,7 @@ internal static class RpProfileView
             Layout.Spacer(Theme.GapS);
             Text.Muted(l.RpProfileThemes);
             Layout.Spacer(Theme.GapXs);
-            DrawThemeChips(p.Themes, ChipTone.Accent);
+            DrawThemeChips(p.Themes, ChipTone.Accent, tone);
         }
 
         if (p.AvoidThemes.Length > 0)
@@ -233,7 +605,7 @@ internal static class RpProfileView
         }
     }
 
-    public static void DrawIdentity(RpProfileDto p, Loc l)
+    public static void DrawIdentity(RpProfileDto p, Loc l, Vector4? tone = null)
     {
         var hasIdentity = p.Race is { Length: > 0 } || p.Age is { Length: > 0 }
                        || p.Origin is { Length: > 0 } || p.Occupation is { Length: > 0 }
@@ -241,7 +613,8 @@ internal static class RpProfileView
         if (!hasIdentity) return;
 
         using var card = Card.Begin("rpview_identity", interactive: false);
-        Layout.SectionHeader(l.RpProfileIdentity, Icons.Profile);
+        Layout.SectionHeader(l.RpProfileIdentity, Icons.Profile, tone: tone);
+        BeginRows();
 
         if (p.Race is { Length: > 0 } race)             Row(l.RpProfileRace, RaceLabel(race, l));
         if (p.Age is { Length: > 0 } age)               Row(l.RpProfileAge, age);
@@ -250,14 +623,15 @@ internal static class RpProfileView
         if (p.Occupation is { Length: > 0 } occupation) Row(l.RpProfileOccupation, occupation);
     }
 
-    public static void DrawTraits(RpProfileDto p, Loc l)
+    public static void DrawTraits(RpProfileDto p, Loc l, Vector4? tone = null)
     {
         var hasTraits = p.Height is { Length: > 0 } || p.Build is { Length: > 0 }
                      || p.Voice is { Length: > 0 } || p.Marks is { Length: > 0 };
         if (!hasTraits) return;
 
         using var card = Card.Begin("rpview_traits", interactive: false);
-        Layout.SectionHeader(l.RpProfileTraits, Icons.Character);
+        Layout.SectionHeader(l.RpProfileTraits, Icons.Character, tone: tone);
+        BeginRows();
 
         if (p.Height is { Length: > 0 } height) Row(l.RpProfileHeight, height);
         if (p.Build is { Length: > 0 } build)   Row(l.RpProfileBuild, build);
@@ -265,14 +639,15 @@ internal static class RpProfileView
         if (p.Marks is { Length: > 0 } marks)   Row(l.RpProfileMarks, marks);
     }
 
-    public static void DrawBelonging(RpProfileDto p, Loc l)
+    public static void DrawBelonging(RpProfileDto p, Loc l, Vector4? tone = null)
     {
         var hasBelonging = p.FreeCompany is { Length: > 0 } || p.Allegiance is { Length: > 0 }
                         || p.Deity is { Length: > 0 };
         if (!hasBelonging) return;
 
         using var card = Card.Begin("rpview_belonging", interactive: false);
-        Layout.SectionHeader(l.RpProfileBelonging, Icons.World);
+        Layout.SectionHeader(l.RpProfileBelonging, Icons.World, tone: tone);
+        BeginRows();
 
         if (p.FreeCompany is { Length: > 0 } fc)        Row(l.RpProfileFreeCompany, fc);
         if (p.Allegiance is { Length: > 0 } allegiance) Row(l.RpProfileAllegiance, allegiance);
@@ -283,12 +658,12 @@ internal static class RpProfileView
     /// Relations. Toujours en consultation : les nouer se fait sur le site, où
     /// l'on dispose du clavier et de la recherche de personnages.
     /// </summary>
-    public static void DrawRelations(RpProfileDto p, Loc l)
+    public static void DrawRelations(RpProfileDto p, Loc l, Vector4? tone = null)
     {
         if (p.Relations.Length == 0) return;
 
         using var card = Card.Begin("rpview_relations", interactive: false);
-        Layout.SectionHeader(l.RpProfileRelations, Icons.Around, p.Relations.Length);
+        Layout.SectionHeader(l.RpProfileRelations, Icons.Around, p.Relations.Length, tone: tone);
 
         foreach (var relation in p.Relations)
         {
@@ -304,12 +679,27 @@ internal static class RpProfileView
         }
     }
 
-    public static void DrawStory(RpProfileDto p, Loc l)
+    /// <summary>
+    /// Blocs rédigés de la fiche.
+    ///
+    /// Ils portent icône et teinte comme toutes les autres sections : sans elles,
+    /// deux familles de cartes cohabitaient dans la même fenêtre, les unes
+    /// titrées avec une icône dans la couleur de la fiche, les autres nues et
+    /// dans le bleu par défaut du thème.
+    ///
+    /// « Limites » fait exception et garde la couleur d'alerte : c'est un
+    /// avertissement adressé au lecteur, pas une rubrique de plus.
+    /// </summary>
+    public static void DrawStory(RpProfileDto p, Loc l, Vector4? tone = null)
     {
-        DrawTextBlock("rpview_appearance",  l.RpProfileAppearance,  p.Appearance);
-        DrawTextBlock("rpview_personality", l.RpProfilePersonality, p.Personality);
-        DrawTextBlock("rpview_background",  l.RpProfileBackground,  p.Background);
-        DrawTextBlock("rpview_limits",      l.RpProfileLimits,      p.Limits, Theme.Danger);
+        DrawTextBlock("rpview_appearance",  l.RpProfileAppearance,  p.Appearance,
+                      Icons.Diamond, tone);
+        DrawTextBlock("rpview_personality", l.RpProfilePersonality, p.Personality,
+                      Icons.RpLive, tone);
+        DrawTextBlock("rpview_background",  l.RpProfileBackground,  p.Background,
+                      Icons.Clock, tone);
+        DrawTextBlock("rpview_limits",      l.RpProfileLimits,      p.Limits,
+                      Icons.Warning, Theme.Danger);
     }
 
     /// <summary>
@@ -320,13 +710,13 @@ internal static class RpProfileView
     /// liens écrits par un autre joueur, on doit voir où l'on va avant de sortir
     /// du jeu.
     /// </summary>
-    public static void DrawLinks(RpProfileDto p, Loc l)
+    public static void DrawLinks(RpProfileDto p, Loc l, Vector4? tone = null)
     {
         var hasLinks = p.ThemeSongUrl is { Length: > 0 } || p.ExternalUrl is { Length: > 0 };
         if (!hasLinks) return;
 
         using var card = Card.Begin("rpview_links", interactive: false);
-        Layout.SectionHeader(l.RpProfileLinks, Icons.External);
+        Layout.SectionHeader(l.RpProfileLinks, Icons.External, tone: tone);
 
         if (p.ThemeSongUrl is { Length: > 0 } song)
             DrawLink("rpview_song", l.RpProfileThemeSong, song, l);
@@ -363,30 +753,76 @@ internal static class RpProfileView
             new System.Diagnostics.ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true });
     }
 
-    public static void DrawTextBlock(string id, string title, string? body, Vector4? tone = null)
+    /// <param name="icon">
+    /// Icône du titre de section, comme pour toutes les autres cartes de la
+    /// fiche. Nulle, l'en-tête n'en affiche pas.
+    /// </param>
+    public static void DrawTextBlock(string id, string title, string? body,
+                                     FontAwesomeIcon? icon = null, Vector4? tone = null)
     {
         if (string.IsNullOrWhiteSpace(body)) return;
 
         using var card = Card.Begin(id, interactive: false);
-        Layout.SectionHeader(title, tone: tone);
+        Layout.SectionHeader(title, icon, tone: tone);
         MarkdownView.Draw(body, Theme.TextMuted);
     }
 
     // ─── Rendu utilitaire ─────────────────────────────────────────────────────
 
+    /// <summary>
+    /// Vrai tant qu'aucune ligne n'a été dessinée dans la carte en cours.
+    ///
+    /// Le filet se dessine avant chaque ligne sauf la première : un filet en tête
+    /// reviendrait à souligner le titre de section, ce que la maquette écarte.
+    /// État statique assumé, le rendu ImGui étant séquentiel et mono-thread.
+    /// </summary>
+    private static bool _firstRow = true;
+
+    /// <summary>
+    /// Réarme le suivi des filets. À appeler après chaque SectionHeader : sans
+    /// cela, la première ligne d'une carte hérite du filet de la précédente.
+    /// </summary>
+    public static void BeginRows() => _firstRow = true;
+
+    /// <summary>Filet fin pleine largeur, dans la teinte de bordure discrète.</summary>
+    private static void RowSeparator()
+    {
+        Layout.Spacer(Theme.GapXs);
+
+        var dl    = ImGui.GetWindowDrawList();
+        var start = ImGui.GetCursorScreenPos();
+        var width = ImGui.GetContentRegionAvail().X - Card.RightInset;
+
+        dl.AddLine(start, new Vector2(start.X + width, start.Y),
+                   ImGui.GetColorU32(Theme.BorderSoft), 1f);
+
+        Layout.Spacer(Theme.GapXs);
+    }
+
     public static void Row(string label, string value)
     {
+        if (!_firstRow) RowSeparator();
+        _firstRow = false;
+
         Text.Small(label);
         ImGui.SameLine(Theme.S(140f));
         Text.Body(value);
     }
 
-    public static void DrawThemeChips(string[] themes, ChipTone tone)
+    /// <summary>
+    /// Chips de thèmes. `tint` l'emporte sur `tone` quand il est renseigné : la
+    /// couleur de la fiche prime sur la couleur générique. Les thèmes évités
+    /// restent volontairement sans teinte, le sens y comptant plus que
+    /// l'habillage.
+    /// </summary>
+    public static void DrawThemeChips(string[] themes, ChipTone tone, Vector4? tint = null)
     {
         for (var i = 0; i < themes.Length; i++)
         {
             if (i > 0) ImGui.SameLine(0f, Theme.S(Theme.GapXs));
-            Chip.Draw(ThemeLabel(themes[i], Plugin.L), tone);
+
+            if (tint is { } color) Chip.Colored(ThemeLabel(themes[i], Plugin.L), color);
+            else                   Chip.Draw(ThemeLabel(themes[i], Plugin.L), tone);
         }
     }
 

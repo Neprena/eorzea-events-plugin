@@ -3,7 +3,7 @@
   "Author": "Neprena",
   "Description": "Gérez vos sessions RP Eorzea Events directement depuis le jeu.",
   "Punchline": "Sessions RP Eorzea Events en un clic.",
-  "Changelog": "Après un téléport ou une connexion, le plugin annonçait parfois à tort que le lien avec ton personnage avait expiré, et rouvrait l'assistant de couplage. Corrigé : le jeton est conservé pendant les écrans de chargement.\nOuvre le plugin pour l'historique complet des nouveautés.",
+  "Changelog": "Ta fiche RP affiche maintenant la bannière, la couleur d'accent et le portrait réglés sur le site. Les adhérents débloquent un cadre de portrait, un titre personnalisé et son animation. L'équipe du site peut afficher son statut, au choix. La fiche se met aussi à jour toute seule après une modification en ligne.\nOuvre le plugin pour l'historique complet des nouveautés.",
   "InternalName": "EorzeaEventsPlugin",
   "RepoUrl": "https://github.com/Neprena/eorzea-events-plugin",
   "Tags": ["rp", "roleplay"],

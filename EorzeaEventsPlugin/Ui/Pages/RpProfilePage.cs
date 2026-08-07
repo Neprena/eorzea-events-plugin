@@ -69,6 +69,12 @@ internal sealed class RpProfilePage(Configuration config)
 
     // Copie de travail des champs éditables en jeu.
     private readonly string[] _hooks = ["", "", "", "", ""];
+
+    // Codes de sync : emplacements fixes, comme les accroches. Pas de boutons
+    // ajouter/supprimer, une ligne sans identifiant n'est simplement pas envoyée.
+    private readonly int[]    _syncTypes = new int[MaxSyncshells];
+    private readonly string[] _syncNames = ["", "", "", "", ""];
+    private readonly string[] _syncIds   = ["", "", "", "", ""];
     private string _currentQuest = string.Empty;
     private int    _levelIndex;
     private int    _approachIndex;
@@ -110,7 +116,7 @@ internal sealed class RpProfilePage(Configuration config)
         ["sweep", "pulse", "rainbow", "sheen", "halo", "duotone", "wave", "neon"];
 
     private static readonly string[] SectionKeys =
-        ["identity", "hooks", "traits", "belonging", "description", "relations", "limits", "links"];
+        ["identity", "hooks", "traits", "belonging", "description", "relations", "limits", "links", "sync"];
 
     /// <summary>
     /// Audiences, de la plus large à la plus étroite, dans le même ordre que
@@ -118,6 +124,16 @@ internal sealed class RpProfilePage(Configuration config)
     /// échelon intermédiaire, pas une troisième option quelconque.
     /// </summary>
     private static readonly string[] AudienceKeys = ["public", "friend", "owner"];
+
+    /// <summary>
+    /// Services proposés à la saisie, alignés sur SYNCSHELL_TYPES
+    /// (src/lib/syncshells.ts). Les services retirés de cette liste restent
+    /// affichés par <c>RpProfileView.SyncshellLabel</c> sur les fiches anciennes.
+    /// </summary>
+    private static readonly string[] SyncTypeKeys = ["snowcloak", "lightless", "umbra", "autre"];
+
+    /// <summary>Aligné sur MAX_SYNCSHELLS (src/lib/syncshells.ts) et sur le Zod serveur.</summary>
+    private const int MaxSyncshells = 5;
 
     /// <summary>
     /// Défauts par section, dans l'ordre de <see cref="SectionKeys"/>, exprimés
@@ -130,7 +146,7 @@ internal sealed class RpProfilePage(Configuration config)
     /// <c>RP_SECTIONS</c> (src/lib/rp-vocabulary.ts).
     /// </summary>
     private static readonly string[] SectionDefaultKeys =
-        ["public", "public", "owner", "owner", "owner", "owner", "owner", "public"];
+        ["public", "public", "owner", "owner", "owner", "owner", "owner", "public", "owner"];
 
     /// <summary>
     /// Les Douze, dans l'ordre du serveur, précédés d'une entrée vide : l'index
@@ -181,6 +197,7 @@ internal sealed class RpProfilePage(Configuration config)
         DrawHooks(l);
         DrawTraits(l);
         DrawBelonging(l);
+        DrawSyncshells(l);
         DrawPreferences(l);
         DrawIdentity(l);
         DrawRelations(l);
@@ -275,6 +292,19 @@ internal sealed class RpProfilePage(Configuration config)
 
         for (var i = 0; i < _hooks.Length; i++)
             _hooks[i] = p != null && i < p.Hooks.Length ? p.Hooks[i] : string.Empty;
+
+        var syncshells = ParseSyncshells(p?.Syncshells);
+        for (var i = 0; i < MaxSyncshells; i++)
+        {
+            var entry = i < syncshells.Length ? syncshells[i] : null;
+            var type  = entry != null ? Array.IndexOf(SyncTypeKeys, entry.Type) : -1;
+
+            // Un service disparu de la liste retombe sur « autre », en conservant
+            // son nom : mieux vaut une entrée réétiquetée qu'une entrée perdue.
+            _syncTypes[i] = type >= 0 ? type : (entry != null ? SyncTypeKeys.Length - 1 : 0);
+            _syncNames[i] = entry?.Name ?? (type >= 0 ? string.Empty : entry?.Type ?? string.Empty);
+            _syncIds[i]   = entry?.Id ?? string.Empty;
+        }
 
         _currentQuest  = p?.CurrentQuest ?? string.Empty;
         _levelIndex    = Math.Max(0, Array.IndexOf(LevelKeys,    p?.RpLevel      ?? "casual"));
@@ -533,6 +563,62 @@ internal sealed class RpProfilePage(Configuration config)
     }
 
     /// <summary>
+    /// Codes de sync, éditables en jeu contrairement aux relations : il n'y a
+    /// rien à chercher ni à rapprocher, juste un identifiant à saisir, et c'est
+    /// en jeu qu'on pense à l'ajouter.
+    ///
+    /// Emplacements fixes, sur le modèle des accroches : cinq lignes toujours
+    /// présentes valent mieux que des boutons ajouter/supprimer à la souris dans
+    /// une fenêtre ImGui.
+    /// </summary>
+    private void DrawSyncshells(Loc l)
+    {
+        using var card = Card.Begin("rp_sync", interactive: false);
+
+        Layout.SectionHeader(l.RpProfileSyncshells, Icons.Copy, tone: Tone);
+        Text.Small(l.RpProfileSyncshellsHint);
+        Layout.Spacer(Theme.GapS);
+
+        var typeLabels = SyncTypeKeys
+            .Select(k => k == "autre" ? l.RpProfileSyncshellOther : RpProfileView.SyncshellLabel(
+                new SyncshellEntryDto { Type = k }, l))
+            .ToArray();
+
+        for (var i = 0; i < MaxSyncshells; i++)
+        {
+            if (i > 0) Layout.Spacer(Theme.GapXs);
+
+            if (Inputs.Select($"##synctype{i}", string.Empty, ref _syncTypes[i], typeLabels))
+                _dirty = true;
+
+            if (SyncTypeKeys[_syncTypes[i]] == "autre"
+                && Inputs.Field($"##syncname{i}", string.Empty, ref _syncNames[i], 40,
+                                placeholder: l.RpProfileSyncshellName))
+                _dirty = true;
+
+            if (Inputs.Field($"##syncid{i}", string.Empty, ref _syncIds[i], 100,
+                             placeholder: l.RpProfileSyncshellId))
+                _dirty = true;
+        }
+
+        DrawSaveRow(l);
+    }
+
+    /// <summary>
+    /// Désérialise la chaîne stockée. Illisible, elle rend un tableau vide : la
+    /// page doit rester utilisable même sur une fiche mal formée.
+    /// </summary>
+    private static SyncshellEntryDto[] ParseSyncshells(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<SyncshellEntryDto[]>(json) ?? [];
+        }
+        catch { return []; }
+    }
+
+    /// <summary>
     /// Relations, en consultation seule : les nouer se fait sur le site, où l'on
     /// dispose du clavier et de la recherche de personnages.
     /// </summary>
@@ -779,6 +865,7 @@ internal sealed class RpProfilePage(Configuration config)
         "relations"   => l.RpProfileRelations,
         "limits"      => l.RpProfileLimits,
         "links"       => l.RpProfileLinks,
+        "sync"        => l.RpProfileSyncshells,
         _             => section,
     };
 
@@ -829,6 +916,20 @@ internal sealed class RpProfilePage(Configuration config)
         request.ApproachMode = ApproachKeys[_approachIndex];
         request.Languages    = [.. languages];
         request.Hooks        = [.. _hooks.Where(h => !string.IsNullOrWhiteSpace(h)).Select(h => h.Trim())];
+
+        // Les lignes sans identifiant ne sont pas envoyées. Le tableau est
+        // toujours transmis, y compris vide : c'est ainsi qu'on efface un code
+        // depuis le jeu.
+        request.Syncshells = [.. Enumerable.Range(0, MaxSyncshells)
+            .Where(i => !string.IsNullOrWhiteSpace(_syncIds[i]))
+            .Select(i => new SyncshellEntryDto
+            {
+                Type = SyncTypeKeys[_syncTypes[i]],
+                Id   = _syncIds[i].Trim(),
+                Name = SyncTypeKeys[_syncTypes[i]] == "autre" && _syncNames[i].Trim() is { Length: > 0 } n
+                    ? n
+                    : null,
+            })];
         request.CurrentQuest = Edited(_currentQuest);
 
         request.Height      = Edited(_height);
@@ -931,6 +1032,7 @@ internal sealed class RpProfilePage(Configuration config)
         Personality  = p.Personality,   Background   = p.Background,
         CurrentQuest = p.CurrentQuest,  Limits       = p.Limits,
         Availability = p.Availability,  ExternalUrl  = p.ExternalUrl,
+        Syncshells   = p.Syncshells,
         Nsfw         = p.Nsfw,          IsPublic     = p.IsPublic,
         PortraitUrl  = p.PortraitUrl,
         Height       = p.Height,        Build        = p.Build,
@@ -963,6 +1065,7 @@ internal sealed class RpProfilePage(Configuration config)
         Personality  = c.Personality,   Background   = c.Background,
         CurrentQuest = c.CurrentQuest,  Limits       = c.Limits,
         Availability = c.Availability,  ExternalUrl  = c.ExternalUrl,
+        Syncshells   = c.Syncshells,
         Nsfw         = c.Nsfw,          IsPublic     = c.IsPublic,
         PortraitUrl  = c.PortraitUrl,
         Height       = c.Height,        Build        = c.Build,

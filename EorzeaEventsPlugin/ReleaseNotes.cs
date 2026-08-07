@@ -39,6 +39,21 @@ internal static class ReleaseNotes
     public static readonly ReleaseNote[] All =
     [
         new(
+            Version: "2.6.1",
+            TitleFr: "Tes codes de sync sur ta fiche RP",
+            TitleEn: "Your sync codes on your RP profile",
+            BodyFr: """
+                    - Ta fiche RP accueille une section **Codes de sync** : Snowcloak, Lightless, Umbra ou le service de ton choix, jusqu'à cinq identifiants. Contrairement aux établissements, il n'y a **pas de mot de passe** à renseigner, juste l'identifiant.
+                    - Elle se **remplit directement en jeu**, et se consulte sur la fiche des autres joueurs avec un **bouton pour copier** l'identifiant d'un clic.
+                    - Comme les autres sections, tu choisis **qui la voit** dans les réglages de visibilité. Par prudence, elle est réservée à **toi seul** tant que tu ne l'ouvres pas.
+                    """,
+            BodyEn: """
+                    - Your RP profile gains a **Sync codes** section: Snowcloak, Lightless, Umbra or any service you like, up to five IDs. Unlike venues, there is **no password** to fill in, just the ID.
+                    - You can **fill it in from the game**, and read it on other players' profiles with a **copy button** for the ID.
+                    - Like every other section, you choose **who sees it** in the visibility settings. It starts as **private** until you open it up.
+                    """),
+
+        new(
             Version: "2.6.0",
             TitleFr: "Les fiches RP prennent des couleurs",
             TitleEn: "RP profiles get their colours",

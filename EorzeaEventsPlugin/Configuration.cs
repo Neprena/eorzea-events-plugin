@@ -59,6 +59,12 @@ public class RpProfileCache
     public string? Availability { get; set; }
     public string? ExternalUrl  { get; set; }
 
+    /// <summary>
+    /// Codes de sync, sous la forme brute stockée. Nullable comme les autres
+    /// ajouts tardifs : `null` distingue « jamais synchronisé » de « aucun code ».
+    /// </summary>
+    public string? Syncshells { get; set; }
+
     public string? PortraitUrl { get; set; }
     public string? Height      { get; set; }
     public string? Build       { get; set; }

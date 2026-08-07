@@ -343,6 +343,15 @@ internal sealed class Loc
     public required string RpProfileAllegiance   { get; init; }
     public required string RpProfileDeity        { get; init; }
     public required string RpProfileDeityNone    { get; init; }
+
+    // ─── Codes de sync ────────────────────────────────────────────────────────
+    public required string RpProfileSyncshells     { get; init; }
+    public required string RpProfileSyncshellsHint { get; init; }
+    public required string RpProfileSyncshellOther { get; init; }
+    public required string RpProfileSyncshellName  { get; init; }
+    public required string RpProfileSyncshellId    { get; init; }
+    public required string RpProfileSyncCopy       { get; init; }
+
     public required string RpProfileQuote        { get; init; }
     /// Étiquette de la ligne de disponibilité dans l'entête de la fiche. Le
     /// texte seul ne se comprenait pas : « Le soir et les weekends » posé sous
@@ -821,6 +830,14 @@ internal sealed class Loc
         RpProfileAllegiance     = "Allégeance",
         RpProfileDeity          = "Divinité",
         RpProfileDeityNone      = "Non précisé",
+
+        RpProfileSyncshells     = "Codes de sync",
+        RpProfileSyncshellsHint = "Vos identifiants Snowcloak, Umbra… Qui les voit se règle plus bas, dans Visibilité.",
+        RpProfileSyncshellOther = "Autre",
+        RpProfileSyncshellName  = "Nom du service",
+        RpProfileSyncshellId    = "Identifiant",
+        RpProfileSyncCopy       = "Copier",
+
         RpProfileQuote          = "Citation",
         RpProfileAvailabilityLabel = "Disponibilité",
         RpProfileQuoteHint      = "Une réplique qui résume le personnage.",
@@ -1281,6 +1298,14 @@ internal sealed class Loc
         RpProfileAllegiance     = "Allegiance",
         RpProfileDeity          = "Deity",
         RpProfileDeityNone      = "Unspecified",
+
+        RpProfileSyncshells     = "Sync codes",
+        RpProfileSyncshellsHint = "Your Snowcloak, Umbra… IDs. Who sees them is set below, under Visibility.",
+        RpProfileSyncshellOther = "Other",
+        RpProfileSyncshellName  = "Service name",
+        RpProfileSyncshellId    = "ID",
+        RpProfileSyncCopy       = "Copy",
+
         RpProfileQuote          = "Quote",
         RpProfileAvailabilityLabel = "Availability",
         RpProfileQuoteHint      = "A line that sums the character up.",

@@ -44,6 +44,7 @@ internal static class RpProfileView
         DrawIdentity(profile, l, tone);
         DrawTraits(profile, l, tone);
         DrawBelonging(profile, l, tone);
+        DrawSyncshells(profile, l, tone);
         DrawRelations(profile, l, tone);
         DrawStory(profile, l, tone);
         DrawLinks(profile, l, tone);
@@ -653,6 +654,83 @@ internal static class RpProfileView
         if (p.Allegiance is { Length: > 0 } allegiance) Row(l.RpProfileAllegiance, allegiance);
         if (p.Deity is { Length: > 0 } deity)           Row(l.RpProfileDeity, DeityLabel(deity, l));
     }
+
+    /// <summary>
+    /// Codes de sync. C'est la section dont l'usage est le plus concret en jeu :
+    /// on croise quelqu'un, on veut son identifiant. D'où le bouton copier
+    /// plutôt qu'un simple affichage, sur le modèle de la fiche d'établissement.
+    ///
+    /// Le champ arrive en chaîne JSON brute, comme pour les établissements, et
+    /// vaut null quand la section dépasse l'audience du lecteur : rien à filtrer
+    /// ici, le serveur l'a déjà fait.
+    /// </summary>
+    public static void DrawSyncshells(RpProfileDto p, Loc l, Vector4? tone = null)
+    {
+        var entries = ParseSyncshells(p.Syncshells);
+        if (entries.Length == 0) return;
+
+        using var card = Card.Begin("rpview_sync", interactive: false);
+        Layout.SectionHeader(l.RpProfileSyncshells, Icons.Copy, tone: tone);
+        BeginRows();
+
+        var expired = DateTime.UtcNow >= _syncCopiedUntil;
+
+        for (var i = 0; i < entries.Length; i++)
+        {
+            var entry = entries[i];
+            if (string.IsNullOrWhiteSpace(entry.Id)) continue;
+
+            if (i > 0) Layout.Spacer(Theme.GapXs);
+
+            Text.Small(SyncshellLabel(entry, l));
+            ImGui.SameLine(Theme.S(140f));
+            Text.Body(entry.Id);
+
+            var copied = !expired && _syncCopiedKey == i;
+            ImGui.SameLine(0f, Theme.S(Theme.GapS));
+            if (ImGui.SmallButton((copied ? l.EstabCopied : l.RpProfileSyncCopy) + "##rpsync_" + i))
+            {
+                ImGui.SetClipboardText(entry.Id);
+                _syncCopiedKey   = i;
+                _syncCopiedUntil = DateTime.UtcNow.AddSeconds(2);
+            }
+        }
+    }
+
+    // Retour visuel du bouton copier. Statique comme le reste de la vue : une
+    // seule fiche est affichée à la fois, et l'état ne survit pas aux 2 secondes.
+    private static int      _syncCopiedKey   = -1;
+    private static DateTime _syncCopiedUntil = DateTime.MinValue;
+
+    /// <summary>
+    /// Désérialise la chaîne stockée. Illisible, elle rend un tableau vide : une
+    /// fiche mal formée ne doit pas empêcher d'afficher le reste.
+    /// </summary>
+    private static SyncshellEntryDto[] ParseSyncshells(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<SyncshellEntryDto[]>(json) ?? [];
+        }
+        catch { return []; }
+    }
+
+    /// <summary>
+    /// Libellé d'un service. Plus large que la liste proposée à la saisie : les
+    /// services retirés du formulaire restent lisibles sur les fiches anciennes.
+    /// </summary>
+    public static string SyncshellLabel(SyncshellEntryDto s, Loc l) => s.Type switch
+    {
+        "snowcloak" => "Snowcloak",
+        "lightless" => "Lightless",
+        "umbra"     => "Umbra",
+        "glamourer" => "Glamourer",
+        "mare"      => "Mare Synchronos",
+        "lightsync" => "Lightsync",
+        "autre"     => !string.IsNullOrEmpty(s.Name) ? s.Name : l.RpProfileSyncshellOther,
+        var other   => other,
+    };
 
     /// <summary>
     /// Relations. Toujours en consultation : les nouer se fait sur le site, où

@@ -236,6 +236,13 @@ public class RpProfileDto
     [JsonPropertyName("availability")] public string?  Availability { get; set; }
     [JsonPropertyName("externalUrl")]  public string?  ExternalUrl  { get; set; }
 
+    /// <summary>
+    /// Codes de sync, sous la forme brute stockée : une chaîne JSON
+    /// [{ type, id, name? }], comme pour les établissements. Absente quand la
+    /// section « sync » dépasse l'audience du lecteur.
+    /// </summary>
+    [JsonPropertyName("syncshells")] public string? Syncshells { get; set; }
+
     // ─── Visibilité ───────────────────────────────────────────────────────────
     //
     // Trois consentements indépendants, plus l'audience par section. Renseignés
@@ -490,6 +497,13 @@ public class SaveRpProfileRequest
     [JsonPropertyName("searchIndexable")] public bool? SearchIndexable { get; set; }
 
     /// <summary>
+    /// Codes de sync, en tableau d'objets et non en chaîne : la route attend une
+    /// liste. Laissé null, il est omis du corps et le serveur conserve ce qu'il
+    /// a ; un tableau vide, lui, efface volontairement.
+    /// </summary>
+    [JsonPropertyName("syncshells")] public SyncshellEntryDto[]? Syncshells { get; set; }
+
+    /// <summary>
     /// Audience par section, en objet et non en chaîne : la route attend un
     /// dictionnaire. Laissé null, il est omis du corps (les options de
     /// sérialisation ignorent les nulls) et le serveur ne réécrit alors pas la
@@ -537,7 +551,24 @@ public class SaveRpProfileRequest
         Quote = p.Quote, ThemeSongUrl = p.ThemeSongUrl,
         WebPageEnabled = p.WebPageEnabled, SearchIndexable = p.SearchIndexable,
         SectionVisibility = ParseSectionVisibility(p.SectionVisibility),
+        Syncshells = ParseSyncshells(p.Syncshells),
     };
+
+    /// <summary>
+    /// Convertit la chaîne JSON lue en tableau à renvoyer. Illisible ou absente,
+    /// elle donne null : la clé est alors omise et le serveur garde ce qu'il a,
+    /// plutôt que d'effacer des codes qu'on n'a pas su relire.
+    /// </summary>
+    private static SyncshellEntryDto[]? ParseSyncshells(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            var parsed = System.Text.Json.JsonSerializer.Deserialize<SyncshellEntryDto[]>(json);
+            return parsed is { Length: > 0 } ? parsed : null;
+        }
+        catch { return null; }
+    }
 
     /// <summary>
     /// Convertit la chaîne JSON lue en dictionnaire à renvoyer. Une valeur

@@ -3,8 +3,8 @@
     "Author": "Neprena",
     "Name": "Eorzea Events",
     "InternalName": "EorzeaEventsPlugin",
-    "AssemblyVersion": "2.6.0.0",
-    "TestingAssemblyVersion": "2.6.0.0",
+    "AssemblyVersion": "2.6.1.0",
+    "TestingAssemblyVersion": "2.6.1.0",
     "Description": "Gérez vos sessions RP Eorzea Events directement depuis le jeu.",
     "Punchline": "Sessions RP Eorzea Events en un clic.",
     "ApplicableVersion": "any",
@@ -15,10 +15,10 @@
     "DalamudApiLevel": 15,
     "IconUrl": "https://raw.githubusercontent.com/Neprena/eorzea-events-plugin/main/Plugin_Logo.png",
     "RepoUrl": "https://github.com/Neprena/eorzea-events-plugin",
-    "DownloadLinkInstall": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.6.0/EorzeaEventsPlugin.zip",
-    "DownloadLinkTesting": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.6.0/EorzeaEventsPlugin.zip",
-    "DownloadLinkUpdate": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.6.0/EorzeaEventsPlugin.zip",
-    "Changelog": "Ta fiche RP affiche maintenant la bannière, la couleur d'accent et le portrait réglés sur le site. Les adhérents débloquent un cadre de portrait, un titre personnalisé et son animation. L'équipe du site peut afficher son statut, au choix. La fiche se met aussi à jour toute seule après une modification en ligne.\nOuvre le plugin pour l'historique complet des nouveautés.",
-    "LastUpdate": 1785891356
+    "DownloadLinkInstall": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.6.1/EorzeaEventsPlugin.zip",
+    "DownloadLinkTesting": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.6.1/EorzeaEventsPlugin.zip",
+    "DownloadLinkUpdate": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.6.1/EorzeaEventsPlugin.zip",
+    "Changelog": "Ta fiche RP accueille une section Codes de sync : Snowcloak, Lightless, Umbra ou le service de ton choix, jusqu'à cinq identifiants, sans mot de passe. Elle se remplit directement en jeu, et se consulte sur la fiche des autres joueurs avec un bouton pour copier l'identifiant. Tu choisis qui la voit dans les réglages de visibilité ; elle reste privée tant que tu ne l'ouvres pas.\nOuvre le plugin pour l'historique complet des nouveautés.",
+    "LastUpdate": 1786145791
   }
 ]

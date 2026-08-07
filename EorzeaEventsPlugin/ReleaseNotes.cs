@@ -39,18 +39,18 @@ internal static class ReleaseNotes
     public static readonly ReleaseNote[] All =
     [
         new(
-            Version: "2.6.1",
-            TitleFr: "Tes codes de sync sur ta fiche RP",
-            TitleEn: "Your sync codes on your RP profile",
+            Version: "2.6.2",
+            TitleFr: "Codes de sync",
+            TitleEn: "Sync codes",
             BodyFr: """
-                    - Ta fiche RP accueille une section **Codes de sync** : Snowcloak, Lightless, Umbra ou le service de ton choix, jusqu'à cinq identifiants. Contrairement aux établissements, il n'y a **pas de mot de passe** à renseigner, juste l'identifiant.
-                    - Elle se **remplit directement en jeu**, et se consulte sur la fiche des autres joueurs avec un **bouton pour copier** l'identifiant d'un clic.
-                    - Comme les autres sections, tu choisis **qui la voit** dans les réglages de visibilité. Par prudence, elle est réservée à **toi seul** tant que tu ne l'ouvres pas.
+                    **Nouveautés**
+                    - Les codes de sync (**Snowcloak**, **Umbra** et consorts) arrivent sur la fiche RP, avec le choix de qui peut les voir.
+                    - Un clic copie le code depuis la fiche d'un autre joueur.
                     """,
             BodyEn: """
-                    - Your RP profile gains a **Sync codes** section: Snowcloak, Lightless, Umbra or any service you like, up to five IDs. Unlike venues, there is **no password** to fill in, just the ID.
-                    - You can **fill it in from the game**, and read it on other players' profiles with a **copy button** for the ID.
-                    - Like every other section, you choose **who sees it** in the visibility settings. It starts as **private** until you open it up.
+                    **What's new**
+                    - Sync codes (**Snowcloak**, **Umbra** and others) are now on the RP profile, with a choice of who can see them.
+                    - One click copies the code from another player's profile.
                     """),
 
         new(
@@ -58,16 +58,18 @@ internal static class ReleaseNotes
             TitleFr: "Les fiches RP prennent des couleurs",
             TitleEn: "RP profiles get their colours",
             BodyFr: """
-                    - La fiche affiche maintenant la **bannière**, la **couleur d'accent** et le **portrait** réglés sur le site, le portrait chevauchant la bannière comme sur la page web.
-                    - Les **adhérents** débloquent un **cadre de portrait** (sept styles, dont trois sans aucun mouvement), un **titre personnalisé** sous le nom et son **animation** (huit effets), plus une seconde couleur pour le dégradé. Ces réglages se choisissent sur le site.
-                    - L'**équipe du site** peut afficher son statut, avec une case dans les réglages de visibilité ci-dessous. Rien n'est activé par défaut.
-                    - La fiche **se met à jour toute seule** à l'ouverture de la fenêtre après une modification faite sur le site. Un bouton permet aussi de la rafraîchir à la demande, et rien n'est rechargé tant qu'une saisie n'est pas enregistrée.
+                    **Nouveautés**
+                    - La **bannière**, la **couleur d'accent** et le **portrait** réglés sur le site s'affichent enfin sur la fiche.
+                    - Les **adhérents** débloquent un cadre de portrait, un titre personnalisé sous le nom et son animation.
+                    - L'**équipe du site** peut afficher son badge, désactivé par défaut.
+                    - La fiche se remet à jour d'elle-même après une modification faite sur le site. Un rafraîchissement manuel reste possible.
                     """,
             BodyEn: """
-                    - Your profile now shows the **banner**, **accent colour** and **portrait** set on the website, with the portrait overlapping the banner just like the web page.
-                    - **Members** unlock a **portrait frame** (seven styles, three of them completely still), a **custom title** under the name and its **animation** (eight effects), plus a second colour for the gradient. These are chosen on the website.
-                    - The **site team** can show its status, using a checkbox in the visibility settings below. Nothing is enabled by default.
-                    - The profile **refreshes on its own** when you open the window after editing it on the website. A button also refreshes it on demand, and nothing is reloaded while you have unsaved changes.
+                    **What's new**
+                    - The **banner**, **accent colour** and **portrait** set on the website now show on the profile.
+                    - **Members** unlock a portrait frame, a custom title under the name and its animation.
+                    - The **site team** can display its badge, off by default.
+                    - The profile refreshes itself after an edit made on the website. Manual refresh is still available.
                     """),
 
         new(
@@ -75,12 +77,14 @@ internal static class ReleaseNotes
             TitleFr: "Plus de faux « lien expiré » après un téléport",
             TitleEn: "No more false \"link expired\" after a teleport",
             BodyFr: """
-                    - Après un téléport ou une connexion, le plugin annonçait parfois à tort que **le lien avec le personnage avait expiré**, et rouvrait l'assistant de couplage. Le jeton est maintenant conservé pendant les écrans de chargement.
-                    - Une vraie révocation reste détectée, mais après plusieurs refus consécutifs : un incident réseau passager ne déclenche plus l'alerte.
+                    **Corrections**
+                    - Plus de faux **« lien expiré »** après un téléport : le jeton survit aux écrans de chargement.
+                    - Une révocation n'est signalée qu'après plusieurs refus consécutifs, un incident réseau passager ne suffit plus.
                     """,
             BodyEn: """
-                    - After a teleport or a login, the plugin sometimes wrongly claimed that **the link with your character had expired**, and reopened the linking wizard. The token is now kept across loading screens.
-                    - A genuine revocation is still detected, but only after several consecutive rejections: a passing network hiccup no longer triggers the alert.
+                    **Fixes**
+                    - No more false **"link expired"** after a teleport: the token survives loading screens.
+                    - A revocation is only reported after several consecutive rejections, a passing network hiccup no longer counts.
                     """),
 
         new(
@@ -88,12 +92,14 @@ internal static class ReleaseNotes
             TitleFr: "L'historique des nouveautés, rattrapé",
             TitleEn: "The what's new history, caught up",
             BodyFr: """
-                    - Les versions 2.3.1 à 2.5.0 sont sorties **sans notes** : cette fenêtre ne s'ouvrait plus après une mise à jour, et l'encart du Plugin Installer montrait encore le texte de la 2.3.0. Tout ce qui a été manqué est déplié ci-dessous.
-                    - La fenêtre s'ouvre désormais dès qu'une version non lue a des notes, même si celle qui est installée n'en a pas : un oubli ne peut plus faire disparaître l'historique.
+                    **Corrections**
+                    - Les versions 2.3.1 à 2.5.0 étaient sorties **sans notes** : tout ce qui a été manqué est déplié ci-dessous.
+                    - La fenêtre s'ouvre dès qu'une version non lue a des notes, même si la version installée n'en a pas.
                     """,
             BodyEn: """
-                    - Versions 2.3.1 through 2.5.0 shipped **without notes**: this window no longer opened after an update, and the Plugin Installer panel still showed the 2.3.0 text. Everything you missed is expanded below.
-                    - The window now opens as soon as an unread version has notes, even when the installed one has none: an oversight can no longer make the history vanish.
+                    **Fixes**
+                    - Versions 2.3.1 to 2.5.0 shipped **without notes**: everything that was missed is expanded below.
+                    - The window now opens as soon as an unread version has notes, even when the installed one has none.
                     """),
 
         new(
@@ -101,12 +107,14 @@ internal static class ReleaseNotes
             TitleFr: "Compteur « sur place » partout",
             TitleEn: "\"On site\" count everywhere",
             BodyFr: """
-                    - Le compteur des personnes **sur place** d'un RP ouvert fonctionne maintenant dans toutes les zones, et plus seulement dans les quartiers résidentiels : le plugin transmet ta position sur la carte.
-                    - L'**instance publique** est prise en compte : deux joueurs dans « Thanalan occidental 1 » et « 2 » ne sont plus comptés ensemble alors qu'ils ne peuvent pas se voir.
+                    **Nouveautés**
+                    - Le compteur **sur place** d'un RP ouvert fonctionne dans toutes les zones, plus seulement en quartier résidentiel.
+                    - L'**instance publique** entre dans le décompte : deux joueurs dans « Thanalan occidental 1 » et « 2 » ne sont plus comptés ensemble.
                     """,
             BodyEn: """
-                    - The **on site** count for an open RP session now works in every zone, not only in housing wards: the plugin sends your position on the map.
-                    - The **public instance** is taken into account: two players in "Western Thanalan 1" and "2" are no longer counted together when they cannot see each other.
+                    **What's new**
+                    - The **on site** count for an open RP session works in every zone, not only in housing wards.
+                    - The **public instance** counts: two players in "Western Thanalan 1" and "2" are no longer counted together.
                     """),
 
         new(
@@ -114,50 +122,22 @@ internal static class ReleaseNotes
             TitleFr: "Une panne ne ressemble plus à une liste vide",
             TitleEn: "An outage no longer looks like an empty list",
             BodyFr: """
-                    ## Erreurs
+                    **Nouveautés**
+                    - Les joueurs détectés sur place, l'avertissement de contenu sensible et le numéro d'appartement s'affichent enfin.
 
-                    - Site injoignable, erreur serveur ou délai dépassé : les listes **gardent leur contenu** et proposent de réessayer, au lieu d'afficher « rien à afficher ».
-                    - Une panne réseau ne fait plus disparaître le bouton de reprise d'une session en cours, ce qui laissait croire qu'elle était terminée.
-                    - L'enregistrement d'une fiche dit enfin s'il a réussi, et pourquoi il a échoué. L'ajout d'un ami distingue les cas : personnage sans fiche visible en jeu, liste pleine, personnage non lié, échec technique.
-
-                    ## Version anglaise
-
-                    - Douze thèmes et neuf races s'affichaient en français quel que soit le réglage de langue.
-
-                    ## Affichés enfin
-
-                    - Joueurs détectés sur place, pour les sessions RP comme pour les événements.
-                    - Avertissement de contenu sensible dans le détail d'un établissement.
-                    - Citation dans « Autour de moi », et numéro d'appartement dans l'adresse annoncée en chat.
-
-                    ## Corrections
-
-                    - Un champ vidé dans la fiche est désormais réellement effacé.
-                    - En quittant une maison, ta session restait annoncée à l'adresse du logement.
-                    - Barre de titre : les boutons de repli et de fermeture ne sont plus collés l'un à l'autre.
+                    **Corrections**
+                    - Site injoignable ou erreur serveur : les listes **gardent leur contenu** et proposent de réessayer, au lieu de paraître vides.
+                    - L'enregistrement d'une fiche dit enfin s'il a réussi, et un champ vidé est réellement effacé.
+                    - Douze thèmes et neuf races restaient en français dans la version anglaise.
                     """,
             BodyEn: """
-                    ## Errors
+                    **What's new**
+                    - Players detected on site, the sensitive content warning and the apartment number finally appear.
 
-                    - Site unreachable, server error or timeout: lists now **keep their content** and offer to retry, instead of showing "nothing to display".
-                    - A network outage no longer hides the resume button of a running session, which made it look finished.
-                    - Saving a profile finally reports success, and why it failed. Adding a friend tells the cases apart: character with no profile visible in game, list full, character not linked, technical failure.
-
-                    ## English build
-
-                    - Twelve themes and nine races were shown in French whatever the language setting.
-
-                    ## Shown at last
-
-                    - Players detected on site, for RP sessions as well as events.
-                    - Sensitive content warning in a venue's details.
-                    - Quote in "Around me", and apartment number in the address announced in chat.
-
-                    ## Fixes
-
-                    - A field cleared in your profile is now actually erased.
-                    - When leaving a house, your session stayed announced at the housing address.
-                    - Title bar: the collapse and close buttons are no longer stuck together.
+                    **Fixes**
+                    - Site unreachable or server error: lists now **keep their content** and offer to retry, instead of looking empty.
+                    - Saving a profile finally reports success, and a cleared field is really erased.
+                    - Twelve themes and nine races stayed in French in the English build.
                     """),
 
         new(
@@ -165,38 +145,22 @@ internal static class ReleaseNotes
             TitleFr: "Amis RP et confidentialité",
             TitleEn: "RP friends and privacy",
             BodyFr: """
-                    ## Amis RP
+                    **Nouveautés**
+                    - Nouvel onglet **Amis RP** : les personnages à qui la fiche est ouverte, avec marqueur de réciprocité et note privée.
+                    - L'ajout se fait par **clic droit sur un joueur**, sans notification.
+                    - Nouvel échelon de visibilité **« Mes amis RP »**, avec un aperçu de ce qu'un ami voit.
 
-                    - Nouvel onglet **Amis RP** : les personnages à qui ta fiche est ouverte, avec marqueur de réciprocité, note privée et retrait à deux clics.
-                    - Ajout par **clic droit sur un joueur**, depuis « Autour de moi » ou depuis la fiche consultée. Le geste ouvre ta propre fiche : il ne donne accès à rien d'autre et n'est pas notifié.
-                    - Nouvel échelon de visibilité **« Mes amis RP »**, avec un préréglage qui bascule d'un coup les sections réservées, et un aperçu à deux onglets pour constater ce qu'un ami voit.
-
-                    ## Réglages du site préservés
-
-                    - Trois chemins par lesquels le plugin pouvait écraser des réglages faits sur le site sont fermés : republier une fiche ne réactive plus la page web ni l'indexation, et ne remet plus en clair des sections masquées.
-                    - Les valeurs par défaut de section n'étaient plus les bonnes depuis un ajout au vocabulaire.
-
-                    ## Affichage
-
-                    - Quatre champs servis par le serveur mais dessinés nulle part apparaissent enfin : thème musical, lien externe, prise de contact et durée des scènes.
-                    - L'assistant de première configuration est retiré.
+                    **Corrections**
+                    - Republier une fiche depuis le jeu n'écrase plus les réglages faits sur le site : page web, indexation et sections masquées restent en place.
                     """,
             BodyEn: """
-                    ## RP friends
+                    **What's new**
+                    - New **RP friends** tab: the characters the profile is open to, with a mutual marker and a private note.
+                    - Adding a friend happens by **right-clicking a player**, with no notification sent.
+                    - New **"My RP friends"** visibility tier, with a preview of what a friend sees.
 
-                    - New **RP friends** tab: the characters your profile is open to, with a mutual marker, a private note and two-click removal.
-                    - Add by **right-clicking a player**, from "Around me" or from the profile you are viewing. The action opens your own profile: it grants nothing else and is not notified.
-                    - New **"My RP friends"** visibility tier, with a preset that flips the reserved sections at once, and a two-tab preview to see what a friend sees.
-
-                    ## Website settings preserved
-
-                    - Three paths through which the plugin could overwrite settings made on the website are closed: republishing a profile no longer re-enables the web page or search indexing, and no longer reveals hidden sections.
-                    - Section defaults had been wrong since an addition to the vocabulary.
-
-                    ## Display
-
-                    - Four fields served by the server but drawn nowhere finally appear: musical theme, external link, how to get in touch and scene length.
-                    - The first-time setup wizard has been removed.
+                    **Fixes**
+                    - Republishing a profile from the game no longer overwrites settings made on the website: web page, search indexing and hidden sections stay as they were.
                     """),
 
         new(
@@ -204,10 +168,12 @@ internal static class ReleaseNotes
             TitleFr: "Accroches et thèmes conservés",
             TitleEn: "Hooks and themes preserved",
             BodyFr: """
-                    - L'assistant de première configuration effaçait les **accroches**, les **thèmes recherchés** et les **thèmes évités** dès qu'on le traversait : il ne touche plus qu'à ce qu'il affiche.
+                    **Corrections**
+                    - L'assistant de première configuration effaçait les **accroches**, les **thèmes recherchés** et les **thèmes évités** : il ne touche plus qu'à ce qu'il affiche.
                     """,
             BodyEn: """
-                    - The first-time setup wizard erased your **hooks**, **sought themes** and **avoided themes** as soon as you went through it: it now only touches what it displays.
+                    **Fixes**
+                    - The first-time setup wizard erased **hooks**, **sought themes** and **avoided themes**: it now only touches what it displays.
                     """),
 
         new(
@@ -215,15 +181,21 @@ internal static class ReleaseNotes
             TitleFr: "Fiche préservée et portrait agrandi",
             TitleEn: "Profile preserved, larger portrait",
             BodyFr: """
-                    - Se déclarer **disponible pour du RP** n'efface plus ce qui ne s'édite que sur le site : le reste de la fiche est laissé intact.
-                    - La disponibilité se pilote depuis les quatre mêmes endroits (barre de statut, fiche RP, réglages, onglet RP ouvert), et affiche une erreur au lieu de rester allumée à tort quand le serveur refuse.
+                    **Nouveautés**
                     - Portrait plus grand dans la fiche comme dans les listes, et cliquable pour l'afficher en grand.
+
+                    **Corrections**
+                    - La **disponibilité RP** n'efface plus ce qui ne s'édite que sur le site : le reste de la fiche est laissé intact.
+                    - Elle affiche une erreur au lieu de rester allumée à tort quand le serveur refuse.
                     - Plus de seconde barre de défilement dans les fenêtres à pied fixe.
                     """,
             BodyEn: """
-                    - Declaring yourself **available for RP** no longer wipes what can only be edited on the website: the rest of your profile is left intact.
-                    - Availability is driven from the same four places (status bar, RP profile, settings, Open RP tab), and shows an error instead of wrongly staying on when the server refuses.
+                    **What's new**
                     - Larger portrait in the profile and in lists, clickable to view it full size.
+
+                    **Fixes**
+                    - **RP availability** no longer wipes what can only be edited on the website: the rest of the profile is left intact.
+                    - It shows an error instead of wrongly staying on when the server refuses.
                     - No more second scrollbar in windows with a fixed footer.
                     """),
 
@@ -232,84 +204,24 @@ internal static class ReleaseNotes
             TitleFr: "Nouvelle interface, fiches RP et confidentialité",
             TitleEn: "A new interface, RP profiles and privacy",
             BodyFr: """
-                    ## Une interface repensée
+                    **Nouveautés**
+                    - Interface repensée : navigation par menu latéral, cartes plus lisibles, et textes du site rendus avec leur mise en forme.
+                    - Une **fiche RP par personnage**, avec un partage réglé section par section et le référencement par les moteurs désactivé par défaut.
+                    - Page **Autour de moi** et clic droit sur un joueur pour consulter la fiche des autres.
+                    - Événements regroupés par jour, avec recherche, filtres et bouton **Y aller** via Lifestream.
 
-                    - Navigation par menu latéral : RP ouvert, Autour de moi, Événements, Fiche RP, Lieux et Paramètres.
-                    - Nouvelle typographie et nouvelle palette : les cartes sont plus lisibles et mieux aérées.
-                    - Les textes rédigés sur le site s'affichent enfin avec leur mise en forme : titres, gras, listes et liens.
-
-                    ## Consulter la fiche des autres
-
-                    - Nouvelle page **Autour de moi** : qui est disponible pour du RP, avec sa fiche en un clic.
-                    - **Clic droit sur un joueur** disponible pour ouvrir sa fiche, depuis une plaque de nom, la liste d'équipe ou le chat.
-                    - La fiche affichée montre désormais tout ce que son auteur partage : portrait, accroches, biographie, relations, traits physiques.
-                    - Chaque fiche peut aussi avoir sa page sur le site, partageable hors du jeu.
-
-                    ## Confidentialité
-
-                    - Tu choisis **section par section** ce que tu montres : identité, accroches, traits physiques, appartenances, description, relations et limites.
-                    - Trois réglages distincts : visible en jeu, page web partageable, référencée par les moteurs de recherche. Aucun n'implique les autres.
-                    - Le référencement par les moteurs est **désactivé par défaut**, y compris pour les fiches déjà écrites.
-                    - Ce qui n'est pas partagé n'est jamais envoyé aux autres joueurs, et pas seulement masqué à l'affichage.
-
-                    ## Fiche RP
-
-                    - Une fiche par personnage : plus de mélange entre tes différents rôles.
-                    - Portrait du personnage, traits physiques, appartenances et relations.
-                    - Disponibilité RP déclarée personnage par personnage.
-
-                    ## Agenda et voyage
-
-                    - Les événements sont regroupés par jour, avec une recherche et des filtres officiel / communauté.
-                    - Bouton **Y aller** sur les événements, les RP ouverts et les fiches de lieu, quand Lifestream est installé.
-
-                    ## Corrections
-
-                    - Les RP ouverts à proximité sont aussi annoncés dans le chat du jeu.
-                    - Zone correcte pour les RP démarrés en quartier résidentiel.
-                    - Les noms de zone trop longs ne sont plus coupés au bord des cartes.
-                    - Le bouton « Ignorer » des bandeaux d'alerte est enfin visible.
-                    - Correction d'un plantage possible lors d'un changement de zone.
+                    **Corrections**
+                    - Zone correcte pour les RP démarrés en quartier résidentiel, et correction d'un plantage possible au changement de zone.
                     """,
             BodyEn: """
-                    ## A redesigned interface
+                    **What's new**
+                    - Redesigned interface: sidebar navigation, clearer cards, and website text rendered with its formatting.
+                    - One **RP profile per character**, shared section by section, with search engine listing off by default.
+                    - New **Around me** page, plus right-click on a player to view other profiles.
+                    - Events grouped by day, with search, filters and a **Go there** button via Lifestream.
 
-                    - Sidebar navigation: Open RP, Around me, Events, RP Profile, Venues and Settings.
-                    - New typography and palette: cards are easier to read and better spaced.
-                    - Text written on the website finally renders with its formatting: headings, bold, lists and links.
-
-                    ## Viewing other players' profiles
-
-                    - New **Around me** page: see who is available for RP, and open their profile in one click.
-                    - **Right-click an available player** to open their profile, from a nameplate, the party list or the chat log.
-                    - The profile view now shows everything its author shares: portrait, hooks, background, relationships, physical traits.
-                    - Every profile can also have its own page on the website, shareable outside the game.
-
-                    ## Privacy
-
-                    - You choose **section by section** what you share: identity, hooks, physical traits, affiliations, description, relationships and limits.
-                    - Three separate settings: visible in game, shareable web page, listed in search engines. None implies the others.
-                    - Search engine listing is **off by default**, including for profiles written earlier.
-                    - What you do not share is never sent to other players, not merely hidden from view.
-
-                    ## RP profile
-
-                    - One profile per character: your different roles no longer share a single sheet.
-                    - Character portrait, physical traits, allegiances and relationships.
-                    - RP availability declared per character.
-
-                    ## Agenda and travel
-
-                    - Events are grouped by day, with search and official / community filters.
-                    - **Go there** button on events, open RP sessions and venue pages, when Lifestream is installed.
-
-                    ## Fixes
-
-                    - Nearby open RP sessions are also announced in the game chat.
-                    - Correct zone for RP sessions started in a housing ward.
-                    - Long zone names are no longer cut off at the edge of cards.
-                    - The "Dismiss" button on alert banners is finally visible.
-                    - Fixed a possible crash when changing zone.
+                    **Fixes**
+                    - Correct zone for RP sessions started in a housing ward, and a possible crash when changing zone.
                     """),
 
         new(
@@ -317,18 +229,22 @@ internal static class ReleaseNotes
             TitleFr: "Un jeton par personnage",
             TitleEn: "One token per character",
             BodyFr: """
-                    - **Un jeton d'accès par personnage** au lieu d'un seul pour tout le compte, meilleur pour l'anonymat comme pour la sécurité. Le plugin choisit automatiquement le bon selon le personnage connecté.
+                    **Nouveautés**
+                    - **Un jeton d'accès par personnage** au lieu d'un seul pour tout le compte, choisi automatiquement selon le personnage connecté.
                     - Gestion de plusieurs personnages liés depuis les paramètres.
                     - Paliers de fidélité et suivi de présence dans les établissements.
-                    - Les événements annulés apparaissent désormais dans la liste, au lieu de disparaître sans explication.
-                    - Correction de la hauteur de défilement de la liste des sessions.
+
+                    **Corrections**
+                    - Les événements annulés disparaissaient de la liste sans explication.
                     """,
             BodyEn: """
-                    - **One access token per character** instead of a single account-wide one, better for both anonymity and security. The plugin automatically picks the right one for the character you are playing.
-                    - Manage several linked characters from the settings.
+                    **What's new**
+                    - **One access token per character** instead of a single account-wide one, picked automatically for the character in play.
+                    - Several linked characters can be managed from the settings.
                     - Loyalty tiers and presence tracking in venues.
-                    - Cancelled events now appear in the list instead of vanishing without explanation.
-                    - Fixed the scroll height of the session list.
+
+                    **Fixes**
+                    - Cancelled events vanished from the list without explanation.
                     """),
 
         new(
@@ -336,16 +252,16 @@ internal static class ReleaseNotes
             TitleFr: "Disponibilité RP et première fiche",
             TitleEn: "RP availability and the first profile",
             BodyFr: """
-                    - **Disponibilité RP**, devenue un statut permanent plutôt qu'une annonce ponctuelle : les autres rôlistes voient que tu es ouvert aux rencontres.
+                    **Nouveautés**
+                    - La **disponibilité RP** devient un statut permanent plutôt qu'une annonce ponctuelle.
                     - Première version de la **fiche RP** : niveau de jeu, mode d'approche, langues.
-                    - Les informations de logement accompagnent désormais ta présence, pour qu'on te trouve dans un quartier résidentiel.
-                    - Invitations Discord normalisées.
+                    - Les informations de logement accompagnent la présence, pour être retrouvé dans un quartier résidentiel.
                     """,
             BodyEn: """
-                    - **RP availability**, now a lasting status rather than a one-off announcement: other roleplayers can see you are open to encounters.
+                    **What's new**
+                    - **RP availability** becomes a lasting status rather than a one-off announcement.
                     - First version of the **RP profile**: play level, approach style, languages.
-                    - Housing details now travel with your presence, so people can find you inside a residential ward.
-                    - Discord invites normalised.
+                    - Housing details travel with presence, making a character findable inside a residential ward.
                     """),
 
         new(
@@ -353,10 +269,12 @@ internal static class ReleaseNotes
             TitleFr: "Refonte de la configuration",
             TitleEn: "Setup rework",
             BodyFr: """
-                    - Fenêtre de configuration et composants d'interface repensés, pour rendre la liaison du compte plus claire à la première utilisation.
+                    **Nouveautés**
+                    - Fenêtre de configuration et composants d'interface repensés : la liaison du compte est plus claire à la première utilisation.
                     """,
             BodyEn: """
-                    - Reworked setup window and interface components, to make linking your account clearer on first use.
+                    **What's new**
+                    - Reworked setup window and interface components: linking an account is clearer on first use.
                     """),
     ];
 

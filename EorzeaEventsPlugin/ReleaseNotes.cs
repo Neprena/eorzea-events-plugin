@@ -25,6 +25,18 @@ internal sealed record ReleaseNote(
 /// Les notes vivent ici plutôt que dans <see cref="Loc"/>, qui compte déjà
 /// plusieurs centaines de propriétés obligatoires à renseigner deux fois.
 ///
+/// Le corps suit les préceptes de Keep a Changelog 1.1.0
+/// (https://keepachangelog.com/fr/1.1.0/) : un en-tête de rubrique en gras par
+/// type de changement, dans l'ordre **Ajouté**, **Modifié**, **Déprécié**,
+/// **Supprimé**, **Corrigé**, **Sécurité** (**Added**, **Changed**,
+/// **Deprecated**, **Removed**, **Fixed**, **Security**), suivi d'une liste.
+/// Seules les rubriques utiles à la version sont écrites. Les en-têtes restent
+/// du gras et non des titres « ## » : la fenêtre est rendue par ImGui, où un
+/// titre de niveau 2 casserait la mise en page.
+///
+/// Les entrées antérieures à la 2.6.0 gardent les anciennes rubriques
+/// « Nouveautés »/« Corrections » : elles sont déjà parues sous cette forme.
+///
 /// L'historique s'arrête volontairement à la ligne 2.x. Les versions 1.x
 /// relevaient surtout de la migration vers l'API 15 de Dalamud et de correctifs
 /// de compatibilité : rien qu'un joueur ait vu, et les messages de commit de
@@ -39,16 +51,57 @@ internal static class ReleaseNotes
     public static readonly ReleaseNote[] All =
     [
         new(
+            Version: "2.7.0",
+            TitleFr: "Le chat en couleurs, la fiche en onglets",
+            TitleEn: "Coloured chat, tabbed profile",
+            BodyFr: """
+                    **Ajouté**
+                    - Le chat met en couleur les conventions d'écriture du RP : emotes entre astérisques ou entre chevrons, hors jeu entre parenthèses, répliques entre guillemets. Tout se passe à la réception et sur votre machine : le message envoyé n'est jamais modifié, et les autres voient exactement ce que vous avez tapé.
+                    - Le chat peut afficher le **nom RP** d'un personnage à la place du sien quand sa fiche est visible. Éteint par défaut.
+                    - Une commande insère le nom RP de votre cible ou le vôtre dans une réplique, et la copie prête à coller.
+                    - Cibler ou survoler un joueur déclaré disponible affiche une **infobulle** avec son nom RP, son état, son statut du moment et son coup d'œil, sans ouvrir sa fiche.
+                    - La fiche s'édite en **cinq onglets** au lieu d'une seule page à dérouler. L'ancienne présentation reste disponible dans les réglages.
+
+                    **Modifié**
+                    - La fiche reprend le tag **Jeu de rôle** du jeu pour dire si le personnage est en RP, au lieu de vous le faire redire ailleurs. Votre disponibilité n'est publiée que si ce tag est actif : retiré, vous sortez de la liste et des marqueurs, et y revenez dès qu'il est remis.
+                    - Les réglages de confidentialité passent de trois à deux, et s'affichent en tête de la page Profil. Une fiche est consultable ou non, en jeu comme par son adresse, et son auteur choisit séparément d'apparaître ou non dans l'annuaire du site.
+                    - Les interrupteurs, les préférences et la divinité s'enregistrent d'eux-mêmes, une seconde et demie après le dernier clic. Un texte en cours de saisie attend toujours le bouton.
+                    - Le coup d'œil s'édite emplacement par emplacement : les détails s'ajoutent et se retirent un à un au lieu d'occuper cinq blocs vides, et le menu des icônes montre le dessin à côté de son nom.
+                    - Le plugin interroge le site par un relevé unique au lieu de trois, et espace ses appels quand sa fenêtre est fermée.
+
+                    **Sécurité**
+                    - Une fiche marquée **contenu sensible** ne s'ouvre plus que si votre compte du site accepte ce type de contenu. Le réglage du plugin ne couvre désormais que l'infobulle : l'écran vous dit quoi faire et vous y emmène.
+                    """,
+            BodyEn: """
+                    **Added**
+                    - Chat now colours RP writing conventions: emotes between asterisks or angle brackets, out of character between parentheses, spoken lines between quotes. It all happens on reception and on your machine: the message you send is never altered, and others see exactly what you typed.
+                    - Chat can show a character's **RP name** instead of their own when their profile is visible. Off by default.
+                    - A command inserts your target's RP name or your own into a line, and copies it ready to paste.
+                    - Targeting or hovering a player who declared themselves available shows a **tooltip** with their RP name, state, current status and glance, without opening their profile.
+                    - The profile is edited in **five tabs** instead of one long page to scroll. The former layout is still available in the settings.
+
+                    **Changed**
+                    - The profile now reads the game's **Role-playing** tag to tell whether the character is in character, instead of asking you to say it twice. Your availability is only published while that tag is on: turn it off and you leave the list and the markers, turn it back on and you return.
+                    - Privacy settings go from three to two, and sit at the top of the Profile page. A profile is viewable or not, in game as through its address, and its author separately chooses whether to appear in the site directory.
+                    - Toggles, preferences and deity save themselves, a second and a half after the last click. Text being typed still waits for the button.
+                    - The glance is edited slot by slot: details are added and removed one at a time instead of taking up five empty blocks, and the icon menu shows the drawing next to its name.
+                    - The plugin queries the website with a single poll instead of three, and spaces out its calls when its window is closed.
+
+                    **Security**
+                    - A profile flagged as **sensitive content** only opens if your website account accepts this kind of content. The plugin setting now only covers the tooltip: the screen tells you what to do and takes you there.
+                    """),
+
+        new(
             Version: "2.6.2",
             TitleFr: "Codes de sync",
             TitleEn: "Sync codes",
             BodyFr: """
-                    **Nouveautés**
+                    **Ajouté**
                     - Les codes de sync (**Snowcloak**, **Umbra** et consorts) arrivent sur la fiche RP, avec le choix de qui peut les voir.
                     - Un clic copie le code depuis la fiche d'un autre joueur.
                     """,
             BodyEn: """
-                    **What's new**
+                    **Added**
                     - Sync codes (**Snowcloak**, **Umbra** and others) are now on the RP profile, with a choice of who can see them.
                     - One click copies the code from another player's profile.
                     """),
@@ -58,14 +111,14 @@ internal static class ReleaseNotes
             TitleFr: "Les fiches RP prennent des couleurs",
             TitleEn: "RP profiles get their colours",
             BodyFr: """
-                    **Nouveautés**
+                    **Ajouté**
                     - La **bannière**, la **couleur d'accent** et le **portrait** réglés sur le site s'affichent enfin sur la fiche.
                     - Les **adhérents** débloquent un cadre de portrait, un titre personnalisé sous le nom et son animation.
                     - L'**équipe du site** peut afficher son badge, désactivé par défaut.
                     - La fiche se remet à jour d'elle-même après une modification faite sur le site. Un rafraîchissement manuel reste possible.
                     """,
             BodyEn: """
-                    **What's new**
+                    **Added**
                     - The **banner**, **accent colour** and **portrait** set on the website now show on the profile.
                     - **Members** unlock a portrait frame, a custom title under the name and its animation.
                     - The **site team** can display its badge, off by default.

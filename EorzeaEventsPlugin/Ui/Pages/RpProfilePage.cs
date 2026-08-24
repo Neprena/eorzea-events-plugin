@@ -70,17 +70,96 @@ internal sealed class RpProfilePage(Configuration config)
     // Copie de travail des champs éditables en jeu.
     private readonly string[] _hooks = ["", "", "", "", ""];
 
+    // Coup d'œil : cinq emplacements fixes, comme les accroches. Ce sont des
+    // champs courts, une icône et deux lignes, dont on veut pouvoir changer en
+    // pleine soirée ; les saisir en jeu est donc voulu, contrairement aux textes
+    // longs de la biographie.
+    private readonly int[]    _glanceIcons  = new int[MaxGlances];
+    private readonly string[] _glanceTitles = ["", "", "", "", ""];
+    private readonly string[] _glanceBodies = ["", "", "", "", ""];
+    private readonly bool[]   _glanceActive = new bool[MaxGlances];
+
+    /// <summary>
+    /// Nombre d'emplacements ouverts à l'écran, et non plafond fixe.
+    ///
+    /// Les cinq emplacements affichés en permanence donnaient un mur de quinze
+    /// champs pour une fiche qui en remplit un ou deux : on n'ouvre plus que ce
+    /// qui existe, le reste s'ajoute au bouton.
+    /// </summary>
+    private int _glanceCount;
+
+    /// <summary>Emplacement dont le retrait est armé, -1 si aucun.</summary>
+    private int _glanceArmed = -1;
+
     // Codes de sync : emplacements fixes, comme les accroches. Pas de boutons
     // ajouter/supprimer, une ligne sans identifiant n'est simplement pas envoyée.
     private readonly int[]    _syncTypes = new int[MaxSyncshells];
     private readonly string[] _syncNames = ["", "", "", "", ""];
     private readonly string[] _syncIds   = ["", "", "", "", ""];
     private string _currentQuest = string.Empty;
+
+    // Instant présent. Son enregistrement est distinct de celui de la fiche : la
+    // route dédiée n'écrit que ces deux champs, si bien que changer d'état
+    // pendant qu'une biographie est en cours de saisie ne publie pas la saisie.
+    private string   _currently        = string.Empty;
+    private int      _icStateIndex;
+    private bool     _statusDirty;
+    private bool     _statusSaving;
+    private bool     _statusFailed;
+    private DateTime _statusSavedUntil = DateTime.MinValue;
+
+    /// <summary>Aligné sur RP_MAX_CURRENTLY (src/lib/rp-vocabulary.ts).</summary>
+    private const int MaxCurrently = 140;
+
     private int    _levelIndex;
     private int    _approachIndex;
     private bool   _langFr = true;
     private bool   _langEn;
     private bool   _dirty;
+
+    /// <summary>
+    /// Au moins une modification qui n'est pas un simple interrupteur.
+    ///
+    /// Verrou de l'enregistrement automatique : une case cochée est un choix
+    /// arrêté, une phrase à demi tapée n'en est pas un. Tant que ce drapeau est
+    /// levé, la fiche attend le bouton, et une biographie en cours de frappe ne
+    /// part donc jamais toute seule sous les yeux des lecteurs.
+    /// </summary>
+    private bool _textDirty;
+
+    /// <summary>
+    /// Instant où l'enregistrement automatique doit partir, `null` si aucun n'est
+    /// en attente. Le délai absorbe les rafales : régler quatre audiences d'affilée
+    /// ne fait qu'un envoi.
+    /// </summary>
+    private DateTime? _autoSaveAt;
+
+    private static readonly TimeSpan AutoSaveDelay = TimeSpan.FromSeconds(1.5);
+
+    /// <summary>
+    /// Le dernier envoi est parti tout seul. Départage les deux retours : la
+    /// ligne d'état ne revendique un enregistrement automatique que s'il l'était,
+    /// et ne s'attribue pas celui d'un clic sur le bouton.
+    /// </summary>
+    private bool _lastSaveWasAuto;
+
+    /// <summary>
+    /// Contrôle d'où est parti le dernier enregistrement automatique, vide sinon.
+    ///
+    /// Le retour se lit sous le réglage qu'on vient de toucher, jamais ailleurs.
+    /// En tête de page il disparaissait dès la fiche déroulée ; épinglé dans un
+    /// coin, puis au pied de la carte, il restait hors du regard, qui n'a pas
+    /// quitté l'interrupteur. Il tient donc à l'interrupteur lui-même, et tous
+    /// les autres se taisent.
+    /// </summary>
+    private string _autoSaveControl = string.Empty;
+
+    /// <summary>
+    /// Onglet ouvert dans la disposition en onglets. Conservé le temps de la
+    /// session seulement : revenir sur sa fiche, c'est presque toujours revenir
+    /// à ce qu'on y règle le plus souvent.
+    /// </summary>
+    private string _tab = "overview";
 
     private string _height      = string.Empty;
     private string _build       = string.Empty;
@@ -91,9 +170,10 @@ internal sealed class RpProfilePage(Configuration config)
     private string _quote       = string.Empty;
     private int    _deityIndex;
 
-    // Visibilité : trois consentements, plus une audience par section.
+    // Visibilité : deux consentements, plus une audience par section. Le premier
+    // couvre à la fois la consultation en jeu et l'adresse partageable de la
+    // fiche, les deux ne se règlent plus séparément.
     private bool _visInGame = true;
-    private bool _visWebPage = true;
     private bool _visIndexable;
 
     /// <summary>Consentement d'affichage du statut d'équipe, pour qui en a un.</summary>
@@ -101,6 +181,13 @@ internal sealed class RpProfilePage(Configuration config)
     private readonly int[] _sectionAudience = new int[SectionKeys.Length];
 
     private static readonly string[] LevelKeys    = ["beginner", "casual", "confirmed"];
+
+    /// <summary>
+    /// États de jeu, alignés sur <c>RP_IC_STATES</c> (src/lib/rp-vocabulary.ts) et
+    /// vérifiés par <c>scripts/check-rp-vocabulary.ts</c>. L'ordre est celui du
+    /// serveur : c'est lui qui détermine ce que le sélecteur enregistre.
+    /// </summary>
+    private static readonly string[] IcStateKeys = ["ic", "ooc"];
     private static readonly string[] ApproachKeys = ["come_to_me", "i_approach", "either"];
 
     /// <summary>
@@ -115,8 +202,11 @@ internal sealed class RpProfilePage(Configuration config)
     private static readonly string[] TitleAnimKeys =
         ["sweep", "pulse", "rainbow", "sheen", "halo", "duotone", "wave", "neon"];
 
+    // « glance » vient juste après « hooks », comme côté serveur : les défauts
+    // ci-dessous sont lus par position, tout décalage réglerait une section sur
+    // l'audience d'une autre.
     private static readonly string[] SectionKeys =
-        ["identity", "hooks", "traits", "belonging", "description", "relations", "limits", "links", "sync"];
+        ["identity", "hooks", "glance", "traits", "belonging", "description", "relations", "limits", "links", "sync"];
 
     /// <summary>
     /// Audiences, de la plus large à la plus étroite, dans le même ordre que
@@ -136,6 +226,31 @@ internal sealed class RpProfilePage(Configuration config)
     private const int MaxSyncshells = 5;
 
     /// <summary>
+    /// Vocabulaire d'icônes du coup d'œil, dans l'ordre exact de
+    /// <c>RP_GLANCE_ICONS</c> (src/lib/rp-vocabulary.ts), que
+    /// <c>scripts/check-rp-vocabulary.ts</c> compare à ce tableau. L'ordre est
+    /// aussi celui du sélecteur : le rang choisi désigne la clé enregistrée.
+    /// </summary>
+    private static readonly string[] GlanceIconKeys =
+    [
+        "sword", "shield", "book", "scroll", "flask", "music", "heart", "star",
+        "coin", "hammer", "leaf", "flame", "moon", "sun", "eye", "mask",
+        "crown", "anchor", "feather", "key", "skull", "cup", "map", "paw",
+    ];
+
+    /// <summary>
+    /// Icône d'un emplacement qu'on vient d'ouvrir. L'étoile est neutre, là où
+    /// la première clé du tableau (l'épée) laissait croire à un choix déjà fait.
+    /// Le site ouvre ses nouveaux emplacements sur la même icône.
+    /// </summary>
+    private static readonly int GlanceDefaultIcon = Array.IndexOf(GlanceIconKeys, "star");
+
+    /// <summary>Emplacements et longueurs, alignés sur le Zod de la route.</summary>
+    private const int MaxGlances     = 5;
+    private const int MaxGlanceTitle = 60;
+    private const int MaxGlanceBody  = 200;
+
+    /// <summary>
     /// Défauts par section, dans l'ordre de <see cref="SectionKeys"/>, exprimés
     /// par clé et non par rang.
     ///
@@ -146,7 +261,7 @@ internal sealed class RpProfilePage(Configuration config)
     /// <c>RP_SECTIONS</c> (src/lib/rp-vocabulary.ts).
     /// </summary>
     private static readonly string[] SectionDefaultKeys =
-        ["public", "public", "owner", "owner", "owner", "owner", "owner", "public", "owner"];
+        ["public", "public", "public", "public", "owner", "public", "owner", "public", "public", "owner"];
 
     /// <summary>
     /// Les Douze, dans l'ordre du serveur, précédés d'une entrée vide : l'index
@@ -180,6 +295,10 @@ internal sealed class RpProfilePage(Configuration config)
         if (_loadedFor != key) Load(key);
         else if (_refreshPending) AutoRefresh(key);
 
+        // Avant le rendu : ce qui part maintenant s'affiche « enregistré » dès
+        // cette image, et non à la suivante.
+        TickAutoSave();
+
         using var scroll = ImRaii.Child("##rpprofilescroll", new Vector2(-1f, -1f));
         if (!scroll) return;
 
@@ -193,22 +312,116 @@ internal sealed class RpProfilePage(Configuration config)
 
         DrawActionRow(l);
         DrawWebNotice(l);
+
+        if (config.RpProfileTabs) DrawTabbed(l);
+        else                      DrawSinglePage(l);
+
+        // Respiration en fin de page. Sans elle, la dernière carte est collée au
+        // bord bas de la zone défilante, et la liste déroulante de sa dernière
+        // ligne n'a pas la place de s'ouvrir vers le bas.
+        Layout.Spacer(Theme.GapXl);
+    }
+
+    /// <summary>
+    /// Fiche d'un seul tenant, tout déroulé. Disposition d'origine, conservée
+    /// pour qui préfère chercher au défilement plutôt qu'au clic.
+    ///
+    /// La confidentialité vient avant tout bloc de contenu : c'est elle qui
+    /// décide qui voit quoi, et on la cherche en haut de page. Reléguée en fin
+    /// de fiche, elle se trouvait au bout d'un long défilement, là où personne ne
+    /// pense à aller la vérifier avant d'écrire sa biographie.
+    /// </summary>
+    private void DrawSinglePage(Loc l)
+    {
+        DrawVisibility(l);
+
+        DrawStatus(l);
         DrawAvailability(l);
         DrawHooks(l);
+        DrawGlances(l);
         DrawTraits(l);
         DrawBelonging(l);
         DrawSyncshells(l);
         DrawPreferences(l);
         DrawIdentity(l);
         DrawRelations(l);
-        DrawStory(l);
+        DrawDescription(l);
+        DrawLimits(l);
         if (_profile is { } linked) RpProfileView.DrawLinks(linked, l, Tone);
-        DrawVisibility(l);
+    }
 
-        // Respiration en fin de page. Sans elle, la dernière carte est collée au
-        // bord bas de la zone défilante, et la liste déroulante de sa dernière
-        // ligne n'a pas la place de s'ouvrir vers le bas.
-        Layout.Spacer(Theme.GapXl);
+    /// <summary>
+    /// Même fiche, répartie en cinq onglets.
+    ///
+    /// Quatorze blocs bout à bout font une page qu'on parcourt au jugé : ce qui
+    /// se règle une fois par an y côtoie ce qu'on change tous les soirs. Le
+    /// découpage suit l'usage et non la structure des données : ce qu'on vient
+    /// modifier avant une soirée d'abord, ce qui décrit le personnage ensuite,
+    /// la confidentialité à part parce qu'on y va exprès.
+    ///
+    /// Les blocs sont les mêmes méthodes que la page d'un seul tenant, appelées
+    /// depuis un autre endroit : il n'y a pas deux fiches à maintenir, seulement
+    /// deux façons de les ranger.
+    /// </summary>
+    private void DrawTabbed(Loc l)
+    {
+        Tabs.Tab[] tabs =
+        [
+            new("overview",  l.RpProfileTabOverview,  Icons.RpLive),
+            new("character", l.RpProfileTabCharacter, Icons.Profile),
+            new("play",      l.RpProfileTabPlay,      Icons.Sparkle),
+            new("links",     l.RpProfileTabLinks,     Icons.Copy),
+            new("privacy",   l.RpProfileTabPrivacy,   Icons.Hide),
+        ];
+
+        _tab = Tabs.Draw("rpprofiletabs", tabs, _tab, Tone);
+
+        // Une saisie en attente n'est plus visible dès qu'on change d'onglet :
+        // le bouton d'enregistrement est resté sur l'onglet d'où elle vient. Le
+        // rappel suit donc l'utilisateur, sur tous les onglets, tant que rien
+        // n'est parti. Rien n'est perdu pour autant : les valeurs saisies restent
+        // en mémoire jusqu'au prochain chargement de la fiche.
+        if (_textDirty)
+        {
+            Layout.Spacer(Theme.GapXs);
+            Text.WithIcon(Icons.Warning, l.RpProfileTabUnsaved, Theme.Idle, Theme.Idle);
+        }
+
+        Layout.Spacer(Theme.GapS);
+
+        switch (_tab)
+        {
+            case "character":
+                DrawIdentity(l);
+                DrawTraits(l);
+                DrawDescription(l);
+                DrawBelonging(l);
+                break;
+
+            case "play":
+                DrawHooks(l);
+                DrawPreferences(l);
+                DrawLimits(l);
+                DrawRelations(l);
+                break;
+
+            case "links":
+                DrawSyncshells(l);
+                if (_profile is { } linked) RpProfileView.DrawLinks(linked, l, Tone);
+                break;
+
+            case "privacy":
+                DrawVisibility(l);
+                break;
+
+            // « Aperçu » sert aussi de repli : un onglet inconnu, laissé par une
+            // version antérieure, ouvre la fiche là où elle est la plus utile.
+            default:
+                DrawStatus(l);
+                DrawAvailability(l);
+                DrawGlances(l);
+                break;
+        }
     }
 
     // ─── Chargement ───────────────────────────────────────────────────────────
@@ -237,7 +450,7 @@ internal sealed class RpProfilePage(Configuration config)
     {
         _refreshPending = false;
 
-        if (_dirty || _loading || _saving) return;
+        if (_dirty || _statusDirty || _loading || _saving) return;
         if (DateTime.UtcNow - _lastFetchedAt < AutoRefreshCooldown) return;
 
         Load(key);
@@ -279,8 +492,9 @@ internal sealed class RpProfilePage(Configuration config)
 
                 // L'utilisateur a pu commencer à saisir pendant la requête : ses
                 // champs priment alors sur la réponse, que la fiche lue sert de
-                // base à l'enregistrement suivant.
-                if (!_dirty) Reset();
+                // base à l'enregistrement suivant. Le statut compte au même
+                // titre, tout court qu'il soit : il s'écrit à la main lui aussi.
+                if (!_dirty && !_statusDirty) Reset();
             });
         });
     }
@@ -292,6 +506,28 @@ internal sealed class RpProfilePage(Configuration config)
 
         for (var i = 0; i < _hooks.Length; i++)
             _hooks[i] = p != null && i < p.Hooks.Length ? p.Hooks[i] : string.Empty;
+
+        // Seuls les emplacements réellement enregistrés sont ouverts : la fiche
+        // vide n'affiche donc aucun champ, juste son bouton d'ajout.
+        _glanceCount = Math.Min(p?.Glances.Length ?? 0, MaxGlances);
+        _glanceArmed = -1;
+
+        for (var i = 0; i < MaxGlances; i++)
+        {
+            var glance = i < _glanceCount ? p!.Glances[i] : null;
+            var icon   = glance != null ? Array.IndexOf(GlanceIconKeys, glance.Icon) : -1;
+
+            // Une icône inconnue, réglée par une version plus récente du site,
+            // retombe sur l'icône neutre : la fiche reste éditable, et seule
+            // l'icône change, pas le texte que le joueur a écrit.
+            _glanceIcons[i]  = icon >= 0 ? icon : GlanceDefaultIcon;
+            _glanceTitles[i] = glance?.Title ?? string.Empty;
+            _glanceBodies[i] = glance?.Body  ?? string.Empty;
+
+            // Un emplacement vierge naît allumé : le remplir suffit à le montrer,
+            // sans second geste à comprendre.
+            _glanceActive[i] = glance?.Active ?? true;
+        }
 
         var syncshells = ParseSyncshells(p?.Syncshells);
         for (var i = 0; i < MaxSyncshells; i++)
@@ -307,6 +543,14 @@ internal sealed class RpProfilePage(Configuration config)
         }
 
         _currentQuest  = p?.CurrentQuest ?? string.Empty;
+        _currently     = p?.Currently    ?? string.Empty;
+
+        // Un serveur ou un cache antérieurs ne portent pas l'état : on affiche
+        // alors le défaut du serveur (« ooc »), qui est ce que la fiche vaut
+        // réellement en base tant qu'aucun tag n'a été vu. L'état n'est plus
+        // réglable ici, il suit le tag « Jeu de rôle » du jeu.
+        _icStateIndex  = Math.Max(0, Array.IndexOf(IcStateKeys, p?.IcState ?? "ooc"));
+        _statusDirty   = false;
         _levelIndex    = Math.Max(0, Array.IndexOf(LevelKeys,    p?.RpLevel      ?? "casual"));
         _approachIndex = Math.Max(0, Array.IndexOf(ApproachKeys, p?.ApproachMode ?? "come_to_me"));
         _langFr        = p?.Languages.Contains("fr") ?? true;
@@ -322,7 +566,6 @@ internal sealed class RpProfilePage(Configuration config)
         _deityIndex  = Math.Max(0, Array.IndexOf(DeityKeys, p?.Deity ?? string.Empty));
 
         _visInGame    = p?.IsPublic        ?? true;
-        _visWebPage   = p?.WebPageEnabled  ?? true;
         _visIndexable = p?.SearchIndexable ?? false;
         _visStaffBadge = p?.StaffBadgeVisible ?? false;
 
@@ -336,7 +579,9 @@ internal sealed class RpProfilePage(Configuration config)
                 : Array.IndexOf(AudienceKeys, SectionDefaultKeys[i]);
         }
 
-        _dirty = false;
+        _dirty      = false;
+        _textDirty  = false;
+        _autoSaveAt = null;
     }
 
     /// <summary>
@@ -484,16 +729,156 @@ internal sealed class RpProfilePage(Configuration config)
                        {
                            if (Btn.Draw(l.RpProfileEditOnline, BtnTone.Primary, BtnSize.Medium,
                                         Icons.External, id: "rp_editonline"))
-                               OpenSite("/dashboard/profil-rp");
+                               OpenSite(EditUrl());
                        });
+    }
+
+    /// <summary>
+    /// Instant présent : état de jeu et statut du moment, les deux seuls champs
+    /// de la fiche qui se changent en cours de soirée.
+    ///
+    /// Éditables en jeu sans réserve, contrairement aux textes longs : ce sont
+    /// une liste à trois entrées et une ligne de texte, et c'est justement en
+    /// jouant qu'on veut les changer. Devoir sortir du jeu pour dire qu'on est
+    /// hors RP est le meilleur moyen de ne jamais le dire.
+    ///
+    /// L'enregistrement passe par la route dédiée et non par le bouton commun de
+    /// la page : celui-ci publierait toute la fiche, y compris une saisie en
+    /// cours ailleurs.
+    /// </summary>
+    private void DrawStatus(Loc l)
+    {
+        using var card = Card.Begin("rp_status", interactive: false);
+
+        Layout.SectionHeader(l.RpProfileStatus, Icons.RpLive, tone: Tone);
+        Text.Small(l.RpProfileStatusHint);
+        Layout.Spacer(Theme.GapS);
+
+        // L'état de jeu se lit, il ne se règle plus : le jeu a déjà son tag
+        // « Jeu de rôle », et un second interrupteur ici donnait deux réponses
+        // contradictoires à la même question. Le tag fait foi, le plugin le
+        // recopie, et n'écrit jamais /jdr à la place du joueur.
+        var stateKey = CurrentStateKey();
+        Text.Small(l.RpProfileIcState);
+        Chip.Draw(RpProfileView.IcStateLabel(stateKey, l),
+                  RpProfileView.IcStateTone(stateKey), Icons.RpLive);
+        Text.Small(l.RpProfileIcStateHint);
+
+        Layout.Spacer(Theme.GapS);
+
+        // Le statut, lui, s'écrit lettre par lettre : l'envoyer à chaque frappe
+        // ferait autant de requêtes que de caractères.
+        if (Inputs.Field("##currently", l.RpProfileCurrently, ref _currently, MaxCurrently,
+                         placeholder: l.RpProfileCurrentlyExample, showCounter: true))
+            _statusDirty = true;
+
+        DrawStatusSaveRow(l);
+    }
+
+    /// <summary>
+    /// Retour d'enregistrement propre au statut. Il ne partage pas celui de la
+    /// fiche : les deux s'enregistrent séparément, et un « Enregistré » commun
+    /// laisserait croire qu'un clic ici a publié le reste de la page.
+    /// </summary>
+    private void DrawStatusSaveRow(Loc l)
+    {
+        var justSaved = DateTime.UtcNow < _statusSavedUntil;
+        if (!_statusDirty && !justSaved && !_statusFailed) return;
+
+        Layout.Spacer(Theme.GapS);
+
+        if (justSaved && !_statusDirty)
+        {
+            Text.WithIcon(Icons.Check, l.RpProfileSaved, Theme.Online, Theme.Online);
+            return;
+        }
+
+        // L'échec reste affiché tant que le statut n'est pas reparti : le texte
+        // saisi est encore là, il n'a simplement pas atteint le serveur.
+        if (_statusFailed)
+        {
+            Text.WithIcon(Icons.Warning, l.SaveFailed, Theme.Danger, Theme.Danger);
+            Layout.Spacer(Theme.GapXs);
+        }
+
+        if (!_statusDirty) return;
+
+        if (Btn.Draw(_statusSaving ? l.Processing : l.Save, BtnTone.Primary, BtnSize.Medium,
+                     Icons.Check, disabled: _statusSaving, id: "rpstatus_save"))
+            SaveStatus();
+    }
+
+    /// <summary>
+    /// Publie l'instant présent, et lui seul.
+    ///
+    /// Le statut part toujours, même vide : la chaîne vide est la façon
+    /// d'effacer, alors qu'un null serait omis du corps et laisserait en place
+    /// ce que le serveur a déjà. Vider le champ en jeu doit vider le statut.
+    /// </summary>
+    private void SaveStatus()
+    {
+        if (_statusSaving) return;
+        _statusSaving = true;
+
+        var currently = _currently.Trim();
+        var icState   = CurrentStateKey();
+        var key       = _loadedFor;
+
+        _ = Task.Run(async () =>
+        {
+            var ok = await Plugin.Api.SetRpStatusAsync(currently, icState);
+            await Plugin.Framework.RunOnFrameworkThread(() =>
+            {
+                _statusSaving = false;
+                _statusFailed = !ok;
+                if (!ok) return;
+
+                _statusDirty      = false;
+                _statusSavedUntil = DateTime.UtcNow.AddSeconds(3);
+
+                // La fiche en mémoire et son cache portent l'ancien statut : sans
+                // cette recopie, l'entête et la fiche vue par les autres
+                // continueraient d'afficher l'état précédent jusqu'au prochain
+                // rafraîchissement réseau, c'est-à-dire précisément au moment où
+                // l'on vient de dire le contraire.
+                var stored = currently.Length > 0 ? currently : null;
+
+                if (_profile is { } profile)
+                {
+                    profile.Currently = stored;
+                    profile.IcState   = icState;
+                }
+
+                if (config.RpProfiles.TryGetValue(key, out var cached))
+                {
+                    cached.Currently = stored;
+                    cached.IcState   = icState;
+                    config.Save();
+                }
+            });
+        });
+    }
+
+    /// <summary>
+    /// État de jeu à afficher et à réenvoyer avec le statut du moment.
+    ///
+    /// Le cache du personnage connecté est tenu à jour par la surveillance du
+    /// tag : le lire évite qu'un enregistrement du statut ne renvoie l'état
+    /// chargé à l'ouverture de la page, devenu faux depuis un /jdr. Hors du jeu,
+    /// il ne reste que ce que la fiche portait au chargement.
+    /// </summary>
+    private string CurrentStateKey()
+    {
+        if (Plugin.CurrentCharacter is not null) return Plugin.CurrentIcState();
+        return IcStateKeys[Math.Clamp(_icStateIndex, 0, IcStateKeys.Length - 1)];
     }
 
     private void DrawAvailability(Loc l)
     {
         using var card = Card.Begin("rp_available", interactive: false,
-                                    accent: Plugin.CurrentCharacterAvailable ? Theme.Online : null);
+                                    accent: Plugin.CurrentCharacterAvailabilityWanted ? Theme.Online : null);
 
-        var available = Plugin.CurrentCharacterAvailable;
+        var available = Plugin.CurrentCharacterAvailabilityWanted;
         if (Inputs.ToggleRow(l.RpAvailableEnable, ref available, l.RpAvailableEnableHint, Icons.RpLive))
             Plugin.SetRpAvailability(available);
     }
@@ -510,15 +895,157 @@ internal sealed class RpProfilePage(Configuration config)
         {
             if (Inputs.Field($"##hook{i}", string.Empty, ref _hooks[i], 120,
                              placeholder: i == 0 ? l.RpProfileHooksExample : null))
-                _dirty = true;
+                MarkDirty();
         }
 
         Layout.Spacer(Theme.GapS);
         if (Inputs.Field("##quest", l.RpProfileCurrentQuest, ref _currentQuest, 200))
-            _dirty = true;
+            MarkDirty();
 
         DrawSaveRow(l);
     }
+
+    /// <summary>
+    /// Coup d'œil : jusqu'à cinq emplacements, chacun une icône, un titre et une
+    /// ligne de description.
+    ///
+    /// Les emplacements s'ajoutent et se retirent un à un plutôt que d'occuper
+    /// l'écran en permanence : quatre cases vides sous un seul détail rempli ne
+    /// disaient rien de plus et noyaient le bloc.
+    ///
+    /// L'interrupteur éteint un emplacement sans le vider : ce qu'on ne montre
+    /// pas ce soir se remontrera demain, et effacer pour masquer ferait
+    /// retaper le texte à chaque fois.
+    /// </summary>
+    private void DrawGlances(Loc l)
+    {
+        using var card = Card.Begin("rp_glance", interactive: false);
+
+        Layout.SectionHeader(l.RpProfileGlance, Icons.Show, tone: Tone);
+        Text.Small(l.RpProfileGlanceHint);
+        Layout.Spacer(Theme.GapS);
+
+        // Le glyphe précède son nom dans chaque entrée du menu, et donc aussi
+        // dans la ligne fermée : on choisissait jusque-là un dessin dans une
+        // liste de mots, sans jamais voir ce qu'on choisissait.
+        var iconLabels = GlanceIconKeys
+            .Select(k => $"{Icons.Glance(k).S()}  {GlanceIconLabel(k, l)}")
+            .ToArray();
+
+        if (_glanceCount == 0) Text.Muted(l.RpProfileGlanceEmpty);
+
+        for (var i = 0; i < _glanceCount; i++)
+        {
+            if (i > 0) Layout.Divider(Theme.GapS);
+
+            DrawGlanceRemove(i, l);
+
+            if (Inputs.Select($"##glanceicon{i}", string.Empty, ref _glanceIcons[i], iconLabels))
+                MarkDirty();
+
+            if (Inputs.Field($"##glancetitle{i}", string.Empty, ref _glanceTitles[i], MaxGlanceTitle,
+                             placeholder: l.RpProfileGlanceExample))
+                MarkDirty();
+
+            // Description et interrupteur ne servent à rien tant que rien n'est
+            // écrit : un emplacement sans titre n'est de toute façon pas envoyé,
+            // et deux champs de moins allègent d'autant la saisie.
+            if (_glanceTitles[i].Trim().Length == 0) continue;
+
+            if (Inputs.Field($"##glancebody{i}", string.Empty, ref _glanceBodies[i], MaxGlanceBody,
+                             placeholder: l.RpProfileGlanceBody))
+                MarkDirty();
+
+            if (Inputs.ToggleRow(l.RpProfileGlanceActive, ref _glanceActive[i]))
+                MarkDirty();
+        }
+
+        Layout.Spacer(Theme.GapS);
+
+        // Grisé plutôt que masqué une fois le plafond atteint : disparaître
+        // laisserait croire que le bloc s'est cassé.
+        if (Btn.Draw(l.RpProfileGlanceAdd, BtnTone.Secondary, BtnSize.Medium, Icons.Plus,
+                     disabled: _glanceCount >= MaxGlances, id: "glance_add"))
+            AddGlance();
+
+        DrawSaveRow(l);
+    }
+
+    /// <summary>
+    /// En-tête d'un emplacement : son rang à gauche, son retrait à droite.
+    ///
+    /// Retrait en deux temps, comme partout ailleurs dans le projet : le premier
+    /// clic arme, le second efface, et quitter le bouton désarme.
+    /// </summary>
+    private void DrawGlanceRemove(int index, Loc l)
+    {
+        Text.Muted(string.Format(l.RpProfileGlanceSlot, index + 1));
+        ImGui.SameLine();
+
+        var armed   = _glanceArmed == index;
+        var caption = armed ? l.RpProfileGlanceRemoveArm : l.RpProfileGlanceRemove;
+
+        Layout.RightAlign(Btn.Measure(caption, Icons.Trash));
+
+        if (Btn.Draw(caption, armed ? BtnTone.Danger : BtnTone.Ghost, BtnSize.Medium,
+                     Icons.Trash, id: $"glance_del_{index}"))
+        {
+            if (armed) RemoveGlance(index);
+            else       _glanceArmed = index;
+        }
+
+        if (armed && !ImGui.IsItemHovered()) _glanceArmed = -1;
+    }
+
+    /// <summary>
+    /// Ouvre un emplacement vierge en fin de liste. Rien n'est marqué modifié :
+    /// un emplacement sans titre n'est pas enregistré, et allumer le bouton
+    /// « Enregistrer » pour une case vide serait mentir sur ce qu'il reste à
+    /// faire.
+    /// </summary>
+    private void AddGlance()
+    {
+        if (_glanceCount >= MaxGlances) return;
+
+        _glanceIcons[_glanceCount]  = GlanceDefaultIcon;
+        _glanceTitles[_glanceCount] = string.Empty;
+        _glanceBodies[_glanceCount] = string.Empty;
+        _glanceActive[_glanceCount] = true;
+        _glanceCount++;
+    }
+
+    /// <summary>
+    /// Retire un emplacement en décalant les suivants : les tableaux sont de
+    /// taille fixe, c'est le compteur qui dit lesquels comptent, et laisser un
+    /// trou au milieu renverrait un emplacement vide au serveur.
+    /// </summary>
+    private void RemoveGlance(int index)
+    {
+        for (var i = index; i < _glanceCount - 1; i++)
+        {
+            _glanceIcons[i]  = _glanceIcons[i + 1];
+            _glanceTitles[i] = _glanceTitles[i + 1];
+            _glanceBodies[i] = _glanceBodies[i + 1];
+            _glanceActive[i] = _glanceActive[i + 1];
+        }
+
+        _glanceCount--;
+        _glanceIcons[_glanceCount]  = GlanceDefaultIcon;
+        _glanceTitles[_glanceCount] = string.Empty;
+        _glanceBodies[_glanceCount] = string.Empty;
+        _glanceActive[_glanceCount] = true;
+
+        _glanceArmed = -1;
+        MarkDirty();
+    }
+
+    /// <summary>
+    /// Nom traduit d'une icône. Une clé absente du dictionnaire s'affiche telle
+    /// quelle : mieux vaut un identifiant lisible qu'une entrée vide dans le
+    /// sélecteur.
+    /// </summary>
+    private static string GlanceIconLabel(string key, Loc l) =>
+        l.RpGlanceIconLabels.TryGetValue(key, out var label) ? label : key;
 
     private void DrawTraits(Loc l)
     {
@@ -528,13 +1055,13 @@ internal sealed class RpProfilePage(Configuration config)
         Text.Small(l.RpProfileTraitsHint);
         Layout.Spacer(Theme.GapS);
 
-        if (Inputs.Field("##height", l.RpProfileHeight, ref _height, 30)) _dirty = true;
+        if (Inputs.Field("##height", l.RpProfileHeight, ref _height, 30)) MarkDirty();
         Layout.Spacer(Theme.GapXs);
-        if (Inputs.Field("##build", l.RpProfileBuild, ref _build, 40)) _dirty = true;
+        if (Inputs.Field("##build", l.RpProfileBuild, ref _build, 40)) MarkDirty();
         Layout.Spacer(Theme.GapXs);
-        if (Inputs.Field("##voice", l.RpProfileVoice, ref _voice, 80)) _dirty = true;
+        if (Inputs.Field("##voice", l.RpProfileVoice, ref _voice, 80)) MarkDirty();
         Layout.Spacer(Theme.GapXs);
-        if (Inputs.Field("##marks", l.RpProfileMarks, ref _marks, 300)) _dirty = true;
+        if (Inputs.Field("##marks", l.RpProfileMarks, ref _marks, 300)) MarkDirty();
 
         DrawSaveRow(l);
     }
@@ -545,21 +1072,23 @@ internal sealed class RpProfilePage(Configuration config)
 
         Layout.SectionHeader(l.RpProfileBelonging, Icons.World, tone: Tone);
 
-        if (Inputs.Field("##fc", l.RpProfileFreeCompany, ref _freeCompany, 80)) _dirty = true;
+        if (Inputs.Field("##fc", l.RpProfileFreeCompany, ref _freeCompany, 80)) MarkDirty();
         Layout.Spacer(Theme.GapXs);
-        if (Inputs.Field("##allegiance", l.RpProfileAllegiance, ref _allegiance, 80)) _dirty = true;
+        if (Inputs.Field("##allegiance", l.RpProfileAllegiance, ref _allegiance, 80)) MarkDirty();
         Layout.Spacer(Theme.GapXs);
 
         if (Inputs.Select("##deity", l.RpProfileDeity, ref _deityIndex,
                           [.. DeityKeys.Select(k => RpProfileView.DeityLabel(k, l))]))
-            _dirty = true;
+            MarkToggleDirty("belong_deity");
+
+        DrawAutoSaveAt("belong_deity", l);
 
         Layout.Spacer(Theme.GapS);
         if (Inputs.Field("##quote", l.RpProfileQuote, ref _quote, 300,
                          help: l.RpProfileQuoteHint))
-            _dirty = true;
+            MarkDirty();
 
-        DrawSaveRow(l);
+        if (_textDirty) DrawSaveRow(l);
     }
 
     /// <summary>
@@ -589,16 +1118,16 @@ internal sealed class RpProfilePage(Configuration config)
             if (i > 0) Layout.Spacer(Theme.GapXs);
 
             if (Inputs.Select($"##synctype{i}", string.Empty, ref _syncTypes[i], typeLabels))
-                _dirty = true;
+                MarkDirty();
 
             if (SyncTypeKeys[_syncTypes[i]] == "autre"
                 && Inputs.Field($"##syncname{i}", string.Empty, ref _syncNames[i], 40,
                                 placeholder: l.RpProfileSyncshellName))
-                _dirty = true;
+                MarkDirty();
 
             if (Inputs.Field($"##syncid{i}", string.Empty, ref _syncIds[i], 100,
                              placeholder: l.RpProfileSyncshellId))
-                _dirty = true;
+                MarkDirty();
         }
 
         DrawSaveRow(l);
@@ -651,24 +1180,26 @@ internal sealed class RpProfilePage(Configuration config)
 
         if (Inputs.Select("##rplevel", l.RpProfileLevel, ref _levelIndex,
                           [l.RpProfileLevelBeginner, l.RpProfileLevelCasual, l.RpProfileLevelConfirmed]))
-            _dirty = true;
+            MarkToggleDirty("pref_level");
+        DrawAutoSaveAt("pref_level", l);
 
         Layout.Spacer(Theme.GapS);
 
         if (Inputs.Select("##rpapproach", l.RpProfileApproach, ref _approachIndex,
                           [l.RpProfileApproachCome, l.RpProfileApproachIGo, l.RpProfileApproachEither]))
-            _dirty = true;
+            MarkToggleDirty("pref_approach");
+        DrawAutoSaveAt("pref_approach", l);
 
         Layout.Spacer(Theme.GapS);
         Text.Muted(l.RpProfileLanguages);
         Layout.Spacer(Theme.GapXs);
 
-        if (Inputs.Toggle("##langfr", ref _langFr)) _dirty = true;
+        if (Inputs.Toggle("##langfr", ref _langFr)) MarkToggleDirty("pref_lang");
         ImGui.SameLine(0f, Theme.S(Theme.GapS));
         ImGui.AlignTextToFramePadding();
         Text.Body("Français");
         ImGui.SameLine(0f, Theme.S(Theme.GapL));
-        if (Inputs.Toggle("##langen", ref _langEn)) _dirty = true;
+        if (Inputs.Toggle("##langen", ref _langEn)) MarkToggleDirty("pref_lang");
         ImGui.SameLine(0f, Theme.S(Theme.GapS));
         ImGui.AlignTextToFramePadding();
         Text.Body("English");
@@ -676,6 +1207,8 @@ internal sealed class RpProfilePage(Configuration config)
         // Au moins une langue doit rester active, sinon la fiche n'apparaît
         // dans aucun filtre.
         if (!_langFr && !_langEn) _langFr = true;
+
+        DrawAutoSaveAt("pref_lang", l);
 
         if (_profile is { Themes.Length: > 0 })
         {
@@ -693,7 +1226,7 @@ internal sealed class RpProfilePage(Configuration config)
             RpProfileView.DrawThemeChips(_profile.AvoidThemes, ChipTone.Danger);
         }
 
-        DrawSaveRow(l);
+        if (_textDirty) DrawSaveRow(l);
     }
 
     private void DrawIdentity(Loc l)
@@ -717,7 +1250,17 @@ internal sealed class RpProfilePage(Configuration config)
         if (p.Occupation is { Length: > 0 } occupation) RpProfileView.Row(l.RpProfileOccupation, occupation);
     }
 
-    private void DrawStory(Loc l)
+    /// <summary>
+    /// Ce que le personnage est : son allure, son caractère, son passé.
+    ///
+    /// Séparé des limites, avec lesquelles ces blocs voisinaient. Le regroupement
+    /// venait de leur forme, trois pavés de texte rédigés sur le site, non de
+    /// leur sens : décrire un personnage et dire ce qu'on refuse de jouer sont
+    /// deux sujets, et la confidentialité les distingue déjà (« description » et
+    /// « limits » y sont deux sections d'audience). Rangés ensemble, l'apparence
+    /// se retrouvait à l'écart des traits physiques, qui disent la même chose.
+    /// </summary>
+    private void DrawDescription(Loc l)
     {
         var p = _profile;
         if (p == null) return;
@@ -730,7 +1273,18 @@ internal sealed class RpProfilePage(Configuration config)
                                     Icons.RpLive, Tone);
         RpProfileView.DrawTextBlock("rp_background",  l.RpProfileBackground,  p.Background,
                                     Icons.Clock, Tone);
-        RpProfileView.DrawTextBlock("rp_limits",      l.RpProfileLimits,      p.Limits,
+    }
+
+    /// <summary>
+    /// Ce que le personnage ne joue pas. Va avec les préférences de jeu, pas
+    /// avec sa description : c'est un cadre posé au partenaire, pas un trait.
+    /// </summary>
+    private void DrawLimits(Loc l)
+    {
+        var p = _profile;
+        if (p == null) return;
+
+        RpProfileView.DrawTextBlock("rp_limits", l.RpProfileLimits, p.Limits,
                                     Icons.Warning, Theme.Danger);
     }
 
@@ -752,11 +1306,12 @@ internal sealed class RpProfilePage(Configuration config)
         Layout.Spacer(Theme.GapXs);
 
         if (Inputs.ToggleRow(l.RpProfileVisInGame, ref _visInGame, l.RpProfileVisInGameHint))
-            _dirty = true;
-        if (Inputs.ToggleRow(l.RpProfileVisWebPage, ref _visWebPage, l.RpProfileVisWebPageHint))
-            _dirty = true;
+            MarkToggleDirty("vis_ingame");
+        DrawAutoSaveAt("vis_ingame", l);
+
         if (Inputs.ToggleRow(l.RpProfileVisIndexable, ref _visIndexable, l.RpProfileVisIndexableHint))
-            _dirty = true;
+            MarkToggleDirty("vis_index");
+        DrawAutoSaveAt("vis_index", l);
 
         // Réservé à qui a effectivement un rôle. L'exposition est inoffensive :
         // le serveur relit le rôle en base au moment de sérialiser la fiche, si
@@ -766,7 +1321,8 @@ internal sealed class RpProfilePage(Configuration config)
         {
             if (Inputs.ToggleRow(l.RpProfileStaffBadge, ref _visStaffBadge,
                                  l.RpProfileStaffBadgeHint, Icons.Shield))
-                _dirty = true;
+                MarkToggleDirty("vis_staff");
+            DrawAutoSaveAt("vis_staff", l);
         }
 
         Layout.Divider(Theme.GapS);
@@ -788,7 +1344,8 @@ internal sealed class RpProfilePage(Configuration config)
         {
             if (Inputs.Select($"##vis_{SectionKeys[i]}", SectionLabel(SectionKeys[i], l),
                               ref _sectionAudience[i], options))
-                _dirty = true;
+                MarkToggleDirty($"vis_{SectionKeys[i]}");
+            DrawAutoSaveAt($"vis_{SectionKeys[i]}", l);
         }
 
         Layout.Spacer(Theme.GapS);
@@ -804,8 +1361,10 @@ internal sealed class RpProfilePage(Configuration config)
         {
             for (var i = 0; i < _sectionAudience.Length; i++)
                 if (_sectionAudience[i] == ownerIndex) _sectionAudience[i] = friendIndex;
-            _dirty = true;
+            MarkToggleDirty("vis_preset");
         }
+
+        DrawAutoSaveAt("vis_preset", l);
 
         Layout.Spacer(Theme.GapS);
         Text.Small(string.Format(l.RpProfileVisOwnerNote, ownerLabel));
@@ -814,7 +1373,11 @@ internal sealed class RpProfilePage(Configuration config)
         Layout.Spacer(Theme.GapXs);
         Text.Small(l.RpProfileVisAlwaysPublic);
 
-        DrawSaveRow(l);
+        // Le bouton n'a plus à paraître pour un interrupteur, qui part de
+        // lui-même : il apparaîtrait le temps du délai puis disparaîtrait, ce qui
+        // se lit comme une occasion manquée d'enregistrer. Il reste pour ce qui
+        // l'attend vraiment, une saisie en cours ailleurs dans la fiche.
+        if (_textDirty) DrawSaveRow(l);
     }
 
     /// <summary>
@@ -846,8 +1409,10 @@ internal sealed class RpProfilePage(Configuration config)
         // saisie en cours la bloque, l'utilisateur perdrait sinon son texte d'un
         // clic sur un bouton qui ne promet rien de tel.
         if (Btn.Draw(l.Refresh, BtnTone.Ghost, BtnSize.Medium, Icons.Refresh,
-                     disabled: _dirty || _loading || _saving,
-                     tooltip: _dirty ? l.RpProfileRefreshSaveFirst : l.RpProfileRefreshHint,
+                     disabled: _dirty || _statusDirty || _loading || _saving,
+                     tooltip: _dirty || _statusDirty
+                         ? l.RpProfileRefreshSaveFirst
+                         : l.RpProfileRefreshHint,
                      id: "rp_refresh"))
             Load(_loadedFor);
 
@@ -859,6 +1424,7 @@ internal sealed class RpProfilePage(Configuration config)
     {
         "identity"    => l.RpProfileIdentity,
         "hooks"       => l.RpProfileHooks,
+        "glance"      => l.RpProfileGlance,
         "traits"      => l.RpProfileTraits,
         "belonging"   => l.RpProfileBelonging,
         "description" => l.RpProfileDescription,
@@ -870,6 +1436,126 @@ internal sealed class RpProfilePage(Configuration config)
     };
 
     // ─── Enregistrement ───────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Modification qui attend le bouton : tout ce qui se tape, se choisit dans
+    /// une liste de vocabulaire ou se construit champ par champ.
+    ///
+    /// Annule aussi l'enregistrement automatique en attente : on vient d'ouvrir
+    /// une saisie, ce n'est plus le moment de figer la fiche.
+    /// </summary>
+    private void MarkDirty()
+    {
+        _dirty      = true;
+        _textDirty  = true;
+        _autoSaveAt = null;
+    }
+
+    /// <summary>
+    /// Modification qui s'enregistre d'elle-même : les interrupteurs et les
+    /// listes de la confidentialité, des préférences et de la divinité, qui
+    /// n'ont pas d'état intermédiaire.
+    ///
+    /// Le reste du plugin enregistre déjà ses réglages au clic (voir
+    /// SettingsPage) : ici, le bouton se trouvait sous trois paragraphes
+    /// d'explication, si bien qu'on quittait la page en croyant avoir réglé sa
+    /// visibilité alors que rien n'était parti. Le pire endroit du plugin pour
+    /// un malentendu de ce genre.
+    ///
+    /// Si une saisie est en cours, aucun envoi n'est programmé : le bouton
+    /// reprend la main plutôt que d'emporter le texte avec le réglage.
+    /// </summary>
+    /// <param name="control">
+    /// Réglage touché, sous lequel s'affichera le retour. Voir
+    /// <see cref="_autoSaveControl"/>.
+    /// </param>
+    private void MarkToggleDirty(string control)
+    {
+        _dirty = true;
+
+        if (_textDirty)
+        {
+            _autoSaveAt = null;
+            return;
+        }
+
+        _autoSaveAt      = DateTime.UtcNow + AutoSaveDelay;
+        _autoSaveControl = control;
+    }
+
+    /// <summary>
+    /// Déclenche l'enregistrement automatique dû, s'il l'est.
+    ///
+    /// Appelé à chaque rendu : il n'y a pas d'autre horloge dans cette page, et
+    /// une page qu'on ne regarde pas n'a rien d'urgent à enregistrer. Le réglage
+    /// reste à l'écran en attendant, il n'est pas perdu.
+    ///
+    /// `_profileFromNetwork` conditionne l'envoi comme il conditionne déjà celui
+    /// des consentements : une fiche reconstituée du cache ne les connaît pas et
+    /// les enverrait faux (voir BuildSaveRequest).
+    /// </summary>
+    private void TickAutoSave()
+    {
+        if (_autoSaveAt is not { } due) return;
+
+        if (_textDirty || !_profileFromNetwork)
+        {
+            _autoSaveAt = null;
+            return;
+        }
+
+        if (_loading || _saving || DateTime.UtcNow < due) return;
+
+        _autoSaveAt      = null;
+        _lastSaveWasAuto = true;
+        Save();
+    }
+
+
+    /// <summary>
+    /// Sort de l'enregistrement automatique, sous le réglage qui l'a déclenché.
+    ///
+    /// Un enregistrement qu'on ne voit pas ne vaut guère mieux qu'un bouton
+    /// qu'on ne trouve pas : le doute change simplement de camp. Il se dit donc
+    /// à l'endroit exact où le regard se trouve, c'est-à-dire sur l'interrupteur
+    /// qu'on vient de basculer.
+    ///
+    /// Aligné à droite, sous l'interrupteur lui-même plutôt que sous son
+    /// libellé : c'est de ce côté que le doigt a cliqué. En petite police, sur
+    /// une ligne : le retour informe, il ne réclame pas l'attention.
+    /// </summary>
+    private void DrawAutoSaveAt(string control, Loc l)
+    {
+        if (_autoSaveControl != control) return;
+
+        string  label;
+        Vector4 color;
+
+        if (_saveFailed)
+        {
+            label = l.SaveFailed;
+            color = Theme.Danger;
+        }
+        // « En attente » et « en cours » se disent pareil : la nuance ne regarde
+        // que le code, et deux libellés qui se succèdent en une seconde et demie
+        // feraient clignoter la ligne pour rien.
+        else if (_saving || _autoSaveAt != null)
+        {
+            label = l.RpProfileAutoSaving;
+            color = Theme.TextMuted;
+        }
+        else if (_lastSaveWasAuto && DateTime.UtcNow < _savedUntil)
+        {
+            label = l.RpProfileAutoSaved;
+            color = Theme.Online;
+        }
+        else return;
+
+        using var font = Fonts.PushSmall();
+
+        Layout.RightAlign(ImGui.CalcTextSize(label).X);
+        ImGui.TextColored(color, label);
+    }
 
     private void DrawSaveRow(Loc l)
     {
@@ -894,7 +1580,10 @@ internal sealed class RpProfilePage(Configuration config)
 
         if (Btn.Draw(_saving ? l.Processing : l.Save, BtnTone.Primary, BtnSize.Medium,
                      Icons.Check, disabled: _saving, id: "rpprofile_save"))
+        {
+            _lastSaveWasAuto = false;
             Save();
+        }
     }
 
     private void Save()
@@ -916,6 +1605,20 @@ internal sealed class RpProfilePage(Configuration config)
         request.ApproachMode = ApproachKeys[_approachIndex];
         request.Languages    = [.. languages];
         request.Hooks        = [.. _hooks.Where(h => !string.IsNullOrWhiteSpace(h)).Select(h => h.Trim())];
+
+        // Un emplacement sans titre n'existe pas : il n'est pas envoyé, et
+        // l'ordre des autres est celui de l'écran, qui est celui que le lecteur
+        // verra. Le tableau part toujours, y compris vide : c'est ainsi qu'on
+        // efface un emplacement depuis le jeu.
+        request.Glances = [.. Enumerable.Range(0, _glanceCount)
+            .Where(i => !string.IsNullOrWhiteSpace(_glanceTitles[i]))
+            .Select(i => new RpGlanceDto
+            {
+                Icon   = GlanceIconKeys[_glanceIcons[i]],
+                Title  = _glanceTitles[i].Trim(),
+                Body   = _glanceBodies[i].Trim(),
+                Active = _glanceActive[i],
+            })];
 
         // Les lignes sans identifiant ne sont pas envoyées. Le tableau est
         // toujours transmis, y compris vide : c'est ainsi qu'on efface un code
@@ -962,7 +1665,6 @@ internal sealed class RpProfilePage(Configuration config)
         if (_profileFromNetwork)
         {
             request.IsPublic        = _visInGame;
-            request.WebPageEnabled  = _visWebPage;
             request.SearchIndexable = _visIndexable;
             request.SectionVisibility = SectionKeys
                 .Select((section, i) => (section, audience: AudienceKeys[_sectionAudience[i]]))
@@ -988,6 +1690,7 @@ internal sealed class RpProfilePage(Configuration config)
                 config.RpProfiles[key] = FromDto(saved);
                 config.Save();
                 _dirty      = false;
+                _textDirty  = false;
                 _savedUntil = DateTime.UtcNow.AddSeconds(3);
             });
         });
@@ -1010,6 +1713,22 @@ internal sealed class RpProfilePage(Configuration config)
     /// </summary>
     private static string Edited(string value) => value.Trim();
 
+    /// <summary>
+    /// Adresse d'édition de la fiche, personnage compris quand on le connaît.
+    ///
+    /// Sans lui, le site ouvre la fiche du premier personnage lié : un joueur
+    /// qui en a plusieurs devait retrouver le bon à la main, alors même qu'il
+    /// venait de cliquer depuis celle qu'il voulait modifier. L'identifiant est
+    /// déjà public, il figure dans l'adresse de la fiche web.
+    /// </summary>
+    private string EditUrl()
+    {
+        var id = _profile?.CharacterId;
+        return string.IsNullOrEmpty(id)
+            ? "/dashboard/profil-rp"
+            : $"/dashboard/profil-rp?personnage={Uri.EscapeDataString(id)}";
+    }
+
     private static void OpenSite(string path) =>
         System.Diagnostics.Process.Start(
             new System.Diagnostics.ProcessStartInfo(Plugin.Config.BaseUrl + path)
@@ -1025,6 +1744,7 @@ internal sealed class RpProfilePage(Configuration config)
         Themes       = Join(p.Themes),
         AvoidThemes  = Join(p.AvoidThemes),
         Hooks        = Join(p.Hooks),
+        Glances      = System.Text.Json.JsonSerializer.Serialize(p.Glances),
         RpName       = p.RpName,        Nickname     = p.Nickname,
         Pronouns     = p.Pronouns,      Race         = p.Race,
         Age          = p.Age,           Origin       = p.Origin,
@@ -1032,6 +1752,7 @@ internal sealed class RpProfilePage(Configuration config)
         Personality  = p.Personality,   Background   = p.Background,
         CurrentQuest = p.CurrentQuest,  Limits       = p.Limits,
         Availability = p.Availability,  ExternalUrl  = p.ExternalUrl,
+        Currently    = p.Currently,     IcState      = p.IcState,
         Syncshells   = p.Syncshells,
         Nsfw         = p.Nsfw,          IsPublic     = p.IsPublic,
         PortraitUrl  = p.PortraitUrl,
@@ -1043,7 +1764,6 @@ internal sealed class RpProfilePage(Configuration config)
 
         // Confidentialité complète : sans elle, une fiche relue du cache
         // repartait sur les défauts du DTO et pouvait les imposer au serveur.
-        WebPageEnabled    = p.WebPageEnabled,
         SearchIndexable   = p.SearchIndexable,
         SectionVisibility = p.SectionVisibility,
 
@@ -1058,6 +1778,7 @@ internal sealed class RpProfilePage(Configuration config)
         Themes       = Split(c.Themes),
         AvoidThemes  = Split(c.AvoidThemes),
         Hooks        = Split(c.Hooks),
+        Glances      = SplitGlances(c.Glances),
         RpName       = c.RpName,        Nickname     = c.Nickname,
         Pronouns     = c.Pronouns,      Race         = c.Race,
         Age          = c.Age,           Origin       = c.Origin,
@@ -1065,6 +1786,11 @@ internal sealed class RpProfilePage(Configuration config)
         Personality  = c.Personality,   Background   = c.Background,
         CurrentQuest = c.CurrentQuest,  Limits       = c.Limits,
         Availability = c.Availability,  ExternalUrl  = c.ExternalUrl,
+
+        // Un cache antérieur rend les deux nuls : la fiche n'affiche alors ni
+        // état ni statut, ce qui vaut mieux qu'un « hors RP » inventé le temps
+        // que le réseau réponde.
+        Currently    = c.Currently,     IcState      = c.IcState,
         Syncshells   = c.Syncshells,
         Nsfw         = c.Nsfw,          IsPublic     = c.IsPublic,
         PortraitUrl  = c.PortraitUrl,
@@ -1077,7 +1803,6 @@ internal sealed class RpProfilePage(Configuration config)
         // Un cache antérieur à ces champs les rend nuls : on retombe alors sur
         // les mêmes défauts qu'avant, mais l'écran reste bloqué en écriture tant
         // que le réseau n'a pas répondu (voir _profileFromNetwork).
-        WebPageEnabled    = c.WebPageEnabled  ?? true,
         SearchIndexable   = c.SearchIndexable ?? false,
         SectionVisibility = c.SectionVisibility,
 
@@ -1087,6 +1812,18 @@ internal sealed class RpProfilePage(Configuration config)
 
     private static string Join(string[] values) =>
         System.Text.Json.JsonSerializer.Serialize(values);
+
+    /// <summary>
+    /// Coup d'œil relu du cache. Un cache antérieur à ce champ, ou corrompu,
+    /// donne une liste vide : la page reste utilisable, et le premier
+    /// rafraîchissement réseau rétablit les emplacements réels.
+    /// </summary>
+    private static RpGlanceDto[] SplitGlances(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        try { return System.Text.Json.JsonSerializer.Deserialize<RpGlanceDto[]>(json) ?? []; }
+        catch { return []; }
+    }
 
     /// <summary>Une valeur absente ou corrompue donne une liste vide, jamais une exception.</summary>
     private static string[] Split(string? json)

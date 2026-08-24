@@ -62,6 +62,26 @@ public class RpSessionDto
     /// d'aller ou non à un RP ; le serveur payait une agrégation pour rien.
     /// </summary>
     [JsonPropertyName("nearbyCount")] public int NearbyCount { get; set; }
+
+    /// <summary>
+    /// « PLUGIN » : position relevée en jeu. « WEB » : emplacement déclaré à la
+    /// main depuis le site, donc ni lien carte ni détection de proximité. Un
+    /// serveur antérieur ne renvoie rien : on suppose PLUGIN, ce qui correspond
+    /// à toutes les sessions d'alors.
+    /// </summary>
+    [JsonPropertyName("source")] public string Source { get; set; } = "PLUGIN";
+
+    /// <summary>Personnage lié à la session, quand l'auteur en a un.</summary>
+    [JsonPropertyName("characterId")] public string? CharacterId { get; set; }
+
+    /// <summary>
+    /// Faux si la fiche n'est pas publiée : ne jamais proposer le lien dans ce
+    /// cas, il mènerait à un 404 qui trahirait une fiche gardée privée.
+    /// </summary>
+    [JsonPropertyName("characterHasWebPage")] public bool CharacterHasWebPage { get; set; }
+
+    /// <summary>Point de rendez-vous décrit par l'auteur (session web hors logement).</summary>
+    [JsonPropertyName("meetingPoint")] public string? MeetingPoint { get; set; }
 }
 
 public class EstablishmentSummaryDto
@@ -221,8 +241,30 @@ public class RpProfileDto
     [JsonPropertyName("background")]   public string?  Background   { get; set; }
     [JsonPropertyName("hooks")]        public string[] Hooks        { get; set; } = [];
     [JsonPropertyName("currentQuest")] public string?  CurrentQuest { get; set; }
+
+    /// <summary>
+    /// Coup d'œil : ce qu'on remarque du personnage au premier regard, dans
+    /// l'ordre voulu par son auteur. Le serveur ne sert les emplacements éteints
+    /// qu'à leur propriétaire, il n'y a donc rien à filtrer à la lecture d'une
+    /// fiche tierce, mais tout à conserver à la réécriture de la sienne.
+    /// </summary>
+    [JsonPropertyName("glances")] public RpGlanceDto[] Glances { get; set; } = [];
     [JsonPropertyName("avoidThemes")]  public string[] AvoidThemes  { get; set; } = [];
     [JsonPropertyName("limits")]       public string?  Limits       { get; set; }
+
+    /// <summary>
+    /// Instant présent : ce que le personnage fait là, maintenant, et son état de
+    /// jeu (« ic », « ooc » ou « looking »). Ces deux-là changent plusieurs fois
+    /// par soirée, d'où la route dédiée <see cref="ApiClient.SetRpStatusAsync"/> :
+    /// les faire passer par le PUT complet ferait renvoyer la fiche entière à
+    /// chaque humeur.
+    ///
+    /// Nullables tous les deux, y compris l'état que le serveur stocke non nul :
+    /// un serveur antérieur ne les renvoie pas, et afficher « hors RP » faute de
+    /// réponse ferait dire à la fiche le contraire de ce que son auteur a réglé.
+    /// </summary>
+    [JsonPropertyName("currently")] public string? Currently { get; set; }
+    [JsonPropertyName("icState")]   public string? IcState   { get; set; }
     /// <summary>
     /// Consentements et marquage : nullables à dessein.
     ///
@@ -233,6 +275,16 @@ public class RpProfileDto
     /// conserve ce qu'il a.
     /// </summary>
     [JsonPropertyName("nsfw")]         public bool     Nsfw         { get; set; }
+
+    /// <summary>
+    /// Le serveur a retenu le contenu de cette fiche : elle est marquée adulte et
+    /// le lecteur ne l'a pas accepté sur son compte.
+    ///
+    /// Les champs arrivent alors vides, la fiche gardant sa forme. Sans ce
+    /// drapeau, l'écran serait vide sans raison affichée, ce que le lecteur
+    /// prendrait pour une panne.
+    /// </summary>
+    [JsonPropertyName("nsfwWithheld")] public bool NsfwWithheld { get; set; }
     [JsonPropertyName("availability")] public string?  Availability { get; set; }
     [JsonPropertyName("externalUrl")]  public string?  ExternalUrl  { get; set; }
 
@@ -245,15 +297,16 @@ public class RpProfileDto
 
     // ─── Visibilité ───────────────────────────────────────────────────────────
     //
-    // Trois consentements indépendants, plus l'audience par section. Renseignés
+    // Deux consentements indépendants, plus l'audience par section. Renseignés
     // par la lecture authentifiée de sa propre fiche (`api/rp-profile`), absents
     // des réponses publiques.
 
-    /// <summary>Visible en jeu : liste des disponibilités, viewer, menu contextuel.</summary>
+    /// <summary>
+    /// Visible par les autres : liste des disponibilités, viewer et menu
+    /// contextuel en jeu, et adresse partageable de la fiche sur le site. Le
+    /// consentement de page web a été fusionné ici, il n'existe plus à part.
+    /// </summary>
     [JsonPropertyName("isPublic")] public bool IsPublic { get; set; } = true;
-
-    /// <summary>La fiche a une page sur le site.</summary>
-    [JsonPropertyName("webPageEnabled")] public bool WebPageEnabled { get; set; } = true;
 
     /// <summary>La fiche accepte de figurer dans les moteurs de recherche.</summary>
     [JsonPropertyName("searchIndexable")] public bool SearchIndexable { get; set; }
@@ -340,6 +393,24 @@ public class RpProfileDto
     [JsonPropertyName("relations")] public RpRelationDto[] Relations { get; set; } = [];
 }
 
+/// <summary>
+/// Détail visible au premier regard.
+///
+/// L'icône est une clé du vocabulaire fermé <c>RP_GLANCE_ICONS</c>
+/// (src/lib/rp-vocabulary.ts) : une valeur inconnue serait refusée par le
+/// serveur, et le plugin la rendrait sans glyphe.
+///
+/// <c>Active</c> vaut faux pour un emplacement éteint sans être vidé : son
+/// contenu reste stocké, et le propriétaire est le seul à le recevoir.
+/// </summary>
+public class RpGlanceDto
+{
+    [JsonPropertyName("icon")]   public string Icon   { get; set; } = string.Empty;
+    [JsonPropertyName("title")]  public string Title  { get; set; } = string.Empty;
+    [JsonPropertyName("body")]   public string Body   { get; set; } = string.Empty;
+    [JsonPropertyName("active")] public bool   Active { get; set; } = true;
+}
+
 /// <summary>Lien vers un autre personnage ou un PNJ.</summary>
 public class RpRelationDto
 {
@@ -351,6 +422,30 @@ public class RpRelationDto
     [JsonPropertyName("targetCharacterId")] public string? TargetCharacterId { get; set; }
 }
 
+/// <summary>Relevé agrégé servi par <c>api/plugin/sync</c>.</summary>
+public class PluginSyncDto
+{
+    [JsonPropertyName("serverTime")]     public string?                    ServerTime     { get; set; }
+    [JsonPropertyName("sessions")]       public List<RpSessionDto>         Sessions       { get; set; } = [];
+    [JsonPropertyName("events")]         public List<EventDto>             Events         { get; set; } = [];
+    [JsonPropertyName("availabilities")] public List<RpAvailabilityEntryDto> Availabilities { get; set; } = [];
+}
+
+/// <summary>
+/// Issue d'un relevé agrégé.
+///
+/// Les trois cas se distinguent : données fraîches, rien de neuf (304, on garde
+/// ce qu'on a), ou serveur trop ancien pour connaître la route (on retombe une
+/// fois pour toutes sur les trois appels historiques).
+/// </summary>
+public class PluginSyncResult
+{
+    public PluginSyncDto? Data        { get; set; }
+    public string?        ETag        { get; set; }
+    public bool           NotModified { get; set; }
+    public bool           Unsupported { get; set; }
+}
+
 public class RpAvailabilityEntryDto
 {
     [JsonPropertyName("id")]            public string       Id            { get; set; } = string.Empty;
@@ -359,6 +454,17 @@ public class RpAvailabilityEntryDto
     [JsonPropertyName("zone")]          public string?      Zone          { get; set; }
     [JsonPropertyName("territoryId")]   public int?         TerritoryId   { get; set; }
     [JsonPropertyName("createdAt")]     public string       CreatedAt     { get; set; } = string.Empty;
+
+    /// <summary>
+    /// « declared » : le joueur s'est déclaré disponible. « rp_tag » : il a
+    /// seulement le tag « Jeu de rôle » allumé et une fiche visible.
+    ///
+    /// Le défaut vaut « declared » et pas autre chose : le repli sur
+    /// api/rp-availability, comme un serveur antérieur à ce champ, ne renvoie
+    /// que des volontaires déclarés. Un défaut inverse les ferait tous basculer
+    /// dans la mauvaise section, avec la mauvaise mise en garde.
+    /// </summary>
+    [JsonPropertyName("source")]        public string       Source        { get; set; } = "declared";
     [JsonPropertyName("profile")]       public RpProfileDto? Profile      { get; set; }
 }
 
@@ -441,8 +547,24 @@ public class SaveRpProfileRequest
     [JsonPropertyName("background")]   public string?  Background   { get; set; }
     [JsonPropertyName("hooks")]        public string[]? Hooks       { get; set; }
     [JsonPropertyName("currentQuest")] public string?  CurrentQuest { get; set; }
+
+    /// <summary>
+    /// Coup d'œil. Nullable comme les autres listes : omis, il laisse au serveur
+    /// ce qu'il a. Un tableau, fût-il vide, fait foi et efface, ce qui est la
+    /// seule façon de vider un emplacement depuis le jeu.
+    /// </summary>
+    [JsonPropertyName("glances")] public RpGlanceDto[]? Glances { get; set; }
     [JsonPropertyName("avoidThemes")]  public string[]? AvoidThemes { get; set; }
     [JsonPropertyName("limits")]       public string?  Limits       { get; set; }
+
+    /// <summary>
+    /// Instant présent, recopié par From() comme le reste : le statut s'écrit par
+    /// sa route dédiée, mais un enregistrement de fiche qui l'omettrait le
+    /// laisserait intact, et un enregistrement qui l'enverrait vide l'effacerait.
+    /// Renvoyer ce qu'on a lu est la seule variante sans effet de bord.
+    /// </summary>
+    [JsonPropertyName("currently")] public string? Currently { get; set; }
+    [JsonPropertyName("icState")]   public string? IcState   { get; set; }
     /// <summary>
     /// Consentements et marquage : nullables à dessein.
     ///
@@ -493,7 +615,6 @@ public class SaveRpProfileRequest
     [JsonPropertyName("quote")]        public string? Quote        { get; set; }
     [JsonPropertyName("themeSongUrl")] public string? ThemeSongUrl { get; set; }
 
-    [JsonPropertyName("webPageEnabled")]  public bool? WebPageEnabled  { get; set; }
     [JsonPropertyName("searchIndexable")] public bool? SearchIndexable { get; set; }
 
     /// <summary>
@@ -540,7 +661,11 @@ public class SaveRpProfileRequest
         Age = p.Age, Origin = p.Origin, Occupation = p.Occupation,
         Appearance = p.Appearance, Personality = p.Personality, Background = p.Background,
         Hooks = p.Hooks, CurrentQuest = p.CurrentQuest, AvoidThemes = p.AvoidThemes,
-        Limits = p.Limits, Nsfw = p.Nsfw, Availability = p.Availability,
+        // Recopié comme le reste : un enregistrement depuis le jeu ne doit pas
+        // effacer les emplacements réglés sur le site, éteints compris.
+        Glances = p.Glances,
+        Limits = p.Limits, Currently = p.Currently, IcState = p.IcState,
+        Nsfw = p.Nsfw, Availability = p.Availability,
         ExternalUrl = p.ExternalUrl, IsPublic = p.IsPublic,
         PortraitUrl = p.PortraitUrl, BannerUrl = p.BannerUrl, AccentColor = p.AccentColor,
         AccentColor2 = p.AccentColor2, FrameStyle = p.FrameStyle,
@@ -549,7 +674,7 @@ public class SaveRpProfileRequest
         Height = p.Height, Build = p.Build, Marks = p.Marks, Voice = p.Voice,
         FreeCompany = p.FreeCompany, Allegiance = p.Allegiance, Deity = p.Deity,
         Quote = p.Quote, ThemeSongUrl = p.ThemeSongUrl,
-        WebPageEnabled = p.WebPageEnabled, SearchIndexable = p.SearchIndexable,
+        SearchIndexable = p.SearchIndexable,
         SectionVisibility = ParseSectionVisibility(p.SectionVisibility),
         Syncshells = ParseSyncshells(p.Syncshells),
     };
@@ -819,6 +944,50 @@ public class ApiClient : IDisposable
 
     // ─── Public read ─────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// Relevé agrégé : sessions, événements et disponibilités en un seul appel.
+    ///
+    /// Remplace trois requêtes toutes les cinq secondes par une seule, et la
+    /// plupart du temps par un 304 sans corps grâce à l'ETag. Le repli sur les
+    /// trois routes historiques reste possible : un serveur antérieur à cette
+    /// route répond 404, signalé par <see cref="PluginSyncResult.Unsupported"/>.
+    /// </summary>
+    public async Task<PluginSyncResult> GetPluginSyncAsync(
+        string? world, bool light, string? etag, CancellationToken ct = default)
+    {
+        var url   = "api/plugin/sync";
+        var query = new List<string>();
+        if (light) query.Add("scope=light");
+        if (!string.IsNullOrWhiteSpace(world)) query.Add($"world={Uri.EscapeDataString(world)}");
+        if (query.Count > 0) url += "?" + string.Join("&", query);
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            if (!string.IsNullOrEmpty(etag))
+                request.Headers.TryAddWithoutValidation("If-None-Match", etag);
+
+            using var response = await _publicHttp.SendAsync(request, ct);
+
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                return new PluginSyncResult { Unsupported = true };
+
+            if (response.StatusCode == System.Net.HttpStatusCode.NotModified)
+                return new PluginSyncResult { NotModified = true, ETag = etag };
+
+            if (!response.IsSuccessStatusCode)
+                return new PluginSyncResult();
+
+            var data = await response.Content.ReadFromJsonAsync<PluginSyncDto>(JsonOptions, ct);
+            return new PluginSyncResult
+            {
+                Data = data,
+                ETag = response.Headers.ETag?.ToString() ?? etag,
+            };
+        }
+        catch { return new PluginSyncResult(); }
+    }
+
     public async Task<PluginVersionInfoDto?> GetVersionInfoAsync(CancellationToken ct = default)
     {
         try
@@ -955,6 +1124,21 @@ public class ApiClient : IDisposable
         catch { return null; }
     }
 
+    /// <param name="rpTag">
+    /// Le tag « Jeu de rôle » du jeu est-il allumé ? `null` quand on l'ignore,
+    /// c'est-à-dire hors du jeu : le serveur n'écrit alors rien et n'efface
+    /// rien, ce qui est aussi le comportement des versions antérieures à ce
+    /// champ.
+    ///
+    /// Sert à l'écran « autour de moi » du plugin, et à lui seul : la liste
+    /// publique du site reste celle des joueurs qui se sont déclarés
+    /// disponibles.
+    /// </param>
+    /// <param name="zone">
+    /// Nom lisible de la zone, forme affichable du territoryId déjà envoyé. Le
+    /// serveur ne la retient que si <paramref name="rpTag"/> vaut vrai : sans
+    /// tag, le battement ne laisse aucune trace de position, comme avant.
+    /// </param>
     public async Task HeartbeatAsync(
         string? version = null,
         uint? territoryId = null,
@@ -964,11 +1148,14 @@ public class ApiClient : IDisposable
         int? room = null,
         string? characterName = null,
         string? contentId = null,
+        bool? rpTag = null,
+        string? zone = null,
         CancellationToken ct = default)
     {
         try
         {
-            var body = new { version, territoryId, worldName, ward, plot, room, characterName, contentId };
+            var body = new { version, territoryId, worldName, ward, plot, room, characterName,
+                             contentId, rpTag, zone };
             var res  = await _http.PostAsJsonAsync("api/plugin/heartbeat", body, JsonOptions, ct);
             HandleAuthResponse(res); // capture aussi X-Token-Deprecated
         }
@@ -1090,6 +1277,31 @@ public class ApiClient : IDisposable
             return await res.Content.ReadFromJsonAsync<RpProfileDto>(JsonOptions, ct);
         }
         catch { return null; }
+    }
+
+    /// <summary>
+    /// Statut du moment et état de jeu, sans toucher au reste de la fiche.
+    ///
+    /// Route dédiée parce que ces deux champs changent en cours de soirée : le
+    /// PUT complet obligerait à renvoyer toute la fiche, avec le risque connu
+    /// qu'un champ oublié dans le corps reparte à vide.
+    ///
+    /// Les deux paramètres suivent la convention du reste du client : <c>null</c>
+    /// veut dire « je ne touche pas à ce champ » (la clé est omise, le serveur
+    /// garde ce qu'il a) et la chaîne vide veut dire « efface-le ». Sans cette
+    /// distinction, un statut ne pourrait plus être retiré depuis le jeu.
+    /// </summary>
+    public async Task<bool> SetRpStatusAsync(string? currently, string? icState,
+                                             CancellationToken ct = default)
+    {
+        try
+        {
+            var res = await _http.PatchAsJsonAsync("api/rp-profile/status",
+                                                   new { currently, icState }, JsonOptions, ct);
+            HandleAuthResponse(res);
+            return res.IsSuccessStatusCode;
+        }
+        catch { return false; }
     }
 
     /// <summary>

@@ -35,11 +35,24 @@ internal static class RpProfileView
             return;
         }
 
+        // Contenu retenu par le site : la fiche est arrivée vide, et c'est voulu.
+        // Le consentement se donne sur le compte, pas dans le plugin : un réglage
+        // local ne peut pas décider ce que le serveur accepte d'envoyer.
+        if (profile.NsfwWithheld)
+        {
+            Feedback.EmptyState(Icons.Warning, l.RpProfileNsfwWithheld,
+                                l.RpProfileNsfwWithheldHint,
+                                l.RpProfileNsfwWithheldCta,
+                                () => OpenUrl(Plugin.Config.BaseUrl + "/dashboard/profil"));
+            return;
+        }
+
         // Une seule fois par fiche : EnsureReadable coûte un calcul de luminance,
         // et surtout toutes les sections doivent porter exactement la même teinte.
         var tone = Accent(profile);
 
         DrawHooks(profile, l, tone);
+        DrawGlances(profile, l, tone);
         DrawPreferences(profile, l, tone);
         DrawIdentity(profile, l, tone);
         DrawTraits(profile, l, tone);
@@ -406,6 +419,24 @@ internal static class RpProfileView
 
         Layout.Spacer(Theme.GapS);
 
+        // Instant présent, avant tout le reste de la bande basse : c'est la seule
+        // information de la fiche qui se périme dans la soirée, et celle sur
+        // laquelle se décide si l'on aborde quelqu'un maintenant. La reléguer
+        // sous la citation la ferait lire après ce qui ne change jamais.
+        var state     = profile.IcState   is { Length: > 0 } ? profile.IcState   : null;
+        var currently = profile.Currently is { Length: > 0 } ? profile.Currently : null;
+
+        if (state != null)
+            Chip.Draw(IcStateLabel(state, l), IcStateTone(state), Icons.RpLive);
+
+        if (currently != null)
+        {
+            if (state != null) Layout.Spacer(Theme.GapXs);
+            Text.Body(currently);
+        }
+
+        if (state != null || currently != null) Layout.Spacer(Theme.GapXs);
+
         if (profile.Quote is { Length: > 0 } quote)
         {
             Text.Body($"« {quote} »", accent);
@@ -569,6 +600,57 @@ internal static class RpProfileView
         foreach (var hook in hooks)
             Text.WithIcon(Icons.Chevron, hook, tone ?? Theme.Accent, wrap: true);
     }
+
+    /// <summary>
+    /// Coup d'œil : ce que l'on remarque du personnage avant même de lui parler,
+    /// une icône et un titre par ligne, la description au survol.
+    ///
+    /// Le rendu des lignes vit dans <see cref="GlanceRows"/>, à part de la carte :
+    /// la même rangée devra tenir dans une infobulle de survol, où il n'y a ni
+    /// carte ni en-tête de section.
+    ///
+    /// Rien à filtrer sur la fiche d'autrui, le serveur ne sert les emplacements
+    /// éteints qu'à leur propriétaire ; le filtre reste néanmoins ici, puisque
+    /// c'est exactement cette vue qui lui sert d'aperçu.
+    /// </summary>
+    public static void DrawGlances(RpProfileDto p, Loc l, Vector4? tone = null)
+    {
+        if (!HasGlances(p)) return;
+
+        using var card = Card.Begin("rpview_glance", interactive: false);
+        Layout.SectionHeader(l.RpProfileGlance, Icons.Show, tone: tone);
+        GlanceRows(p, tone);
+    }
+
+    /// <summary>Au moins un emplacement allumé et titré, donc quelque chose à montrer.</summary>
+    public static bool HasGlances(RpProfileDto p) => p.Glances.Any(Visible);
+
+    /// <summary>
+    /// Rangée d'icônes titrées, sans cadre : réutilisable partout où le coup
+    /// d'œil doit apparaître, carte de fiche comme infobulle.
+    /// </summary>
+    public static void GlanceRows(RpProfileDto p, Vector4? tone = null)
+    {
+        foreach (var glance in p.Glances.Where(Visible))
+        {
+            // Le groupe donne à l'icône et au titre une seule zone de survol :
+            // viser l'un ou l'autre doit révéler la même description.
+            ImGui.BeginGroup();
+            Text.WithIcon(Icons.Glance(glance.Icon), glance.Title,
+                          tone ?? Theme.Accent, wrap: true);
+            ImGui.EndGroup();
+
+            if (!string.IsNullOrWhiteSpace(glance.Body))
+                Feedback.TooltipOnHover(glance.Body, glance.Title);
+        }
+    }
+
+    /// <summary>
+    /// Un emplacement éteint, ou allumé mais sans titre, n'a rien à dire : il ne
+    /// laisse ni ligne vide ni icône orpheline.
+    /// </summary>
+    private static bool Visible(RpGlanceDto glance) =>
+        glance.Active && !string.IsNullOrWhiteSpace(glance.Title);
 
     public static void DrawPreferences(RpProfileDto p, Loc l, Vector4? tone = null)
     {
@@ -912,6 +994,27 @@ internal static class RpProfileView
         "casual"    => l.RpProfileLevelCasual,
         "confirmed" => l.RpProfileLevelConfirmed,
         _           => key,
+    };
+
+    public static string IcStateLabel(string key, Loc l) => key switch
+    {
+        "ic"  => l.RpProfileIcStateIc,
+        "ooc" => l.RpProfileIcStateOoc,
+        _     => key,
+    };
+
+    /// <summary>
+    /// Teinte de la pastille d'état. Elle porte l'essentiel du message : la
+    /// couleur se lit d'un coup d'œil dans une liste là où le libellé demande
+    /// d'être lu. « En RP » est une invitation à jouer, d'où le vert ; « hors
+    /// RP » n'est ni un problème ni une invitation, d'où le neutre. Un état
+    /// inconnu, venu d'un serveur plus récent, reste neutre plutôt que de
+    /// prendre une couleur au hasard.
+    /// </summary>
+    public static ChipTone IcStateTone(string key) => key switch
+    {
+        "ic" => ChipTone.Success,
+        _    => ChipTone.Neutral,
     };
 
     public static string ApproachLabel(string key, Loc l) => key switch

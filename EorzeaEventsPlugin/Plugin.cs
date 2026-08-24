@@ -1,7 +1,9 @@
+using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.Command;
 using Dalamud.Game.Gui.ContextMenu;
 using Dalamud.Game.Gui.Dtr;
 using Dalamud.Game.Gui.NamePlate;
+using Dalamud.Game.Text;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.IoC;
 using Dalamud.Plugin;
@@ -43,6 +45,7 @@ public sealed class Plugin : IDalamudPlugin
     [PluginService] internal static IToastGui               ToastGui        { get; private set; } = null!;
     [PluginService] internal static IGameGui                GameGui         { get; private set; } = null!;
     [PluginService] internal static IContextMenu            ContextMenu     { get; private set; } = null!;
+    [PluginService] internal static ITargetManager          TargetManager   { get; private set; } = null!;
 
     internal static Configuration Config { get; private set; } = null!;
     internal static ApiClient     Api    { get; private set; } = null!;
@@ -73,6 +76,13 @@ public sealed class Plugin : IDalamudPlugin
     }
 
     private readonly WindowSystem     _windowSystem = new("EorzeaEvents");
+
+    /// <summary>
+    /// Mise en forme du chat. Vit aussi longtemps que le
+    /// plugin : elle ne détient aucun état, mais l'abonnement au chat doit
+    /// pouvoir être défait avec la même instance.
+    /// </summary>
+    private readonly Chat.ChatFormatter _chatFormatter = new();
     private static   MainWindow?        _mainWindow;
     private static   MySessionWindow?   _sessionWindow;
     private static   SetupWindow?       _setupWindow;
@@ -81,6 +91,7 @@ public sealed class Plugin : IDalamudPlugin
     private static   RpAnnouncementWindow? _announcementWindow;
     private static   WhatsNewWindow?       _whatsNewWindow;
     private static   PortraitZoomWindow?   _portraitZoomWindow;
+    private static   RpTooltipWindow?      _rpTooltipWindow;
 
     /// <summary>Voyage assisté vers une parcelle, si Lifestream est présent.</summary>
     internal static Ipc.LifestreamIpc Lifestream { get; private set; } = null!;
@@ -150,6 +161,35 @@ public sealed class Plugin : IDalamudPlugin
     }
 
     /// <summary>
+    /// Monde d'ORIGINE du personnage connecté, ou null hors du jeu.
+    ///
+    /// Jumeau volontaire de <see cref="CurrentWorldName"/>, et les deux existent
+    /// parce qu'ils ne répondent pas à la même question. Le monde courant dit où
+    /// l'on se trouve, ce qui sert à filtrer ce qu'on affiche autour de soi. Le
+    /// monde d'origine dit à quel serveur un personnage appartient, et c'est lui
+    /// qui sert de clé : les disponibilités sont publiées avec <c>HomeWorld</c>
+    /// (voir <c>SetRpAvailability</c>) et <see cref="FindAvailableEntry"/>
+    /// compare là-dessus. Confondre les deux fait échouer toute correspondance
+    /// dès qu'un joueur voyage, c'est-à-dire en permanence en RP puisqu'on se
+    /// déplace vers les maisons.
+    ///
+    /// Même précaution que <see cref="CurrentCharacter"/> : la table d'objets
+    /// n'est interrogeable que depuis le thread de jeu.
+    /// </summary>
+    internal static string? HomeWorldName()
+    {
+        try
+        {
+            if (!ClientState.IsLoggedIn) return null;
+            return ObjectTable.LocalPlayer?.HomeWorld.Value.Name.ToString();
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
     /// Genre du personnage connecté, pour accorder les libellés qui parlent de
     /// lui à la première personne. Retourne false hors du jeu, le masculin
     /// servant alors de forme par défaut.
@@ -186,6 +226,43 @@ public sealed class Plugin : IDalamudPlugin
     }
 
     /// <summary>
+    /// Souhait du joueur, indépendamment de ce qui est publié.
+    ///
+    /// C'est cette valeur que les interrupteurs de l'interface lisent et
+    /// écrivent : la publication, elle, se décide de « souhait ET tag actif ».
+    /// Un interrupteur qui retomberait tout seul à l'extinction du tag ferait
+    /// croire à une disponibilité annulée alors qu'elle n'est que suspendue.
+    /// </summary>
+    internal static bool CurrentCharacterAvailabilityWanted
+    {
+        get => CurrentCharacter is { } c && Config.IsAvailabilityWanted(c.Name, c.WorldId);
+        set
+        {
+            if (CurrentCharacter is not { } c) return;
+            Config.SetAvailabilityWanted(c.Name, c.WorldId, value);
+        }
+    }
+
+    /// <summary>
+    /// Le tag « Jeu de rôle » du jeu est-il actif sur le personnage connecté ?
+    ///
+    /// Lu, jamais écrit : le plugin ne tape pas /jdr à la place du joueur. Le tag
+    /// est la seule source de vérité de l'état de jeu, et la condition de
+    /// publication de la disponibilité.
+    /// </summary>
+    internal static bool RpTagActive => _rpTagActive == true;
+
+    /// <summary>
+    /// Dernier état connu du tag, ou null tant qu'aucune frame ne l'a lu (hors du
+    /// jeu, écran de chargement). Le null force une remise en phase au retour en
+    /// jeu plutôt que de supposer que rien n'a bougé entre-temps.
+    /// </summary>
+    private static bool? _rpTagActive;
+
+    /// <summary>Le rappel « tag éteint » a déjà été dit depuis la dernière extinction.</summary>
+    private static bool _rpTagNoticeShown;
+
+    /// <summary>
     /// Déclare ou retire la disponibilité RP du personnage connecté.
     ///
     /// Seul chemin d'écriture : la barre de statut, la fiche RP, les réglages et
@@ -217,6 +294,44 @@ public sealed class Plugin : IDalamudPlugin
             return;
         }
 
+        // Le geste règle l'intention, toujours : c'est elle que le retour du tag
+        // republiera, sans que le joueur ait à recliquer.
+        CurrentCharacterAvailabilityWanted = available;
+
+        if (available && !RpTagActive)
+        {
+            // Rien à publier tant que le tag est éteint. Le joueur est prévenu une
+            // fois, et le tag reste son geste à lui : activer /jdr d'ici serait de
+            // l'automatisation d'entrée, que Dalamud proscrit.
+            if (!_rpTagNoticeShown)
+            {
+                _rpTagNoticeShown = true;
+                ChatGui.Print($"[Eorzea Events] {L.RpAvailableNeedsRpTag}");
+            }
+
+            UpdateDtrRpAvail();
+            return;
+        }
+
+        PublishRpAvailability(available);
+    }
+
+    /// <summary>
+    /// Écrit la disponibilité côté serveur, sans toucher à l'intention.
+    ///
+    /// Appelée par le geste du joueur quand le tag l'autorise, et par la
+    /// surveillance du tag : allumé, elle republie ce que le joueur voulait ;
+    /// éteint, elle dépublie sans rien annuler de ce souhait.
+    /// </summary>
+    private static void PublishRpAvailability(bool available)
+    {
+        var player = ObjectTable.LocalPlayer;
+        if (player == null || CurrentCharacter is not { } character) return;
+
+        if (Config.FindCharacterToken(character.Name, character.WorldId) == null
+            && string.IsNullOrWhiteSpace(Config.ApiToken))
+            return;
+
         var request = new Api.SetRpAvailableRequest
         {
             CharacterName = player.Name.TextValue,
@@ -230,6 +345,7 @@ public sealed class Plugin : IDalamudPlugin
         var previous = CurrentCharacterAvailable;
         CurrentCharacterAvailable = available;
         _availabilityTouchedAt    = DateTime.UtcNow;
+        _syncDueNow               = true;
         UpdateDtrRpAvail();
 
         // Aucune synchronisation de fiche ici. Se déclarer disponible envoyait
@@ -251,6 +367,7 @@ public sealed class Plugin : IDalamudPlugin
                 // savait entre les deux.
                 CurrentCharacterAvailable = ok ? available : previous;
                 _availabilityTouchedAt    = DateTime.UtcNow;
+        _syncDueNow               = true;
 
                 if (!ok) ChatGui.PrintError($"[Eorzea Events] {L.RpAvailableFailed}");
 
@@ -270,6 +387,30 @@ public sealed class Plugin : IDalamudPlugin
     private DateTime _lastAvailabilityCheck = DateTime.MinValue;
     private const int AvailabilityPollIntervalSeconds = 5;
 
+    // ─── Relevé agrégé (api/plugin/sync) ────────────────────────────────────
+    //
+    // Un seul appel remplace les trois relevés ci-dessus, et l'ETag le réduit à
+    // un 304 sans corps tant que rien ne bouge. L'intervalle suit l'attention
+    // réelle du joueur : cinq secondes quand la fenêtre est ouverte ou qu'une
+    // session est en cours, une minute quand le plugin travaille en fond.
+    private DateTime _lastSync = DateTime.MinValue;
+    private string?  _syncETag;
+    private bool     _syncInFlight;
+    /// <summary>
+    /// Réclame un relevé au prochain passage, sans attendre l'intervalle.
+    ///
+    /// Se déclarer disponible doit se voir tout de suite : à une minute
+    /// d'intervalle, la liste publique mettrait ce temps à confirmer le clic, et
+    /// la puce de la barre de statut hésiterait entre les deux états.
+    /// </summary>
+    private static bool _syncDueNow;
+    private bool _mainWindowWasOpen;
+    /// <summary>Le serveur ne connaît pas la route : on retombe sur les trois appels historiques.</summary>
+    private bool     _syncUnsupported;
+    private const int SyncIntervalActiveSeconds = 5;
+    private const int SyncIntervalZoneSeconds   = 20;
+    private const int SyncIntervalIdleSeconds   = 60;
+
     // DTR bar
     private static IDtrBarEntry? _dtrRp;
     private static IDtrBarEntry? _dtrEvents;
@@ -284,7 +425,7 @@ public sealed class Plugin : IDalamudPlugin
     /// deux témoins permettent de la redessiner dès que l'état réel diffère,
     /// changement de personnage compris.
     /// </summary>
-    private static bool?                  _dtrRpAvailShown;
+    private static (bool Wanted, bool Tag)?    _dtrRpAvailState;
     private static (string Name, int WorldId)? _dtrRpAvailCharacter;
 
     /// <summary>
@@ -312,6 +453,20 @@ public sealed class Plugin : IDalamudPlugin
 
     // Heartbeat plugin (toutes les 60 s, seulement si token configuré)
     private DateTime _lastHeartbeat = DateTime.MinValue;
+
+    /// <summary>
+    /// Un battement doit partir au prochain tour, sans attendre la minute.
+    ///
+    /// Posé quand le tag « Jeu de rôle » bascule : c'est lui qui fait
+    /// apparaître et disparaître le personnage de la liste des autres joueurs,
+    /// et attendre jusqu'à une minute pour en sortir serait long, surtout dans
+    /// ce sens-là. Un geste rare et délibéré, donc une requête de plus sans
+    /// conséquence sur le rythme habituel.
+    ///
+    /// Statique parce que le basculement est constaté depuis un contexte
+    /// statique, alors que le compteur du battement appartient à l'instance.
+    /// </summary>
+    private static bool _heartbeatDue;
     private const int HeartbeatIntervalSeconds = 60;
 
     // Heartbeat présence en venue (toutes les 60 s, seulement si dans un quartier résidentiel)
@@ -362,6 +517,11 @@ public sealed class Plugin : IDalamudPlugin
         // La fiche RP et la disponibilité deviennent propres à chaque
         // personnage : reporter l'ancien état commun au compte.
         Config.MigrateToPerCharacter();
+
+        // La mise en forme du chat était livrée éteinte, donc invisible :
+        // l'allumer sur les configurations déjà enregistrées.
+        Config.MigrateChatDefaults();
+
         Api    = new ApiClient(Config.BaseUrl, Config.ApiToken);
 
         // Les abonnements IPC sont inertes tant que Lifestream n'est pas là :
@@ -380,6 +540,7 @@ public sealed class Plugin : IDalamudPlugin
         _announcementWindow = new RpAnnouncementWindow(Config);
         _whatsNewWindow     = new WhatsNewWindow(Config);
         _portraitZoomWindow = new PortraitZoomWindow();
+        _rpTooltipWindow    = new RpTooltipWindow();
         _windowSystem.AddWindow(_mainWindow);
         _windowSystem.AddWindow(_sessionWindow);
         _windowSystem.AddWindow(_setupWindow);
@@ -388,10 +549,11 @@ public sealed class Plugin : IDalamudPlugin
         _windowSystem.AddWindow(_announcementWindow);
         _windowSystem.AddWindow(_whatsNewWindow);
         _windowSystem.AddWindow(_portraitZoomWindow);
+        _windowSystem.AddWindow(_rpTooltipWindow);
 
         CommandManager.AddHandler(CommandMain, new CommandInfo(OnCommand)
         {
-            HelpMessage = "Ouvre le panneau. /eorzea config = paramètres. /eorzea link = lier le personnage actuel.",
+            HelpMessage = "Ouvre le panneau. /eorzea config = paramètres. /eorzea link = lier le personnage actuel. /eorzea rp <texte> = remplacer les jetons %xt et %xp.",
         });
 
         PluginInterface.UiBuilder.Draw         += _windowSystem.Draw;
@@ -402,6 +564,12 @@ public sealed class Plugin : IDalamudPlugin
         NamePlateGui.OnNamePlateUpdate          += OnNamePlateUpdate;
         ClientState.Login                       += OnLogin;
         ContextMenu.OnMenuOpened                += OnMenuOpened;
+        ChatGui.ChatMessage                     += _chatFormatter.OnChatMessage;
+
+        // Copie différée des jetons de saisie : le presse-papiers passe par
+        // ImGui, qui n'est utilisable que pendant le rendu, alors que la
+        // commande s'exécute sur le fil du jeu.
+        PluginInterface.UiBuilder.Draw          += Chat.ChatTokens.FlushClipboard;
 
         // DTR bar entries
         _dtrRp = DtrBar.Get("EorzeaEvents_RP");
@@ -420,7 +588,10 @@ public sealed class Plugin : IDalamudPlugin
         _dtrRpAvail.Tooltip = new SeStringBuilder().AddText(L.DtrRpAvailTooltip).Build();
         // Même chemin que le toggle de la fiche RP et des réglages, gardes et
         // messages d'erreur compris.
-        _dtrRpAvail.OnClick = _ => SetRpAvailability(!CurrentCharacterAvailable);
+        // Le clic ne bascule que l'intention de disponibilité : c'est la seule
+        // chose que le plugin ait le droit d'écrire. L'état de jeu, lui, se règle
+        // dans le jeu avec /jdr.
+        _dtrRpAvail.OnClick = _ => SetRpAvailability(!CurrentCharacterAvailabilityWanted);
         _dtrRpAvail.Shown = Config.ShowDtrRpAvail;
         UpdateDtrRpAvail();
 
@@ -483,6 +654,13 @@ public sealed class Plugin : IDalamudPlugin
             OpenConfig();
         else if (trimmed.Equals("link", StringComparison.OrdinalIgnoreCase))
             _ = StartCharacterLinkAsync();
+        // Substitution des jetons de saisie. Explicite et manuelle : le résultat
+        // atterrit dans le presse-papiers, rien n'est envoyé à la place du
+        // joueur, ce que les règles de publication de Dalamud interdisent.
+        else if (trimmed.Equals("rp", StringComparison.OrdinalIgnoreCase))
+            Chat.ChatTokens.Run(string.Empty);
+        else if (trimmed.StartsWith("rp ", StringComparison.OrdinalIgnoreCase))
+            Chat.ChatTokens.Run(trimmed[3..]);
         else
             OpenMain();
     }
@@ -568,6 +746,21 @@ public sealed class Plugin : IDalamudPlugin
     }
 
     /// <summary>
+    /// Fiche d'un personnage dont on ne connaît que l'identifiant : l'auteur
+    /// d'une session RP ou un ami, sans passer par la liste des disponibilités.
+    /// </summary>
+    internal static void OpenRpProfileViewer(string characterId, string characterName, string? server)
+    {
+        if (IsBlocked)
+        {
+            OpenMain();
+            return;
+        }
+
+        _rpProfileWindow?.OpenViewer(characterId, characterName, server);
+    }
+
+    /// <summary>
     /// Portrait RP en grand. Pas de garde <see cref="IsBlocked"/> ici : la fenêtre
     /// n'affiche qu'une image déjà chargée et n'ouvre aucun accès à l'API.
     /// </summary>
@@ -607,25 +800,129 @@ public sealed class Plugin : IDalamudPlugin
     /// <summary>
     /// Losange et libellé de l'entrée « disponibilité » de la barre de statut.
     ///
-    /// Le libellé accompagne le symbole : seul, le losange n'apprenait rien sans
-    /// passer la souris dessus, et il ne rappelait pas le vocabulaire du plugin.
+    /// Elle porte les deux informations dont dépend la présence du personnage
+    /// dans la liste publique : ce que le joueur veut, et si le tag du jeu
+    /// l'autorise. Le cas trompeur est celui du milieu, disponible mais tag
+    /// éteint : sans un libellé qui le dise, le joueur se croirait visible alors
+    /// que personne ne le voit.
     /// </summary>
     internal static void UpdateDtrRpAvail()
     {
         if (_dtrRpAvail == null) return;
 
-        var available = CurrentCharacterAvailable;
-        var sb        = new SeStringBuilder();
+        var wanted = CurrentCharacterAvailabilityWanted;
+        var tag    = RpTagActive;
+        var sb     = new SeStringBuilder();
 
-        sb.AddUiGlow(available ? (ushort)52 : GlowIdle);
-        sb.AddText(available ? "♦ " : "◇ ");
-        sb.AddText(L.DtrRpAvailLabel);
+        // Icônes de la police du jeu plutôt que des symboles Unicode : celles-ci
+        // sont garanties présentes, là où un caractère exotique sort en « = ».
+        // Elles reprennent en prime la convention du jeu, où le rond vaut oui et
+        // la croix non, et l'horloge dit l'attente sans avoir à lire le libellé.
+        if (wanted && tag)
+        {
+            sb.AddUiGlow(52);
+            sb.AddText($"{(char)SeIconChar.Circle} ");
+            sb.AddText(L.DtrRpAvailLabel);
+        }
+        else if (wanted)
+        {
+            sb.AddUiGlow(GlowIdle);
+            sb.AddText($"{(char)SeIconChar.Clock} ");
+            sb.AddText(L.DtrRpAvailPausedLabel);
+        }
+        else
+        {
+            sb.AddUiGlow(GlowIdle);
+            sb.AddText($"{(char)SeIconChar.Cross} ");
+            sb.AddText(L.DtrRpAvailLabel);
+        }
+
         sb.AddUiGlowOff();
 
         _dtrRpAvail.Text = sb.Build();
 
-        _dtrRpAvailShown     = available;
+        _dtrRpAvailState     = (wanted, tag);
         _dtrRpAvailCharacter = CurrentCharacter;
+    }
+
+    /// <summary>État de jeu du personnage courant, tel que le cache local le connaît.</summary>
+    internal static string CurrentIcState()
+    {
+        if (CurrentCharacter is not { } character) return "ooc";
+        var key = Configuration.CharacterKey(character.Name, character.WorldId);
+        return Config.RpProfiles.TryGetValue(key, out var cached) && cached.IcState is { } state
+            ? state
+            : "ooc";
+    }
+
+    /// <summary>
+    /// Aligne l'état de jeu de la fiche sur le tag du jeu.
+    ///
+    /// Le tag fait foi : c'est le seul interrupteur que le joueur connaisse
+    /// déjà, et en avoir un second dans le plugin donnait deux réponses
+    /// contradictoires à la même question. L'envoi est silencieux et ne part que
+    /// si l'état change réellement, le tag étant relu à chaque retour en jeu.
+    /// </summary>
+    private static void PushIcState((string Name, int WorldId) character, string state)
+    {
+        var key = Configuration.CharacterKey(character.Name, character.WorldId);
+        if (!Config.RpProfiles.TryGetValue(key, out var cached))
+        {
+            cached = new RpProfileCache();
+            Config.RpProfiles[key] = cached;
+        }
+
+        if (cached.IcState == state) return;
+
+        var previous = cached.IcState;
+        cached.IcState = state;
+
+        Task.Run(async () =>
+        {
+            var ok = await Api.SetRpStatusAsync(null, state);
+            await Framework.RunOnFrameworkThread(() =>
+            {
+                // Échec sans un mot : le joueur n'a rien demandé ici, et le
+                // prochain changement de tag renverra l'état de toute façon.
+                if (ok) Config.Save();
+                else    cached.IcState = previous;
+            });
+        });
+    }
+
+    /// <summary>
+    /// Suite d'un changement du tag « Jeu de rôle » : état de jeu, puis
+    /// disponibilité.
+    ///
+    /// Tag allumé, le souhait mémorisé repart vers le serveur ; tag éteint, la
+    /// disponibilité est retirée mais le souhait reste écrit. Le personnage sort
+    /// de la liste publique et des nameplates, et y revient sans nouveau geste.
+    /// </summary>
+    private static void OnRpTagChanged(bool active)
+    {
+        if (active) _rpTagNoticeShown = false;
+
+        // Le tag vient de changer : le prochain battement part tout de suite. Il
+        // porte la présence « en RP », qui met sinon jusqu'à une minute à
+        // apparaître, et surtout jusqu'à une minute à disparaître.
+        _heartbeatDue = true;
+
+        if (CurrentCharacter is { } character && Api.HasToken)
+        {
+            PushIcState(character, active ? "ic" : "ooc");
+
+            if (active)
+            {
+                if (CurrentCharacterAvailabilityWanted && !CurrentCharacterAvailable)
+                    PublishRpAvailability(true);
+            }
+            else if (CurrentCharacterAvailable)
+            {
+                PublishRpAvailability(false);
+            }
+        }
+
+        UpdateDtrRpAvail();
     }
 
     internal static void RebuildApiClient()
@@ -1153,21 +1450,47 @@ public sealed class Plugin : IDalamudPlugin
             return;
         }
 
-        // Sessions RP (5 s). Volontairement inconditionnel : ce relevé alimente
-        // aussi la barre de statut et la liste de la fenêtre, qui se figeaient
-        // dès qu'on coupait les notifications.
-        if ((now - _lastNotifCheck).TotalSeconds >= 5)
+        // Relevé agrégé : sessions, événements et disponibilités d'un bloc.
+        // Volontairement inconditionnel côté notifications : il alimente aussi la
+        // barre de statut et la liste de la fenêtre, qui se figeaient dès qu'on
+        // coupait les notifications.
+        if (!_syncUnsupported)
         {
-            _lastNotifCheck = now;
-            var currentWorld = ObjectTable.LocalPlayer?.CurrentWorld.Value.Name.ToString();
-            Task.Run(async () => await CheckNewSessionsAsync(currentWorld));
-        }
+            // L'ouverture de la fenêtre réclame un relevé sur-le-champ : sans
+            // cela, une fenêtre ouverte après une longue veille afficherait
+            // jusqu'à une minute de données périmées.
+            var mainOpen = _mainWindow is { IsOpen: true };
+            if (mainOpen && !_mainWindowWasOpen) _syncDueNow = true;
+            _mainWindowWasOpen = mainOpen;
 
-        // Evénements en cours (5 s)
-        if ((now - _lastEventsCheck).TotalSeconds >= EventsPollIntervalSeconds)
+            if (!_syncInFlight
+                && (_syncDueNow || (now - _lastSync).TotalSeconds >= CurrentSyncIntervalSeconds()))
+            {
+                _syncDueNow   = false;
+                _lastSync     = now;
+                _syncInFlight = true;
+                var currentWorld = ObjectTable.LocalPlayer?.CurrentWorld.Value.Name.ToString();
+                // Fenêtre fermée : le relevé allégé se limite à mon monde et
+                // laisse de côté portraits et citations, que rien n'affiche alors.
+                var light = _mainWindow is not { IsOpen: true };
+                Task.Run(async () => await RunSyncAsync(currentWorld, light));
+            }
+        }
+        else
         {
-            _lastEventsCheck = now;
-            Task.Run(async () => await CheckOngoingEventsAsync());
+            // Repli : serveur antérieur à la route agrégée.
+            if ((now - _lastNotifCheck).TotalSeconds >= 5)
+            {
+                _lastNotifCheck = now;
+                var currentWorld = ObjectTable.LocalPlayer?.CurrentWorld.Value.Name.ToString();
+                Task.Run(async () => await CheckNewSessionsAsync(currentWorld));
+            }
+
+            if ((now - _lastEventsCheck).TotalSeconds >= EventsPollIntervalSeconds)
+            {
+                _lastEventsCheck = now;
+                Task.Run(async () => await CheckOngoingEventsAsync());
+            }
         }
 
         // Maintient le token Bearer en phase avec le perso connecté in-game.
@@ -1180,14 +1503,20 @@ public sealed class Plugin : IDalamudPlugin
         // zone, et le 401 qui en découle est pris pour une révocation.
         var hasAnyToken = Api.HasToken;
         if (hasAnyToken
-            && (now - _lastHeartbeat).TotalSeconds >= HeartbeatIntervalSeconds)
+            && (_heartbeatDue || (now - _lastHeartbeat).TotalSeconds >= HeartbeatIntervalSeconds))
         {
             _lastHeartbeat = now;
+            _heartbeatDue  = false;
             var territory = ClientState.TerritoryType;
             var world     = ObjectTable.LocalPlayer?.CurrentWorld.Value.Name.ToString();
             var charName  = ObjectTable.LocalPlayer?.Name.TextValue;
             var contentId = GetLocalContentId();
             var housing   = ClientState.IsLoggedIn ? GetCurrentHousingForHeartbeat() : null;
+            // Le tag n'est connu qu'en jeu : hors du jeu on ne dit rien plutôt
+            // que « éteint », sans quoi une déconnexion effacerait une présence
+            // que le joueur n'a pas retirée.
+            var rpTag     = ObjectTable.LocalPlayer != null ? RpTagActive : (bool?)null;
+            var zone      = CurrentZone;
             Task.Run(async () =>
             {
                 await Api.HeartbeatAsync(
@@ -1198,7 +1527,9 @@ public sealed class Plugin : IDalamudPlugin
                     plot:          housing?.Plot,
                     room:          housing?.Room,
                     characterName: !string.IsNullOrWhiteSpace(charName) ? charName : null,
-                    contentId:     contentId != 0 ? contentId.ToString() : null);
+                    contentId:     contentId != 0 ? contentId.ToString() : null,
+                    rpTag:         rpTag,
+                    zone:          !string.IsNullOrWhiteSpace(zone) ? zone : null);
             });
         }
 
@@ -1251,7 +1582,8 @@ public sealed class Plugin : IDalamudPlugin
         // l'indicateur de nameplate : la page « Autour de moi » et le menu
         // contextuel s'appuient sur la même liste, et resteraient vides pour qui
         // a désactivé le marqueur.
-        if ((now - _lastAvailabilityCheck).TotalSeconds >= AvailabilityPollIntervalSeconds)
+        if (_syncUnsupported
+            && (now - _lastAvailabilityCheck).TotalSeconds >= AvailabilityPollIntervalSeconds)
         {
             _lastAvailabilityCheck = now;
             Task.Run(async () => await RefreshAvailablePlayersAsync());
@@ -1259,13 +1591,23 @@ public sealed class Plugin : IDalamudPlugin
 
         SyncRpAvailabilityDisplay(now);
 
+        // Après les disponibilités : l'infobulle ne lit que ce cache-là.
+        UpdateRpTooltip();
+
         // Liste d'accès : rechargée au premier passage et à chaque changement de
         // personnage, jamais en boucle, puisque seul son propriétaire la modifie.
         RefreshFriends();
 
         // Surveillance tag RP (chaque frame, lecture uint = négligeable)
         var rpPlayer = ObjectTable.LocalPlayer;
-        if (rpPlayer != null) // null = écran de chargement, on ignore
+        if (rpPlayer == null)
+        {
+            // Écran de chargement ou hors du jeu : le tag redevient inconnu, pour
+            // que le retour en jeu le relise plutôt que de supposer qu'il n'a pas
+            // bougé pendant la déconnexion.
+            _rpTagActive = null;
+        }
+        else
         {
             var current = rpPlayer.OnlineStatus.RowId;
 
@@ -1285,15 +1627,90 @@ public sealed class Plugin : IDalamudPlugin
                 _sessionWindow.IsOpen = true;
             }
 
+            // Reflet du tag sur la fiche et sur la disponibilité. Distinct du
+            // témoin ci-dessus : celui-ci démarre à « inconnu » et se remet donc
+            // en phase au retour en jeu, alors que _lastRpStatus ne sert qu'aux
+            // deux propositions de session ci-dessus, qui ne doivent se déclencher
+            // que sur un vrai basculement vu en jeu.
+            var tagActive = current == RpOnlineStatusId;
+            if (_rpTagActive != tagActive)
+            {
+                _rpTagActive = tagActive;
+                OnRpTagChanged(tagActive);
+            }
+
             _lastRpStatus = current;
         }
+    }
+
+    /// <summary>
+    /// Cadence du relevé agrégé, selon ce que le joueur regarde réellement.
+    ///
+    /// Une requête toutes les cinq secondes en permanence, fenêtre fermée
+    /// comprise, était du relevé sans interaction : la règle de publication de
+    /// Dalamud le proscrit, et rien ne l'affichait pendant ce temps.
+    /// </summary>
+    private int CurrentSyncIntervalSeconds()
+    {
+        if (!ClientState.IsLoggedIn) return SyncIntervalIdleSeconds;
+        if (_mainWindow is { IsOpen: true }) return SyncIntervalActiveSeconds;
+        if (_sessionWindow is { HasActiveSession: true }) return SyncIntervalActiveSeconds;
+        // Disponible pour du RP : la liste des joueurs alentour et le marqueur de
+        // nameplate doivent rester frais, sans pour autant tenir le rythme haut.
+        if (CurrentCharacterAvailable) return SyncIntervalZoneSeconds;
+        return SyncIntervalIdleSeconds;
+    }
+
+    /// <summary>
+    /// Un relevé agrégé, puis les trois traitements habituels.
+    ///
+    /// Un 304 ne rapporte rien : c'est le cas normal, et il n'y a alors rien à
+    /// refaire. Un échec réseau laisse tout en place, pour la raison qui vaut
+    /// déjà ailleurs : une liste vidée ferait conclure à tort que plus personne
+    /// n'est disponible.
+    /// </summary>
+    private async Task RunSyncAsync(string? currentWorld, bool light)
+    {
+        try
+        {
+            var result = await Api.GetPluginSyncAsync(currentWorld, light, _syncETag);
+
+            if (result.Unsupported)
+            {
+                _syncUnsupported = true;
+                return;
+            }
+
+            _syncETag = result.ETag;
+            if (result.NotModified || result.Data is not { } data) return;
+
+            ProcessSessions(data.Sessions, currentWorld);
+            ProcessEvents(data.Events);
+            ApplyAvailabilities(data.Availabilities);
+        }
+        catch { /* silencieux */ }
+        finally { _syncInFlight = false; }
     }
 
     private async Task CheckNewSessionsAsync(string? currentWorld)
     {
         try
         {
-            var sessions = await Api.GetActiveSessionsAsync();
+            ProcessSessions(await Api.GetActiveSessionsAsync(), currentWorld);
+        }
+        catch { /* silencieux */ }
+    }
+
+    /// <summary>
+    /// Traite une liste de sessions déjà reçue.
+    ///
+    /// Séparé de la requête pour que le relevé agrégé (api/plugin/sync) alimente
+    /// exactement le même traitement, sans second appel.
+    /// </summary>
+    private void ProcessSessions(List<RpSessionDto> sessions, string? currentWorld)
+    {
+        try
+        {
             var ids      = sessions.Select(s => s.Id).ToHashSet();
 
             // Mise à jour DTR sessions + liste MainWindow (réutilise les données, pas de 2e appel API)
@@ -1398,7 +1815,16 @@ public sealed class Plugin : IDalamudPlugin
     {
         try
         {
-            var events = await Api.GetUpcomingEventsAsync(1);
+            ProcessEvents(await Api.GetUpcomingEventsAsync(1));
+        }
+        catch { /* silencieux */ }
+    }
+
+    /// <summary>Traite une liste d'événements déjà reçue (voir ProcessSessions).</summary>
+    private void ProcessEvents(List<EventDto> events)
+    {
+        try
+        {
             var now = DateTime.UtcNow;
             var visibleEvents = events.Where(e => IsVisibleEventForNotifications(e, now)).ToList();
             var ongoingEvents = visibleEvents.Where(e => IsOngoingEvent(e, now)).ToList();
@@ -1589,11 +2015,18 @@ public sealed class Plugin : IDalamudPlugin
             if (listIsAuthoritative && onServer != local && (onServer || trustAbsence))
             {
                 CurrentCharacterAvailable = onServer;
-                local                     = onServer;
+
+                // Retiré depuis le site alors que le tag autorisait la
+                // publication : c'est un arrêt voulu, l'intention tombe avec. Tag
+                // éteint, au contraire, l'absence est attendue et ne dit rien du
+                // souhait du joueur.
+                if (!onServer && RpTagActive)
+                    CurrentCharacterAvailabilityWanted = false;
             }
         }
 
-        if (_dtrRpAvailShown != local || _dtrRpAvailCharacter != character)
+        if (_dtrRpAvailState != (CurrentCharacterAvailabilityWanted, RpTagActive)
+            || _dtrRpAvailCharacter != character)
             UpdateDtrRpAvail();
     }
 
@@ -1608,6 +2041,16 @@ public sealed class Plugin : IDalamudPlugin
             // conclure à tort que le personnage n'est plus déclaré disponible.
             if (entries == null) return;
 
+            ApplyAvailabilities(entries);
+        }
+        catch { /* silencieux */ }
+    }
+
+    /// <summary>Applique une liste de disponibilités déjà reçue (voir ProcessSessions).</summary>
+    private static void ApplyAvailabilities(List<RpAvailabilityEntryDto> entries)
+    {
+        try
+        {
             // La liste brute est conservée : les nameplates n'ont besoin que du
             // niveau et du mode d'approche, mais la page « Autour de moi » et le
             // menu contextuel veulent la fiche entière.
@@ -1641,6 +2084,62 @@ public sealed class Plugin : IDalamudPlugin
         return AvailableEntries.FirstOrDefault(e =>
             string.Equals(e.CharacterName, name, StringComparison.Ordinal)
             && string.Equals(e.Server, world, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Alimente l'infobulle de ciblage, à partir du seul cache déjà en mémoire.
+    ///
+    /// Aucune requête ne part d'ici, et ce n'est pas une optimisation : demander
+    /// la fiche du joueur survolé serait un relevé implicite, déclenché par un
+    /// mouvement de souris que personne ne considère comme une action, et le
+    /// chat du serveur dirait dès lors qui regarde qui. L'infobulle se
+    /// contente donc de ce que le relevé agrégé a déjà rapporté, c'est-à-dire des
+    /// joueurs qui ont consenti à figurer dans la liste publique.
+    ///
+    /// Corollaire : un joueur sans fiche visible ne produit rien du tout, pas même
+    /// un « pas de fiche ». Une absence de consentement ne doit pas se lire à
+    /// l'écran, sans quoi l'infobulle deviendrait un détecteur de qui n'a rien
+    /// publié. Même raisonnement que le menu contextuel ci-dessous.
+    /// </summary>
+    private void UpdateRpTooltip()
+    {
+        if (_rpTooltipWindow is not { } tooltip) return;
+
+        if (!Config.RpTooltipEnabled || !ClientState.IsLoggedIn)
+        {
+            tooltip.Clear();
+            return;
+        }
+
+        // Le survol prime sur la cible dure : c'est le geste le plus léger, celui
+        // qu'on refait sans arrêt en cherchant à qui parler, et il ne doit pas
+        // être masqué par une cible sélectionnée dix minutes plus tôt.
+        var hovered = Config.RpTooltipOnHover
+            ? TargetManager.MouseOverTarget as IPlayerCharacter
+            : null;
+        var subject = hovered ?? TargetManager.Target as IPlayerCharacter;
+
+        // Sur soi-même, l'infobulle n'apprendrait rien et masquerait son propre
+        // personnage.
+        if (subject == null || subject.GameObjectId == ObjectTable.LocalPlayer?.GameObjectId)
+        {
+            tooltip.Clear();
+            return;
+        }
+
+        // Même rapprochement nom + monde que les nameplates et le menu contextuel.
+        var entry = FindAvailableEntry(subject.Name.TextValue,
+                                       subject.HomeWorld.Value.Name.ToString());
+
+        if (entry?.Profile == null)
+        {
+            tooltip.Clear();
+            return;
+        }
+
+        tooltip.Show(entry, subject.GameObjectId,
+                     fromMouse: hovered != null,
+                     worldPos:  subject.Position);
     }
 
     /// <summary>
@@ -1742,7 +2241,7 @@ public sealed class Plugin : IDalamudPlugin
     {
         DoFirstRunCheck();
         _tokenInvalidNotified = false;
-        if (Config.RpAskOnLogin && CurrentCharacterAvailable)
+        if (Config.RpAskOnLogin && CurrentCharacterAvailabilityWanted)
             LoginPromptPending = true;
     }
 
@@ -1883,6 +2382,8 @@ public sealed class Plugin : IDalamudPlugin
         NamePlateGui.OnNamePlateUpdate          -= OnNamePlateUpdate;
         ClientState.Login                       -= OnLogin;
         ContextMenu.OnMenuOpened                -= OnMenuOpened;
+        ChatGui.ChatMessage                     -= _chatFormatter.OnChatMessage;
+        PluginInterface.UiBuilder.Draw          -= Chat.ChatTokens.FlushClipboard;
         PluginInterface.UiBuilder.Draw         -= _windowSystem.Draw;
         PluginInterface.UiBuilder.OpenConfigUi -= OpenConfig;
         PluginInterface.UiBuilder.OpenMainUi   -= OpenMain;
@@ -1894,6 +2395,10 @@ public sealed class Plugin : IDalamudPlugin
         // Après le retrait de UiBuilder.Draw : plus aucune frame ne peut
         // référencer l'atlas ni les textures pendant leur libération.
         _windowSystem.RemoveAllWindows();
+        // L'infobulle ne détient rien à libérer, mais sa référence est statique :
+        // laissée en place, un rechargement du plugin repartirait avec la fenêtre
+        // de l'instance précédente, que plus aucun WindowSystem ne dessine.
+        _rpTooltipWindow = null;
         _mainWindow?.Dispose();
         _estabDetailWindow?.Dispose();
         Ui.Fonts.Dispose();

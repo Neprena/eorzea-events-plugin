@@ -95,6 +95,31 @@ public class RpProfileWindow : ThemedWindow
         FetchFullProfile(characterId);
     }
 
+    /// <summary>
+    /// Ouvre la fiche d'un personnage connu par son seul identifiant.
+    ///
+    /// La liste des disponibilités n'est pas la seule source d'un personnage :
+    /// une session RP et la liste d'amis en portent un aussi, sans que le joueur
+    /// soit forcément déclaré disponible à cet instant.
+    /// </summary>
+    public void OpenViewer(string characterId, string characterName, string? server)
+    {
+        _isPreview  = false;
+        _viewTarget = new RpAvailabilityEntryDto
+        {
+            CharacterName = characterName,
+            Server        = server ?? string.Empty,
+        };
+        _viewFull        = null;
+        _viewFetchEmpty  = false;
+        _viewCharacterId = characterId;
+
+        WindowName = $"{Plugin.L.RpProfileViewTitle} : {Glyphs.Safe(characterName)}##rpprofile";
+        IsOpen = true;
+
+        FetchFullProfile(characterId);
+    }
+
     /// <summary>Open the viewer to display another player's profile.</summary>
     public void OpenViewer(RpAvailabilityEntryDto entry)
     {

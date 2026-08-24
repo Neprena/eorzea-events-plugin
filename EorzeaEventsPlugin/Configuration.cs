@@ -5,6 +5,21 @@ namespace EorzeaEventsPlugin;
 public enum PluginLanguage { Auto, French, English }
 
 /// <summary>
+/// Touche à maintenir pour faire apparaître l'infobulle de ciblage. Sert à qui
+/// joue en ville et ne veut pas d'une bulle qui suit chaque passant.
+/// </summary>
+public enum RpTooltipKey { None, Ctrl, Alt }
+
+/// <summary>
+/// Jeu de délimiteurs reconnus comme une emote dans le chat.
+///
+/// Les deux écoles cohabitent sur les serveurs francophones : les astérisques
+/// venus des messageries, les chevrons venus des vieux salons. Trancher pour
+/// l'une reviendrait à ne rien colorer pour la moitié des joueurs.
+/// </summary>
+public enum ChatEmoteStyle { Stars, Angles, Both }
+
+/// <summary>
 /// Token API lié à un personnage FFXIV spécifique (workflow web-link).
 /// Le token est de la forme `ec_*`. Le plugin sélectionne automatiquement
 /// le bon token selon le perso connecté in-game.
@@ -54,8 +69,25 @@ public class RpProfileCache
     public string? Personality  { get; set; }
     public string? Background   { get; set; }
     public string? Hooks        { get; set; }
+
+    /// <summary>
+    /// Coup d'œil, en chaîne JSON comme les autres listes du cache : un tableau
+    /// [{ icon, title, body, active }]. Nullable comme les ajouts tardifs, pour
+    /// distinguer « jamais synchronisé » de « aucun emplacement ».
+    /// </summary>
+    public string? Glances      { get; set; }
     public string? CurrentQuest { get; set; }
     public string? Limits       { get; set; }
+
+    /// <summary>
+    /// Instant présent : statut du moment et état de jeu. Nullables comme les
+    /// autres ajouts tardifs, et pour la même raison : `null` dit « jamais
+    /// synchronisé », une chaîne vide dirait « statut effacé », et un cache
+    /// antérieur à ces champs ferait sinon afficher « hors RP » à des fiches qui
+    /// n'ont rien réglé de tel.
+    /// </summary>
+    public string? Currently { get; set; }
+    public string? IcState   { get; set; }
     public string? Availability { get; set; }
     public string? ExternalUrl  { get; set; }
 
@@ -81,13 +113,12 @@ public class RpProfileCache
     /// <summary>
     /// Reste de la confidentialité, mis en cache comme le reste de la fiche.
     ///
-    /// Ces trois-là manquaient, si bien qu'une fiche reconstituée depuis le cache
-    /// affichait « page web active, indexation coupée, sections aux défauts »
-    /// quels qu'aient été les réglages réels. L'écran mentait, et un
-    /// enregistrement dans cet état les aurait imposés au serveur. Le null
-    /// distingue « jamais synchronisé » de « réglé ainsi ».
+    /// Ceux-là manquaient, si bien qu'une fiche reconstituée depuis le cache
+    /// affichait « indexation coupée, sections aux défauts » quels qu'aient été
+    /// les réglages réels. L'écran mentait, et un enregistrement dans cet état
+    /// les aurait imposés au serveur. Le null distingue « jamais synchronisé »
+    /// de « réglé ainsi ».
     /// </summary>
-    public bool?   WebPageEnabled    { get; set; }
     public bool?   SearchIndexable   { get; set; }
     public string? SectionVisibility { get; set; }
 
@@ -103,7 +134,7 @@ public class RpProfileCache
 [Serializable]
 public class Configuration : IPluginConfiguration
 {
-    public int Version { get; set; } = 4;
+    public int Version { get; set; } = 5;
 
     /// <summary>
     /// Token API legacy (User.apiToken, préfixe ee_). Conservé pour la transition.
@@ -238,6 +269,15 @@ public class Configuration : IPluginConfiguration
 
     // ─── Profil RP ───────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// Édite la fiche RP en cinq onglets plutôt qu'en une seule page déroulante.
+    ///
+    /// Allumé par défaut : quatorze blocs bout à bout se parcourent au jugé, et
+    /// ce qui se règle une fois par an y côtoie ce qu'on change tous les soirs.
+    /// Qui préfère l'ancienne forme la retrouve d'une case dans les réglages.
+    /// </summary>
+    public bool RpProfileTabs { get; set; } = true;
+
     /// <summary>True si l'utilisateur a vu ou ignoré le wizard de migration vers les tokens de personnage.</summary>
     public bool MigrationNoticeSeen { get; set; } = false;
 
@@ -249,6 +289,94 @@ public class Configuration : IPluginConfiguration
 
     /// <summary>Afficher le marqueur ♦ sur les nameplates des joueurs disponibles pour du RP.</summary>
     public bool ShowRpAvailableIndicator { get; set; } = true;
+
+    // ─── Infobulle de ciblage ────────────────────────────────────────────────
+    //
+    // Ces quatre réglages n'ont pas demandé de bump de Version : ils ont tous une
+    // valeur par défaut, une configuration antérieure les reçoit donc telle
+    // qu'ils sont écrits ici sans qu'aucune migration ait à passer.
+
+    /// <summary>Afficher l'infobulle de fiche RP sur le joueur ciblé ou survolé.</summary>
+    public bool RpTooltipEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Autoriser le simple survol à déclencher l'infobulle. Décoché, seule la
+    /// cible dure la fait apparaître, ce qui demande un clic délibéré.
+    /// </summary>
+    public bool RpTooltipOnHover { get; set; } = true;
+
+    /// <summary>Touche à maintenir pour que l'infobulle apparaisse.</summary>
+    public RpTooltipKey RpTooltipModifier { get; set; } = RpTooltipKey.None;
+
+    /// <summary>
+    /// Consentement local à voir le contenu des fiches marquées sensibles.
+    /// Désactivé par défaut : c'est au lecteur de le demander, jamais à l'auteur
+    /// de la fiche de le lui imposer au détour d'un survol.
+    /// </summary>
+    public bool ShowNsfwProfiles { get; set; } = false;
+
+    // ─── Facilités de discussion ──────────────────────────────────────────────
+    //
+    // Tout se joue à la réception, sur cette machine seulement : le message
+    // envoyé n'est jamais retouché, et un interlocuteur sans le plugin voit ce
+    // qui a été tapé.
+    //
+    // La mise en couleur est allumée d'emblée, interrupteur principal compris.
+    // Elle était éteinte au départ par prudence, ce qui revenait à livrer le
+    // module à personne : sans le savoir, on ne va pas le chercher, et l'unique
+    // retour reçu portait sur des réglages cochés qui ne faisaient rien. Le
+    // risque est faible et réversible, puisque seules les couleurs de sa propre
+    // fenêtre changent, et seulement sur « dire » et les messages privés.
+    // Substituer un NOM reste éteint, lui : voir ChatRpNames.
+
+    /// <summary>Interrupteur général du module : rien n'est touché tant qu'il est éteint.</summary>
+    public bool ChatFormatEnabled { get; set; } = true;
+
+    /// <summary>Colorer les emotes.</summary>
+    public bool ChatFormatEmote { get; set; } = true;
+
+    /// <summary>Délimiteurs tenus pour une emote.</summary>
+    public ChatEmoteStyle ChatEmoteStyle { get; set; } = ChatEmoteStyle.Both;
+
+    /// <summary>Colorer le hors jeu, entre parenthèses.</summary>
+    public bool ChatFormatOoc { get; set; } = true;
+
+    /// <summary>Colorer le discours, entre guillemets.</summary>
+    public bool ChatFormatSpeech { get; set; } = true;
+
+    // Les couleurs sont des clés de la feuille UIColor du jeu et non des valeurs
+    // RVB : le chat ne sait pas afficher autre chose. Les défauts valent 0,
+    // c'est-à-dire « couleur du canal », le temps que la palette soit lue dans
+    // les données du jeu : un identifiant écrit en dur ici deviendrait faux au
+    // premier remaniement de la feuille.
+    public ushort ChatEmoteColor  { get; set; } = 0;
+    public ushort ChatOocColor    { get; set; } = 0;
+    public ushort ChatSpeechColor { get; set; } = 0;
+
+    /// <summary>Couleur de repli d'un nom RP dont la fiche n'a pas d'accent.</summary>
+    public ushort ChatRpNameColor { get; set; } = 0;
+
+    /// <summary>
+    /// Afficher le nom RP à la place du nom de personnage.
+    ///
+    /// Éteint même quand le module est allumé : c'est le réglage qui change le
+    /// plus la lecture du chat, et confondre deux joueurs parce que l'un
+    /// d'eux s'affiche sous un autre nom se paie cher en pleine scène.
+    /// </summary>
+    public bool ChatRpNames { get; set; } = false;
+
+    // Canaux traités. Par défaut, « dire » et les messages privés seulement :
+    // ce sont ceux où l'on joue. Les canaux de groupe et de compagnie libre
+    // charrient de l'organisation et du contenu de jeu, qu'il n'y a aucune
+    // raison de coloriser sans qu'on l'ait demandé.
+    public bool ChatChannelSay         { get; set; } = true;
+    public bool ChatChannelTell        { get; set; } = true;
+    public bool ChatChannelShout       { get; set; } = false;
+    public bool ChatChannelYell        { get; set; } = false;
+    public bool ChatChannelParty       { get; set; } = false;
+    public bool ChatChannelLinkshell   { get; set; } = false;
+    public bool ChatChannelFreeCompany { get; set; } = false;
+    public bool ChatChannelEmote       { get; set; } = false;
 
     // ─── Nouveautés ──────────────────────────────────────────────────────────
 
@@ -283,8 +411,18 @@ public class Configuration : IPluginConfiguration
     /// <summary>Cache de fiche, pour éviter un appel réseau à l'ouverture.</summary>
     public Dictionary<string, RpProfileCache> RpProfiles { get; set; } = [];
 
-    /// <summary>Disponibilité déclarée, par personnage.</summary>
+    /// <summary>Disponibilité effectivement publiée sur le site, par personnage.</summary>
     public Dictionary<string, bool> RpAvailability { get; set; } = [];
+
+    /// <summary>
+    /// Intention du joueur (« je veux être disponible »), par personnage.
+    ///
+    /// Distincte de la disponibilité publiée : celle-ci n'existe que tag « Jeu de
+    /// rôle » actif. Sans cette mémoire, éteindre le tag effacerait le souhait du
+    /// joueur, qui devrait se redéclarer disponible à chaque fois qu'il le
+    /// rallume. L'intention survit au tag, la publication le suit.
+    /// </summary>
+    public Dictionary<string, bool> RpAvailabilityWanted { get; set; } = [];
 
     /// <summary>Clé d'un personnage dans les dictionnaires ci-dessus.</summary>
     public static string CharacterKey(string name, int worldId) => $"{name}@{worldId}";
@@ -306,6 +444,25 @@ public class Configuration : IPluginConfiguration
     public void SetAvailable(string name, int worldId, bool available)
     {
         RpAvailability[CharacterKey(name, worldId)] = available;
+        Save();
+    }
+
+    /// <summary>Le joueur souhaite-t-il être disponible avec ce personnage ?</summary>
+    public bool IsAvailabilityWanted(string? name, int? worldId)
+    {
+        if (string.IsNullOrEmpty(name) || worldId is not { } world) return false;
+        var key = CharacterKey(name, world);
+
+        // Une configuration antérieure à l'intention n'a que la disponibilité
+        // publiée : elle vaut alors intention, sans quoi la mise à jour ferait
+        // sortir de la liste les personnages déjà déclarés disponibles.
+        if (RpAvailabilityWanted.TryGetValue(key, out var wanted)) return wanted;
+        return RpAvailability.TryGetValue(key, out var published) && published;
+    }
+
+    public void SetAvailabilityWanted(string name, int worldId, bool wanted)
+    {
+        RpAvailabilityWanted[CharacterKey(name, worldId)] = wanted;
         Save();
     }
 
@@ -349,6 +506,36 @@ public class Configuration : IPluginConfiguration
         }
 
         Version = 4;
+        Save();
+    }
+
+    /// <summary>
+    /// Allume la mise en forme du chat sur les configurations existantes.
+    ///
+    /// Une valeur par défaut ne suffit pas ici : un fichier déjà enregistré
+    /// porte <c>false</c> écrit noir sur blanc, et le repeindre en <c>true</c>
+    /// dans la déclaration ne changerait rien pour ceux qui ont déjà lancé le
+    /// plugin, c'est-à-dire tout le monde. D'où la version 5.
+    ///
+    /// Limite assumée : le fichier ne dit pas si le <c>false</c> vient d'un
+    /// refus ou du défaut d'origine, et la migration rallume donc aussi les rares
+    /// joueurs qui avaient éteint le module. Le module n'ayant vécu qu'une seule
+    /// version, et n'ayant à peu près rien fait pendant celle-ci, ils sont au
+    /// plus une poignée, et il leur reste un interrupteur bien visible.
+    ///
+    /// <c>ChatRpNames</c> n'est jamais touché : c'est le seul réglage qui change
+    /// ce que l'on croit lire, il se coche à la main ou pas du tout.
+    /// </summary>
+    public void MigrateChatDefaults()
+    {
+        if (Version >= 5) return;
+
+        ChatFormatEnabled = true;
+        ChatFormatEmote   = true;
+        ChatFormatOoc     = true;
+        ChatFormatSpeech  = true;
+
+        Version = 5;
         Save();
     }
 

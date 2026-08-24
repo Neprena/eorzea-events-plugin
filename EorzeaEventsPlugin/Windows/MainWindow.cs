@@ -477,7 +477,7 @@ public class MainWindow : ThemedWindow, IDisposable
         }
         else
         {
-            var available = Plugin.CurrentCharacterAvailable;
+            var available = Plugin.CurrentCharacterAvailabilityWanted;
             if (ImGui.Checkbox(l.RpAvailableEnable + "##rpavailabletoggle", ref available))
                 Plugin.SetRpAvailability(available);
         }
@@ -537,12 +537,43 @@ public class MainWindow : ThemedWindow, IDisposable
                     Plugin.Framework.RunOnFrameworkThread(() => OpenOnMap(s));
             }
 
-            // Personnage
+            // Personnage, avec accès à sa fiche quand elle est publiée. Une
+            // session annoncée sous un nom libre depuis le site n'a pas de
+            // personnage lié : rien ne garantirait que l'auteur est bien lui.
             if (!string.IsNullOrEmpty(s.CharacterName))
             {
                 UiPrimitives.DrawIcon(Icons.Character);
                 ImGui.SameLine(0, 4);
                 ImGui.TextColored(UiStyle.TextMuted, Glyphs.Safe(s.CharacterName));
+
+                if (!string.IsNullOrEmpty(s.CharacterId) && s.CharacterHasWebPage)
+                {
+                    ImGui.SameLine(0, 8);
+                    if (UiPrimitives.ColorButton($"{l.MenuViewRpProfile}##prof_{s.Id}", UiStyle.SmallButton,
+                        UiStyle.SecondaryNormal, UiStyle.SecondaryHovered, UiStyle.SecondaryActive))
+                        Plugin.OpenRpProfileViewer(s.CharacterId!, s.CharacterName!, s.Server);
+                }
+            }
+
+            // Emplacement déclaré : le dire, sinon l'absence de bouton carte et
+            // le comptage à zéro passeraient pour une panne du plugin.
+            if (string.Equals(s.Source, "WEB", StringComparison.OrdinalIgnoreCase))
+            {
+                UiPrimitives.DrawIcon(Icons.Info);
+                ImGui.SameLine(0, 4);
+                ImGui.TextColored(UiStyle.TextSubtle, l.DeclaredPosition);
+                if (ImGui.IsItemHovered()) ImGui.SetTooltip(l.DeclaredPositionHint);
+            }
+
+            // Point de rendez-vous : hors logement, c'est le seul repère pour
+            // retrouver l'auteur, il ne doit pas se perdre dans la description.
+            if (!string.IsNullOrEmpty(s.MeetingPoint))
+            {
+                UiPrimitives.DrawIcon(Icons.Location);
+                ImGui.SameLine(0, 4);
+                ImGui.PushTextWrapPos(0);
+                ImGui.TextColored(UiStyle.TextMuted, Glyphs.Safe(s.MeetingPoint));
+                ImGui.PopTextWrapPos();
             }
 
             // Housing

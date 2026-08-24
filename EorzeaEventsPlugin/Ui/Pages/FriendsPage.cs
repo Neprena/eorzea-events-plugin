@@ -131,6 +131,15 @@ internal sealed class FriendsPage
             Layout.Spacer(Theme.GapXs);
         }
 
+        // Consulter la fiche d'un ami depuis sa liste : le seul chemin existant
+        // passait par « Autour de moi », donc supposait qu'il soit connecté et
+        // déclaré disponible à cet instant.
+        if (Btn.Draw(l.MenuViewRpProfile, BtnTone.Ghost, BtnSize.Small, Icons.Character,
+                     id: $"friend_prof_{friend.CharacterId}"))
+            Plugin.OpenRpProfileViewer(friend.CharacterId, friend.Name, friend.WorldName);
+
+        ImGui.SameLine(0f, Theme.S(Theme.GapS));
+
         if (Btn.Draw(l.RpFriendNote, BtnTone.Ghost, BtnSize.Small, Icons.Edit,
                      id: $"note_edit_{friend.CharacterId}"))
         {

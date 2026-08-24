@@ -34,6 +34,7 @@ internal static class Icons
     public const FontAwesomeIcon Clock     = FontAwesomeIcon.Clock;
     public const FontAwesomeIcon Recurring = FontAwesomeIcon.Redo;
     public const FontAwesomeIcon Language  = FontAwesomeIcon.Comments;
+    public const FontAwesomeIcon Chat      = FontAwesomeIcon.CommentDots;
 
     // ─── Actions ──────────────────────────────────────────────────────────────
     public const FontAwesomeIcon Search   = FontAwesomeIcon.Search;
@@ -64,6 +65,72 @@ internal static class Icons
     public const FontAwesomeIcon Friend    = FontAwesomeIcon.UserFriends;
     public const FontAwesomeIcon FriendAdd = FontAwesomeIcon.UserPlus;
 
+    // ─── Coup d'œil ───────────────────────────────────────────────────────────
+    //
+    // Vocabulaire fermé de 24 clés, aligné sur RP_GLANCE_ICONS
+    // (src/lib/rp-vocabulary.ts). Les constantes portent le sens de la clé et
+    // non le nom du glyphe retenu : changer de pictogramme ne doit toucher
+    // qu'une ligne, et surtout jamais le vocabulaire stocké en base.
+
+    public const FontAwesomeIcon GlanceSword   = FontAwesomeIcon.Khanda;
+    public const FontAwesomeIcon GlanceShield  = FontAwesomeIcon.ShieldAlt;
+    public const FontAwesomeIcon GlanceBook    = FontAwesomeIcon.Book;
+    public const FontAwesomeIcon GlanceScroll  = FontAwesomeIcon.Scroll;
+    public const FontAwesomeIcon GlanceFlask   = FontAwesomeIcon.Flask;
+    public const FontAwesomeIcon GlanceMusic   = FontAwesomeIcon.Music;
+    public const FontAwesomeIcon GlanceHeart   = FontAwesomeIcon.Heart;
+    public const FontAwesomeIcon GlanceStar    = FontAwesomeIcon.Star;
+    public const FontAwesomeIcon GlanceCoin    = FontAwesomeIcon.Coins;
+    public const FontAwesomeIcon GlanceHammer  = FontAwesomeIcon.Hammer;
+    public const FontAwesomeIcon GlanceLeaf    = FontAwesomeIcon.Leaf;
+    public const FontAwesomeIcon GlanceFlame   = FontAwesomeIcon.Fire;
+    public const FontAwesomeIcon GlanceMoon    = FontAwesomeIcon.Moon;
+    public const FontAwesomeIcon GlanceSun     = FontAwesomeIcon.Sun;
+    public const FontAwesomeIcon GlanceEye     = FontAwesomeIcon.Eye;
+    public const FontAwesomeIcon GlanceMask    = FontAwesomeIcon.Mask;
+    public const FontAwesomeIcon GlanceCrown   = FontAwesomeIcon.Crown;
+    public const FontAwesomeIcon GlanceAnchor  = FontAwesomeIcon.Anchor;
+    public const FontAwesomeIcon GlanceFeather = FontAwesomeIcon.Feather;
+    public const FontAwesomeIcon GlanceKey     = FontAwesomeIcon.Key;
+    public const FontAwesomeIcon GlanceSkull   = FontAwesomeIcon.Skull;
+    public const FontAwesomeIcon GlanceCup     = FontAwesomeIcon.WineGlassAlt;
+    public const FontAwesomeIcon GlanceMap     = FontAwesomeIcon.Map;
+    public const FontAwesomeIcon GlancePaw     = FontAwesomeIcon.Paw;
+
+    /// <summary>
+    /// Glyphe d'une clé du coup d'œil. Une clé inconnue, servie par un serveur
+    /// plus récent, retombe sur l'étoile : un carré vide en dirait moins qu'une
+    /// icône approximative.
+    /// </summary>
+    public static FontAwesomeIcon Glance(string key) => key switch
+    {
+        "sword"   => GlanceSword,
+        "shield"  => GlanceShield,
+        "book"    => GlanceBook,
+        "scroll"  => GlanceScroll,
+        "flask"   => GlanceFlask,
+        "music"   => GlanceMusic,
+        "heart"   => GlanceHeart,
+        "star"    => GlanceStar,
+        "coin"    => GlanceCoin,
+        "hammer"  => GlanceHammer,
+        "leaf"    => GlanceLeaf,
+        "flame"   => GlanceFlame,
+        "moon"    => GlanceMoon,
+        "sun"     => GlanceSun,
+        "eye"     => GlanceEye,
+        "mask"    => GlanceMask,
+        "crown"   => GlanceCrown,
+        "anchor"  => GlanceAnchor,
+        "feather" => GlanceFeather,
+        "key"     => GlanceKey,
+        "skull"   => GlanceSkull,
+        "cup"     => GlanceCup,
+        "map"     => GlanceMap,
+        "paw"     => GlancePaw,
+        _         => Sparkle,
+    };
+
     /// <summary>
     /// Toutes les icônes réellement utilisées. Sert à ne fusionner dans l'atlas
     /// que la trentaine de glyphes nécessaires au lieu des ~2000 de FontAwesome.
@@ -77,6 +144,13 @@ internal static class Icons
         Search, Refresh, External, Close, Hide, Show, Copy, Edit, Plus, Trash, Travel,
         Warning, Info, Check, Blocked, Sparkle, Diamond, Chevron, Shield,
         Friend, FriendAdd,
+
+        // Les 24 glyphes du coup d'œil : le joueur choisit librement parmi eux,
+        // n'importe lequel peut donc apparaître sur n'importe quelle fiche.
+        GlanceSword, GlanceShield, GlanceBook, GlanceScroll, GlanceFlask, GlanceMusic,
+        GlanceHeart, GlanceStar, GlanceCoin, GlanceHammer, GlanceLeaf, GlanceFlame,
+        GlanceMoon, GlanceSun, GlanceEye, GlanceMask, GlanceCrown, GlanceAnchor,
+        GlanceFeather, GlanceKey, GlanceSkull, GlanceCup, GlanceMap, GlancePaw,
     ];
 
     /// <summary>Glyphe prêt à être passé à ImGui.</summary>

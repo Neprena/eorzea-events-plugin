@@ -684,6 +684,15 @@ public class MySessionWindow : ThemedWindow
         Text.WithIcon(Icons.Location, $"{_activeSession.Location}  ·  {_activeSession.Server}",
                       Theme.TextMuted, Theme.TextFaint, wrap: true);
 
+        // Joueurs sur place, comptés par le serveur et rafraîchis par
+        // PollSessionStatus toutes les 5 s. La liste des sessions l'affichait
+        // déjà, mais pas ce récapitulatif : l'auteur d'un RP était le seul à ne
+        // pas voir si son annonce avait attiré du monde.
+        if (_activeSession.NearbyCount > 0)
+            Text.WithIcon(Icons.Around,
+                          string.Format(Plugin.L.OnSiteCount, _activeSession.NearbyCount),
+                          Theme.Online, Theme.Online);
+
         if (!string.IsNullOrEmpty(_activeSession.CharacterName))
             Text.WithIcon(Icons.Character, _activeSession.CharacterName,
                           Theme.TextMuted, Theme.TextFaint);

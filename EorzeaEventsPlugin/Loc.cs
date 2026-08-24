@@ -25,6 +25,8 @@ internal sealed class Loc
     public required string LoadFailed { get; init; }
     public required string SaveFailed { get; init; }
     public required string OnSiteCount { get; init; }   // {0} = joueurs présents
+    public required string DeclaredPosition     { get; init; }
+    public required string DeclaredPositionHint { get; init; }
     public required string Show       { get; init; }
     public required string Hide       { get; init; }
     public required string Ignore     { get; init; }
@@ -263,6 +265,7 @@ internal sealed class Loc
     public required string DtrEventsTooltip     { get; init; }
     public required string DtrRpAvailTooltip    { get; init; }
     public required string DtrRpAvailLabel      { get; init; }
+    public required string DtrRpAvailPausedLabel { get; init; }
     public required string DtrRpLabel           { get; init; }
     public required string DtrEventsLabel       { get; init; }
     public required string CfgDtrRpAvail        { get; init; }
@@ -285,6 +288,7 @@ internal sealed class Loc
     public required string RpAvailableNoToken      { get; init; }
     public required string RpAvailableNoCharacter  { get; init; }
     public required string RpAvailableFailed       { get; init; }
+    public required string RpAvailableNeedsRpTag   { get; init; }
     public required string RpProfileSetup          { get; init; }
     public required string RpProfileWizardTitle    { get; init; }
     public required string RpProfileWizardIntro    { get; init; }
@@ -298,6 +302,38 @@ internal sealed class Loc
     public required string RpProfileHooksHint     { get; init; }
     public required string RpProfileHooksExample  { get; init; }
     public required string RpProfileCurrentQuest  { get; init; }
+
+    // ── Coup d'œil ────────────────────────────────────────────────────────────
+    //
+    // Cinq détails que l'on remarque au premier regard. Le nom de chaque icône
+    // est traduit : le sélecteur ImGui n'affiche pas de pictogramme dans sa
+    // liste déroulante, seul le libellé permet donc de choisir.
+    public required string RpProfileGlance         { get; init; }
+    public required string RpProfileGlanceHint     { get; init; }
+    public required string RpProfileGlanceBody     { get; init; }
+    public required string RpProfileGlanceActive   { get; init; }
+    public required string RpProfileGlanceExample  { get; init; }
+    public required string RpProfileGlanceEmpty    { get; init; }
+    public required string RpProfileGlanceAdd      { get; init; }
+    public required string RpProfileGlanceSlot     { get; init; }  // {0} = rang
+    public required string RpProfileGlanceRemove   { get; init; }
+    public required string RpProfileGlanceRemoveArm { get; init; }
+    public required Dictionary<string, string> RpGlanceIconLabels { get; init; }
+
+    // ── Instant présent ───────────────────────────────────────────────────────
+    //
+    // Le statut du moment et l'intrigue en cours se ressemblent assez pour être
+    // confondus : l'un se change au fil de la soirée, l'autre est l'arc de fond
+    // du personnage. Les libellés doivent les distinguer, sans quoi le joueur
+    // écrit son humeur dans le champ qui ne s'efface jamais.
+    public required string RpProfileStatus           { get; init; }
+    public required string RpProfileStatusHint       { get; init; }
+    public required string RpProfileCurrently        { get; init; }
+    public required string RpProfileCurrentlyExample { get; init; }
+    public required string RpProfileIcState          { get; init; }
+    public required string RpProfileIcStateIc        { get; init; }
+    public required string RpProfileIcStateOoc       { get; init; }
+    public required string RpProfileIcStateHint      { get; init; }
     public required string RpProfilePreferences   { get; init; }
     public required string RpProfileThemes        { get; init; }
     public required string RpProfileAvoidThemes   { get; init; }
@@ -388,6 +424,55 @@ internal sealed class Loc
     public required string CfgRpProfileHeader      { get; init; }
     public required string CfgRpIndicator          { get; init; }
 
+    // ── Infobulle de ciblage ──────────────────────────────────────────────────
+    public required string CfgRpTooltip             { get; init; }
+    public required string CfgRpTooltipHint         { get; init; }
+    public required string CfgRpTooltipHover        { get; init; }
+    public required string CfgRpTooltipHoverHint    { get; init; }
+    public required string CfgRpTooltipModifier     { get; init; }
+    public required string CfgRpTooltipModifierHint { get; init; }
+    public required string CfgRpTooltipModNone      { get; init; }
+    public required string CfgRpTooltipModCtrl      { get; init; }
+    public required string CfgRpTooltipModAlt       { get; init; }
+
+    // ── Facilités de discussion ───────────────────────────────────────────────
+    public required string CfgChatHeader          { get; init; }
+    public required string CfgChatEnabled         { get; init; }
+    public required string CfgChatEnabledHint     { get; init; }
+    public required string CfgChatOn              { get; init; }
+    public required string CfgChatOff             { get; init; }
+    public required string CfgChatEmote           { get; init; }
+    public required string CfgChatEmoteHint       { get; init; }
+    public required string CfgChatEmoteStyle      { get; init; }
+    public required string CfgChatEmoteStyleStars { get; init; }
+    public required string CfgChatEmoteStyleAngle { get; init; }
+    public required string CfgChatEmoteStyleBoth  { get; init; }
+    public required string CfgChatOoc             { get; init; }
+    public required string CfgChatOocHint         { get; init; }
+    public required string CfgChatSpeech          { get; init; }
+    public required string CfgChatSpeechHint      { get; init; }
+    public required string CfgChatColor           { get; init; }
+    public required string CfgChatColorDefault    { get; init; }
+    public required string CfgChatChannels        { get; init; }
+    public required string CfgChatChannelsHint    { get; init; }
+    public required string CfgChatChanSay         { get; init; }
+    public required string CfgChatChanTell        { get; init; }
+    public required string CfgChatChanShout       { get; init; }
+    public required string CfgChatChanYell        { get; init; }
+    public required string CfgChatChanParty       { get; init; }
+    public required string CfgChatChanLinkshell   { get; init; }
+    public required string CfgChatChanFreeCompany { get; init; }
+    public required string CfgChatChanEmote       { get; init; }
+    public required string CfgChatRpNames         { get; init; }
+    public required string CfgChatRpNamesHint     { get; init; }
+    public required string CfgChatTokens          { get; init; }
+    public required string CfgChatTokensHint      { get; init; }
+    public required string ChatTokensUsage        { get; init; }
+    public required string ChatTokensCopied       { get; init; }   // {0} = texte substitué
+    public required string CfgRpNsfwShow            { get; init; }
+    public required string CfgRpNsfwShowHint        { get; init; }
+    public required string RpTooltipNsfwHidden      { get; init; }
+
     // ── Titre nameplate disponibilité ─────────────────────────────────────────
     public required string RpLoginPrompt            { get; init; }
     public required string RpLoginStay             { get; init; }
@@ -421,6 +506,9 @@ internal sealed class Loc
     // ── Fiche d'un autre joueur ───────────────────────────────────────────────
     public required string RpProfileNoProfile  { get; init; }
     public required string RpProfileNsfw       { get; init; }
+    public required string RpProfileNsfwWithheld     { get; init; }
+    public required string RpProfileNsfwWithheldHint { get; init; }
+    public required string RpProfileNsfwWithheldCta  { get; init; }
     public required string RpProfileViewOnSite { get; init; }
     public required string MenuViewRpProfile   { get; init; }
     public required string RpFriendAdd         { get; init; }
@@ -458,11 +546,24 @@ internal sealed class Loc
     public required string RpProfileVisWho           { get; init; }
     public required string RpProfileVisInGame        { get; init; }
     public required string RpProfileVisInGameHint    { get; init; }
-    public required string RpProfileVisWebPage       { get; init; }
-    public required string RpProfileVisWebPageHint   { get; init; }
     public required string RpProfileVisIndexable     { get; init; }
     public required string RpProfileVisIndexableHint { get; init; }
     public required string RpProfileVisAlwaysPublic  { get; init; }
+    // ── Fiche en onglets ──────────────────────────────────────────────────────
+    //
+    // Cinq libellés courts : ils tiennent sur une barre, et l'icône porte déjà
+    // la moitié du sens.
+    public required string RpProfileTabOverview  { get; init; }
+    public required string RpProfileTabCharacter { get; init; }
+    public required string RpProfileTabPlay      { get; init; }
+    public required string RpProfileTabLinks     { get; init; }
+    public required string RpProfileTabPrivacy   { get; init; }
+    public required string RpProfileTabUnsaved   { get; init; }
+    public required string CfgRpProfileTabs      { get; init; }
+    public required string CfgRpProfileTabsHint  { get; init; }
+
+    public required string RpProfileAutoSaved        { get; init; }
+    public required string RpProfileAutoSaving       { get; init; }
     public required string RpProfileVisOwnerNote     { get; init; }  // {0} = libellé accordé
     public required string RpProfileAudiencePublic   { get; init; }
     public required string RpProfileAudienceOwner    { get; init; }  // masculin
@@ -498,6 +599,9 @@ internal sealed class Loc
     // ── Autour de moi ─────────────────────────────────────────────────────────
     public required string TabAround         { get; init; }
     public required string AroundCount       { get; init; }   // {0} joueur(s)
+    public required string AroundRpTaggedCount { get; init; }   // {0} joueur(s)
+    public required string AroundRpTaggedHint  { get; init; }
+    public required string AroundRpTaggedChip  { get; init; }
     public required string AroundEmpty       { get; init; }
     public required string AroundNoMatch     { get; init; }
     public required string AroundSearchHint  { get; init; }
@@ -528,6 +632,8 @@ internal sealed class Loc
         LoadFailed = "Le chargement a échoué. Le site est peut-être injoignable.",
         SaveFailed = "L'enregistrement a échoué. Rien n'a été modifié sur le site.",
         OnSiteCount = "{0} sur place",
+        DeclaredPosition     = "Position déclarée",
+        DeclaredPositionHint = "Session annoncée depuis le site : l'emplacement est décrit par son auteur, il n'a pas été relevé en jeu. Hors logement, personne ne peut être détecté sur place.",
         Show       = "Afficher",
         Hide       = "Masquer",
         Ignore     = "Ignorer",
@@ -746,8 +852,9 @@ internal sealed class Loc
         NotifEventStartChat  = "Événement en cours : {0}",
         DtrRpTooltip      = "Sessions RP ouvertes en cours\nCliquez pour ouvrir",
         DtrEventsTooltip  = "Événements en cours\nCliquez pour ouvrir",
-        DtrRpAvailTooltip = "Disponibilité pour du RP spontané\nCliquez pour vous déclarer disponible ou non",
+        DtrRpAvailTooltip = "Disponibilité pour du RP spontané\nElle n'est publiée que si le tag « Jeu de rôle » du jeu est actif (commande /jdr)\nCliquez pour vous déclarer disponible ou non",
         DtrRpAvailLabel   = "Dispo RP",
+        DtrRpAvailPausedLabel = "Dispo RP (tag éteint)",
         DtrRpLabel        = "RP",
         DtrEventsLabel    = "Événements",
         CfgDtrRpAvail     = "Afficher le statut de disponibilité RP",
@@ -766,6 +873,7 @@ internal sealed class Loc
         RpAvailableNoToken      = "Liez ce personnage pour activer la disponibilité RP.",
         RpAvailableNoCharacter  = "Aucun personnage connecté : impossible de changer votre disponibilité.",
         RpAvailableFailed       = "La disponibilité n'a pas pu être enregistrée. Vérifiez votre connexion, puis réessayez.",
+        RpAvailableNeedsRpTag   = "Votre disponibilité est retenue : elle sera publiée dès que le tag « Jeu de rôle » du jeu sera actif (commande /jdr).",
         RpProfileSetup          = "Configurer mon profil RP",
         RpProfileWizardTitle    = "Mon profil RP",
         RpProfileWizardIntro    = "Quelques questions rapides pour que les autres joueurs sachent à quoi s'attendre avant de t'approcher.",
@@ -778,7 +886,41 @@ internal sealed class Loc
         RpProfileHooks          = "Accroches",
         RpProfileHooksHint      = "Ce qui donne envie de venir vous parler.",
         RpProfileHooksExample   = "Tenancier de la taverne des Deux Lunes",
-        RpProfileCurrentQuest   = "En ce moment",
+        // « En ce moment » désigne désormais le statut du moment : l'intrigue
+        // reprend le libellé du site, qui la nomme correctement.
+        RpProfileCurrentQuest   = "Intrigue en cours",
+
+        RpProfileGlance         = "Coup d'œil",
+        RpProfileGlanceHint     = "Jusqu'à cinq détails que l'on remarque au premier regard, avant même de vous parler.",
+        RpProfileGlanceBody     = "Description",
+        RpProfileGlanceActive   = "Affiché",
+        RpProfileGlanceExample  = "Une cicatrice en travers de la joue",
+        RpProfileGlanceEmpty    = "Aucun détail pour l'instant.",
+        RpProfileGlanceAdd      = "Ajouter un détail",
+        RpProfileGlanceSlot     = "Détail {0}",
+        RpProfileGlanceRemove   = "Retirer",
+        RpProfileGlanceRemoveArm = "Confirmer le retrait",
+        RpGlanceIconLabels = new()
+        {
+            ["sword"] = "Épée", ["shield"] = "Bouclier", ["book"] = "Livre",
+            ["scroll"] = "Parchemin", ["flask"] = "Fiole", ["music"] = "Musique",
+            ["heart"] = "Cœur", ["star"] = "Étoile", ["coin"] = "Pièce",
+            ["hammer"] = "Marteau", ["leaf"] = "Feuille", ["flame"] = "Flamme",
+            ["moon"] = "Lune", ["sun"] = "Soleil", ["eye"] = "Œil",
+            ["mask"] = "Masque", ["crown"] = "Couronne", ["anchor"] = "Ancre",
+            ["feather"] = "Plume", ["key"] = "Clé", ["skull"] = "Crâne",
+            ["cup"] = "Coupe", ["map"] = "Carte", ["paw"] = "Patte",
+        },
+
+        RpProfileStatus           = "En ce moment",
+        RpProfileStatusHint       = "Ce que fait votre personnage là, maintenant. Les autres le voient dans la liste et sur votre fiche.",
+        RpProfileCurrently        = "Statut du moment",
+        RpProfileCurrentlyExample = "Accoudé au bar du Quicksand, cherche une oreille attentive",
+        RpProfileIcState          = "État de jeu",
+        RpProfileIcStateIc        = "En RP",
+        RpProfileIcStateOoc       = "Hors RP",
+        RpProfileIcStateHint      = "Suit le tag « Jeu de rôle » du jeu (commande /jdr).",
+
         RpProfilePreferences    = "Préférences",
         RpProfileThemes         = "Thèmes recherchés",
         RpProfileAvoidThemes    = "Thèmes évités",
@@ -869,6 +1011,53 @@ internal sealed class Loc
         CfgRpProfileHeader      = "Profil RP & Disponibilité",
         CfgRpIndicator          = "Afficher le marqueur sur les nameplates des joueurs disponibles",
 
+        CfgRpTooltip             = "Afficher une infobulle sur les joueurs disponibles",
+        CfgRpTooltipHint         = "Nom RP, état de jeu et coup d'œil apparaissent près du curseur. Rien n'est demandé au serveur : seuls les joueurs déjà déclarés disponibles s'y affichent.",
+        CfgRpTooltipHover        = "Afficher aussi au simple survol",
+        CfgRpTooltipHoverHint    = "Décoché, l'infobulle ne s'affiche que sur la cible sélectionnée.",
+        CfgRpTooltipModifier     = "Touche à maintenir",
+        CfgRpTooltipModifierHint = "L'infobulle reste masquée tant que la touche n'est pas enfoncée.",
+        CfgRpTooltipModNone      = "Aucune",
+        CfgRpTooltipModCtrl      = "Ctrl",
+        CfgRpTooltipModAlt       = "Alt",
+
+        CfgChatHeader          = "Discussion",
+        CfgChatEnabled         = "Paramètres du chat",
+        CfgChatEnabledHint     = "Les emotes, le hors jeu et le discours sont recolorés à l'affichage. Rien n'est modifié à l'envoi : vos interlocuteurs reçoivent exactement ce que vous avez tapé, plugin ou pas.",
+        CfgChatOn              = "Actif : les réglages ci-dessous s'appliquent à votre chat.",
+        CfgChatOff             = "Éteint : rien de ce qui suit n'a d'effet. Cocher une case rallume la mise en forme.",
+        CfgChatEmote           = "Colorer les emotes",
+        CfgChatEmoteHint       = "Par exemple : *ouvre la porte*",
+        CfgChatEmoteStyle      = "Délimiteurs reconnus",
+        CfgChatEmoteStyleStars = "Astérisques : *texte* et **texte**",
+        CfgChatEmoteStyleAngle = "Chevrons : <texte>",
+        CfgChatEmoteStyleBoth  = "Les deux",
+        CfgChatOoc             = "Atténuer le hors jeu",
+        CfgChatOocHint         = "Par exemple : (je reviens dans deux minutes)",
+        CfgChatSpeech          = "Mettre en évidence le discours",
+        CfgChatSpeechHint      = "Entre guillemets : « bonsoir » ou \"bonsoir\"",
+        CfgChatColor           = "Couleur",
+        CfgChatColorDefault    = "Couleur par défaut du plugin",
+        CfgChatChannels        = "Canaux traités",
+        CfgChatChannelsHint    = "Limité à « dire » et aux messages privés par défaut : ailleurs, le chat charrie surtout du contenu de jeu.",
+        CfgChatChanSay         = "Dire",
+        CfgChatChanTell        = "Messages privés",
+        CfgChatChanShout       = "Crier",
+        CfgChatChanYell        = "Hurler",
+        CfgChatChanParty       = "Groupe et alliance",
+        CfgChatChanLinkshell   = "Linkshells",
+        CfgChatChanFreeCompany = "Compagnie libre",
+        CfgChatChanEmote       = "Emotes du jeu",
+        CfgChatRpNames         = "Afficher les noms RP",
+        CfgChatRpNamesHint     = "Le nom du personnage est remplacé par son nom RP, dans la couleur de sa fiche. Seuls les joueurs déjà déclarés disponibles sont concernés : rien n'est demandé au serveur à la réception d'un message.",
+        CfgChatTokens          = "Jetons de saisie",
+        CfgChatTokensHint      = "/eorzea rp <texte> remplace %xt par le nom RP de votre cible et %xp par le vôtre (%xtf, %xtl, %xpf, %xpl pour le prénom ou le nom seuls), puis copie le résultat dans le presse-papiers. Rien n'est envoyé à votre place.",
+        ChatTokensUsage        = "Utilisation : /eorzea rp <texte>. %xt = nom RP de la cible, %xp = le vôtre, %xtf et %xtl pour son prénom et son nom, %xpf et %xpl pour les vôtres.",
+        ChatTokensCopied       = "Copié dans le presse-papiers : {0}",
+        CfgRpNsfwShow            = "Afficher le contenu des fiches marquées sensibles",
+        CfgRpNsfwShowHint        = "Décoché, l'infobulle signale le marquage mais masque le coup d'œil et le statut du moment. L'ouverture d'une fiche entière dépend, elle, de ton compte sur le site.",
+        RpTooltipNsfwHidden      = "Contenu masqué par vos réglages.",
+
         RpLoginPrompt           = "Tu étais disponible pour du RP lors de ta dernière session.",
         RpLoginStay             = "Rester disponible",
         RpLoginDisable          = "Me mettre indisponible",
@@ -897,6 +1086,9 @@ internal sealed class Loc
 
         RpProfileNoProfile  = "Ce joueur n'a pas encore rempli sa fiche.",
         RpProfileNsfw       = "Contenu sensible",
+        RpProfileNsfwWithheld     = "Fiche marquée contenu sensible",
+        RpProfileNsfwWithheldHint = "Son auteur l'a marquée comme réservée aux adultes. Le site ne l'envoie qu'aux comptes qui ont accepté ce type de contenu.",
+        RpProfileNsfwWithheldCta  = "Régler sur le site",
         RpProfileViewOnSite = "Voir sur le site",
         MenuViewRpProfile   = "Voir la fiche RP",
         RpFriendAdd         = "Ajouter comme ami RP",
@@ -931,13 +1123,22 @@ internal sealed class Loc
         RpProfileVisibility       = "Visibilité",
         RpProfileVisWhere         = "Où ma fiche apparaît",
         RpProfileVisWho           = "Qui voit quoi",
-        RpProfileVisInGame        = "Visible en jeu",
-        RpProfileVisInGameHint    = "Dans la liste des joueurs disponibles et par clic droit. N'ouvre aucune page sur le site.",
-        RpProfileVisWebPage       = "Page web partageable",
-        RpProfileVisWebPageHint   = "Crée une adresse que tu peux transmettre. N'inscrit pas ta fiche dans les moteurs de recherche.",
-        RpProfileVisIndexable     = "Référencée par les moteurs",
-        RpProfileVisIndexableHint = "Ta fiche peut apparaître dans les résultats de recherche. Une fois indexée, elle peut y rester un moment.",
-        RpProfileVisAlwaysPublic  = "Niveau, mode d'approche, langues, thèmes, citation et disponibilité restent visibles dès que ta fiche est visible en jeu : ce sont eux qui alimentent le marqueur sur les plaques de nom. La bannière et la couleur d'accent restent visibles également : c'est du décor. Le portrait, lui, suit le réglage de la section Identité.",
+        RpProfileVisInGame        = "Visible par les autres",
+        RpProfileVisInGameHint    = "Ta fiche est consultable en jeu par les autres joueurs (liste des joueurs disponibles, clic droit) et elle a une adresse partageable que tu peux transmettre. Elle n'est pour autant ni listée dans l'annuaire du site ni inscrite dans les moteurs de recherche.",
+        RpProfileVisIndexable     = "Listée sur le site et dans les moteurs",
+        RpProfileVisIndexableHint = "Ta fiche est publiée dans l'annuaire des personnages du site, où n'importe qui peut la parcourir et la filtrer, et elle peut apparaître dans les résultats des moteurs de recherche. Une fois indexée, elle peut y rester un moment même après avoir décoché cette case.",
+        RpProfileVisAlwaysPublic  = "Niveau, mode d'approche, langues, thèmes, citation et disponibilité restent visibles dès que ta fiche est visible par les autres : ce sont eux qui alimentent le marqueur sur les plaques de nom. La bannière et la couleur d'accent restent visibles également : c'est du décor. Le portrait, lui, suit le réglage de la section Identité.",
+        RpProfileTabOverview  = "Aperçu",
+        RpProfileTabCharacter = "Personnage",
+        RpProfileTabPlay      = "Jeu",
+        RpProfileTabLinks     = "Liens & Sync",
+        RpProfileTabPrivacy   = "Confidentialité",
+        RpProfileTabUnsaved   = "Modifications non enregistrées",
+        CfgRpProfileTabs      = "Fiche RP en onglets",
+        CfgRpProfileTabsHint  = "Découpe la fiche en cinq onglets au lieu d'une longue page à dérouler.",
+
+        RpProfileAutoSaved        = "Enregistré.",
+        RpProfileAutoSaving       = "Enregistrement...",
         RpProfileVisOwnerNote     = "« {0} » veut dire que la section n'est jamais envoyée aux autres joueurs. Ton texte reste enregistré sur le site.",
         RpProfileAudiencePublic   = "Tout le monde",
         RpProfileAudienceOwner    = "Moi seul",
@@ -967,6 +1168,9 @@ internal sealed class Loc
 
         TabAround         = "Autour de moi",
         AroundCount       = "{0} joueur(s) disponible(s)",
+        AroundRpTaggedCount = "{0} joueur(s) en jeu de rôle",
+        AroundRpTaggedHint  = "Ces joueurs ont le tag Jeu de rôle actif et une fiche visible. Ils ne se sont pas déclarés disponibles : à aborder avec le tact qu'on aurait en jeu.",
+        AroundRpTaggedChip  = "Tag JDR",
         AroundEmpty       = "Personne de disponible pour le moment",
         AroundNoMatch     = "Aucun joueur ne correspond",
         AroundSearchHint  = "Rechercher un personnage",
@@ -996,6 +1200,8 @@ internal sealed class Loc
         LoadFailed = "Loading failed. The website may be unreachable.",
         SaveFailed = "Saving failed. Nothing was changed on the website.",
         OnSiteCount = "{0} on site",
+        DeclaredPosition     = "Declared location",
+        DeclaredPositionHint = "Session announced from the website: the location is described by its author, it was not read in-game. Outside housing, nobody can be detected on site.",
         Show       = "Show",
         Hide       = "Hide",
         Ignore     = "Dismiss",
@@ -1214,8 +1420,9 @@ internal sealed class Loc
         NotifEventStartChat  = "Event is live: {0}",
         DtrRpTooltip      = "Active open RP sessions\nClick to open",
         DtrEventsTooltip  = "Ongoing events\nClick to open",
-        DtrRpAvailTooltip = "Availability for spontaneous RP\nClick to mark yourself available or not",
+        DtrRpAvailTooltip = "Availability for spontaneous RP\nIt is only published while the game's \"Role-playing\" tag is on (/roleplaying command)\nClick to mark yourself available or not",
         DtrRpAvailLabel   = "RP avail.",
+        DtrRpAvailPausedLabel = "RP avail. (tag off)",
         DtrRpLabel        = "RP",
         DtrEventsLabel    = "Events",
         CfgDtrRpAvail     = "Show RP availability status",
@@ -1234,6 +1441,7 @@ internal sealed class Loc
         RpAvailableNoToken      = "Link this character to enable RP availability.",
         RpAvailableNoCharacter  = "No character logged in: your availability can't be changed.",
         RpAvailableFailed       = "Your availability could not be saved. Check your connection and try again.",
+        RpAvailableNeedsRpTag   = "Your availability is on hold: it will be published as soon as the game's \"Role-playing\" tag is on (/roleplaying command).",
         RpProfileSetup          = "Set up my RP profile",
         RpProfileWizardTitle    = "My RP Profile",
         RpProfileWizardIntro    = "A few quick questions so other players know what to expect before approaching you.",
@@ -1246,7 +1454,41 @@ internal sealed class Loc
         RpProfileHooks          = "Hooks",
         RpProfileHooksHint      = "What makes people want to come and talk to you.",
         RpProfileHooksExample   = "Keeper of the Two Moons tavern",
-        RpProfileCurrentQuest   = "Right now",
+        // « Right now » désigne désormais le statut du moment : l'intrigue
+        // reprend le libellé du site, qui la nomme correctement.
+        RpProfileCurrentQuest   = "Current storyline",
+
+        RpProfileGlance         = "At a glance",
+        RpProfileGlanceHint     = "Up to five details people notice at first sight, before they even talk to you.",
+        RpProfileGlanceBody     = "Description",
+        RpProfileGlanceActive   = "Shown",
+        RpProfileGlanceExample  = "A scar across the cheek",
+        RpProfileGlanceEmpty    = "No detail yet.",
+        RpProfileGlanceAdd      = "Add a detail",
+        RpProfileGlanceSlot     = "Detail {0}",
+        RpProfileGlanceRemove   = "Remove",
+        RpProfileGlanceRemoveArm = "Confirm removal",
+        RpGlanceIconLabels = new()
+        {
+            ["sword"] = "Sword", ["shield"] = "Shield", ["book"] = "Book",
+            ["scroll"] = "Scroll", ["flask"] = "Flask", ["music"] = "Music",
+            ["heart"] = "Heart", ["star"] = "Star", ["coin"] = "Coin",
+            ["hammer"] = "Hammer", ["leaf"] = "Leaf", ["flame"] = "Flame",
+            ["moon"] = "Moon", ["sun"] = "Sun", ["eye"] = "Eye",
+            ["mask"] = "Mask", ["crown"] = "Crown", ["anchor"] = "Anchor",
+            ["feather"] = "Feather", ["key"] = "Key", ["skull"] = "Skull",
+            ["cup"] = "Cup", ["map"] = "Map", ["paw"] = "Paw",
+        },
+
+        RpProfileStatus           = "Right now",
+        RpProfileStatusHint       = "What your character is doing at this very moment. Others see it in the list and on your profile.",
+        RpProfileCurrently        = "Current status",
+        RpProfileCurrentlyExample = "Leaning on the Quicksand bar, looking for a friendly ear",
+        RpProfileIcState          = "Play state",
+        RpProfileIcStateIc        = "In character",
+        RpProfileIcStateOoc       = "Out of character",
+        RpProfileIcStateHint      = "Follows the game's \"Role-playing\" tag (/roleplaying command).",
+
         RpProfilePreferences    = "Preferences",
         RpProfileThemes         = "Themes sought",
         RpProfileAvoidThemes    = "Themes avoided",
@@ -1337,6 +1579,53 @@ internal sealed class Loc
         CfgRpProfileHeader      = "RP Profile & Availability",
         CfgRpIndicator          = "Show the marker on nameplates of available players",
 
+        CfgRpTooltip             = "Show a tooltip on available players",
+        CfgRpTooltipHint         = "RP name, in-character state and glance appear next to the cursor. Nothing is asked of the server: only players already listed as available show up there.",
+        CfgRpTooltipHover        = "Show on mouseover as well",
+        CfgRpTooltipHoverHint    = "When off, the tooltip only appears on the selected target.",
+        CfgRpTooltipModifier     = "Key to hold",
+        CfgRpTooltipModifierHint = "The tooltip stays hidden until the key is held down.",
+        CfgRpTooltipModNone      = "None",
+        CfgRpTooltipModCtrl      = "Ctrl",
+        CfgRpTooltipModAlt       = "Alt",
+
+        CfgChatHeader          = "Chat",
+        CfgChatEnabled         = "Chat settings",
+        CfgChatEnabledHint     = "Emotes, out-of-character asides and speech are recoloured on display. Nothing is changed when sending: the people you talk to receive exactly what you typed, plugin or no plugin.",
+        CfgChatOn              = "On: the settings below apply to your chat.",
+        CfgChatOff             = "Off: nothing below has any effect. Ticking a box turns formatting back on.",
+        CfgChatEmote           = "Colour emotes",
+        CfgChatEmoteHint       = "For example: *opens the door*",
+        CfgChatEmoteStyle      = "Recognised delimiters",
+        CfgChatEmoteStyleStars = "Asterisks: *text* and **text**",
+        CfgChatEmoteStyleAngle = "Angle brackets: <text>",
+        CfgChatEmoteStyleBoth  = "Both",
+        CfgChatOoc             = "Dim out-of-character asides",
+        CfgChatOocHint         = "For example: (back in two minutes)",
+        CfgChatSpeech          = "Highlight speech",
+        CfgChatSpeechHint      = "Between quotes: « good evening » or \"good evening\"",
+        CfgChatColor           = "Colour",
+        CfgChatColorDefault    = "The plugin's default colour",
+        CfgChatChannels        = "Channels covered",
+        CfgChatChannelsHint    = "Limited to Say and tells by default: elsewhere the log mostly carries game content.",
+        CfgChatChanSay         = "Say",
+        CfgChatChanTell        = "Tells",
+        CfgChatChanShout       = "Shout",
+        CfgChatChanYell        = "Yell",
+        CfgChatChanParty       = "Party and alliance",
+        CfgChatChanLinkshell   = "Linkshells",
+        CfgChatChanFreeCompany = "Free company",
+        CfgChatChanEmote       = "Game emotes",
+        CfgChatRpNames         = "Show RP names",
+        CfgChatRpNamesHint     = "The character name is replaced by their RP name, in their profile's colour. Only players already flagged as available are affected: nothing is asked of the server when a message arrives.",
+        CfgChatTokens          = "Input tokens",
+        CfgChatTokensHint      = "/eorzea rp <text> replaces %xt with your target's RP name and %xp with your own (%xtf, %xtl, %xpf, %xpl for first or last name only), then copies the result to the clipboard. Nothing is sent on your behalf.",
+        ChatTokensUsage        = "Usage: /eorzea rp <text>. %xt = target's RP name, %xp = your own, %xtf and %xtl for their first and last name, %xpf and %xpl for yours.",
+        ChatTokensCopied       = "Copied to the clipboard: {0}",
+        CfgRpNsfwShow            = "Show the content of profiles flagged as sensitive",
+        CfgRpNsfwShowHint        = "When off, the tooltip reports the flag but hides the glance and the current status. Opening a full profile depends on your website account instead.",
+        RpTooltipNsfwHidden      = "Content hidden by your settings.",
+
         RpLoginPrompt           = "You were available for RP in your last session.",
         RpLoginStay             = "Stay available",
         RpLoginDisable          = "Set myself unavailable",
@@ -1365,6 +1654,9 @@ internal sealed class Loc
 
         RpProfileNoProfile  = "This player hasn't filled in their profile yet.",
         RpProfileNsfw       = "Sensitive content",
+        RpProfileNsfwWithheld     = "Profile flagged as sensitive",
+        RpProfileNsfwWithheldHint = "Its author flagged it as adults only. The website only sends it to accounts that have accepted this kind of content.",
+        RpProfileNsfwWithheldCta  = "Set it on the website",
         RpProfileViewOnSite = "View on the website",
         MenuViewRpProfile   = "View RP profile",
         RpFriendAdd         = "Add as RP friend",
@@ -1399,13 +1691,22 @@ internal sealed class Loc
         RpProfileVisibility       = "Visibility",
         RpProfileVisWhere         = "Where my profile appears",
         RpProfileVisWho           = "Who sees what",
-        RpProfileVisInGame        = "Visible in game",
-        RpProfileVisInGameHint    = "In the list of available players and on right-click. Does not create any page on the website.",
-        RpProfileVisWebPage       = "Shareable web page",
-        RpProfileVisWebPageHint   = "Creates an address you can pass around. Does not list your profile in search engines.",
-        RpProfileVisIndexable     = "Listed in search engines",
-        RpProfileVisIndexableHint = "Your profile may appear in search results. Once indexed, it can linger there for a while.",
-        RpProfileVisAlwaysPublic  = "Level, approach style, languages, themes, quote and availability stay visible as soon as your profile is visible in game: they are what drives the nameplate marker. The banner and accent colour stay visible too: they are decoration. The portrait, however, follows the Identity section setting.",
+        RpProfileVisInGame        = "Visible to others",
+        RpProfileVisInGameHint    = "Your profile can be viewed in game by other players (available players list, right-click) and it has a shareable address you can pass around. It is still neither listed in the site directory nor indexed by search engines.",
+        RpProfileVisIndexable     = "Listed on the site and in search engines",
+        RpProfileVisIndexableHint = "Your profile is published in the site's character directory, where anyone can browse and filter it, and it may appear in search engine results. Once indexed, it can linger there for a while even after you untick this box.",
+        RpProfileVisAlwaysPublic  = "Level, approach style, languages, themes, quote and availability stay visible as soon as your profile is visible to others: they are what drives the nameplate marker. The banner and accent colour stay visible too: they are decoration. The portrait, however, follows the Identity section setting.",
+        RpProfileTabOverview  = "Overview",
+        RpProfileTabCharacter = "Character",
+        RpProfileTabPlay      = "Play",
+        RpProfileTabLinks     = "Links & Sync",
+        RpProfileTabPrivacy   = "Privacy",
+        RpProfileTabUnsaved   = "Unsaved changes",
+        CfgRpProfileTabs      = "RP profile in tabs",
+        CfgRpProfileTabsHint  = "Splits the profile into five tabs instead of one long page to scroll.",
+
+        RpProfileAutoSaved        = "Saved.",
+        RpProfileAutoSaving       = "Saving...",
         RpProfileVisOwnerNote     = "\"{0}\" means the section is never sent to other players. Your text stays saved on the site.",
         RpProfileAudiencePublic   = "Everyone",
         // L'anglais ne s'accorde pas : les deux formes sont identiques, mais la
@@ -1437,6 +1738,9 @@ internal sealed class Loc
 
         TabAround         = "Around me",
         AroundCount       = "{0} player(s) available",
+        AroundRpTaggedCount = "{0} player(s) in character",
+        AroundRpTaggedHint  = "These players have the Role-playing tag on and a visible profile. They have not declared themselves available: approach them with the tact you would use in game.",
+        AroundRpTaggedChip  = "RP tag",
         AroundEmpty       = "Nobody available right now",
         AroundNoMatch     = "No player matches",
         AroundSearchHint  = "Search for a character",

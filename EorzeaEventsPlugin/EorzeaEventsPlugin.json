@@ -3,7 +3,7 @@
   "Author": "Neprena",
   "Description": "Gérez vos sessions RP Eorzea Events directement depuis le jeu.",
   "Punchline": "Sessions RP Eorzea Events en un clic.",
-  "Changelog": "Les codes de sync (Snowcloak, Umbra…) arrivent sur la fiche RP, avec le choix de qui peut les voir. Un clic copie le code depuis la fiche d'un autre joueur.\nL'historique complet des nouveautés est dans le plugin.",
+  "Changelog": "Le chat met en couleur les conventions du RP : emotes, hors jeu, répliques. La fiche s'édite en cinq onglets, ses réglages s'enregistrent d'eux-mêmes, et elle reprend le tag Jeu de rôle du jeu pour dire si vous êtes en RP. Une infobulle affiche la fiche d'un joueur disponible sans avoir à l'ouvrir.\nL'historique complet des nouveautés est dans le plugin.",
   "InternalName": "EorzeaEventsPlugin",
   "RepoUrl": "https://github.com/Neprena/eorzea-events-plugin",
   "Tags": ["rp", "roleplay"],

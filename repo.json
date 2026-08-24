@@ -3,8 +3,8 @@
     "Author": "Neprena",
     "Name": "Eorzea Events",
     "InternalName": "EorzeaEventsPlugin",
-    "AssemblyVersion": "2.7.0.0",
-    "TestingAssemblyVersion": "2.7.0.0",
+    "AssemblyVersion": "2.7.1.0",
+    "TestingAssemblyVersion": "2.7.1.0",
     "Description": "Gérez vos sessions RP Eorzea Events directement depuis le jeu.",
     "Punchline": "Sessions RP Eorzea Events en un clic.",
     "ApplicableVersion": "any",
@@ -15,10 +15,10 @@
     "DalamudApiLevel": 15,
     "IconUrl": "https://raw.githubusercontent.com/Neprena/eorzea-events-plugin/main/Plugin_Logo.png",
     "RepoUrl": "https://github.com/Neprena/eorzea-events-plugin",
-    "DownloadLinkInstall": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.7.0/EorzeaEventsPlugin.zip",
-    "DownloadLinkTesting": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.7.0/EorzeaEventsPlugin.zip",
-    "DownloadLinkUpdate": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.7.0/EorzeaEventsPlugin.zip",
-    "Changelog": "Le chat met en couleur les conventions du RP : emotes, hors jeu, répliques. La fiche s'édite en cinq onglets, ses réglages s'enregistrent d'eux-mêmes, et elle reprend le tag Jeu de rôle du jeu pour dire si vous êtes en RP. Une infobulle affiche la fiche d'un joueur disponible sans avoir à l'ouvrir.\nL'historique complet des nouveautés est dans le plugin.",
-    "LastUpdate": 1787605724
+    "DownloadLinkInstall": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.7.1/EorzeaEventsPlugin.zip",
+    "DownloadLinkTesting": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.7.1/EorzeaEventsPlugin.zip",
+    "DownloadLinkUpdate": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.7.1/EorzeaEventsPlugin.zip",
+    "Changelog": "Les joueurs qui ont le tag Jeu de rôle et une fiche visible apparaissent dans Autour de moi. Le chat colore les emotes, le hors jeu et les répliques. La fiche s'édite en cinq onglets et ses interrupteurs s'enregistrent d'eux-mêmes.\nL'historique complet des nouveautés est dans le plugin.",
+    "LastUpdate": 1787606540
   }
 ]

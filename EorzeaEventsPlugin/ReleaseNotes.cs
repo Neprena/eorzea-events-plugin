@@ -51,44 +51,36 @@ internal static class ReleaseNotes
     public static readonly ReleaseNote[] All =
     [
         new(
-            Version: "2.7.0",
+            Version: "2.7.1",
             TitleFr: "Le chat en couleurs, la fiche en onglets",
             TitleEn: "Coloured chat, tabbed profile",
             BodyFr: """
                     **Ajouté**
-                    - Le chat met en couleur les conventions d'écriture du RP : emotes entre astérisques ou entre chevrons, hors jeu entre parenthèses, répliques entre guillemets. Tout se passe à la réception et sur votre machine : le message envoyé n'est jamais modifié, et les autres voient exactement ce que vous avez tapé.
-                    - Le chat peut afficher le **nom RP** d'un personnage à la place du sien quand sa fiche est visible. Éteint par défaut.
-                    - Une commande insère le nom RP de votre cible ou le vôtre dans une réplique, et la copie prête à coller.
-                    - Cibler ou survoler un joueur déclaré disponible affiche une **infobulle** avec son nom RP, son état, son statut du moment et son coup d'œil, sans ouvrir sa fiche.
-                    - La fiche s'édite en **cinq onglets** au lieu d'une seule page à dérouler. L'ancienne présentation reste disponible dans les réglages.
+                    - Les joueurs qui ont le tag **Jeu de rôle** actif et une fiche visible apparaissent dans « Autour de moi ».
+                    - Cibler ou survoler un joueur de la liste affiche son nom RP, son état et son coup d'œil, sans ouvrir sa fiche.
+                    - Le chat colore les emotes, le hors jeu et les répliques. Le message envoyé n'est jamais modifié.
 
                     **Modifié**
-                    - La fiche reprend le tag **Jeu de rôle** du jeu pour dire si le personnage est en RP, au lieu de vous le faire redire ailleurs. Votre disponibilité n'est publiée que si ce tag est actif : retiré, vous sortez de la liste et des marqueurs, et y revenez dès qu'il est remis.
-                    - Les réglages de confidentialité passent de trois à deux, et s'affichent en tête de la page Profil. Une fiche est consultable ou non, en jeu comme par son adresse, et son auteur choisit séparément d'apparaître ou non dans l'annuaire du site.
-                    - Les interrupteurs, les préférences et la divinité s'enregistrent d'eux-mêmes, une seconde et demie après le dernier clic. Un texte en cours de saisie attend toujours le bouton.
-                    - Le coup d'œil s'édite emplacement par emplacement : les détails s'ajoutent et se retirent un à un au lieu d'occuper cinq blocs vides, et le menu des icônes montre le dessin à côté de son nom.
-                    - Le plugin interroge le site par un relevé unique au lieu de trois, et espace ses appels quand sa fenêtre est fermée.
+                    - La disponibilité suit le tag **Jeu de rôle** : tag retiré, le personnage sort de la liste, et y revient dès qu'il est remis.
+                    - La fiche s'édite en cinq onglets, et ses interrupteurs s'enregistrent d'eux-mêmes.
+                    - Un réglage de confidentialité en moins : la fiche est visible ou elle ne l'est pas.
 
                     **Sécurité**
-                    - Une fiche marquée **contenu sensible** ne s'ouvre plus que si votre compte du site accepte ce type de contenu. Le réglage du plugin ne couvre désormais que l'infobulle : l'écran vous dit quoi faire et vous y emmène.
+                    - Une fiche marquée **contenu sensible** ne s'ouvre que si le compte du lecteur accepte ce contenu.
                     """,
             BodyEn: """
                     **Added**
-                    - Chat now colours RP writing conventions: emotes between asterisks or angle brackets, out of character between parentheses, spoken lines between quotes. It all happens on reception and on your machine: the message you send is never altered, and others see exactly what you typed.
-                    - Chat can show a character's **RP name** instead of their own when their profile is visible. Off by default.
-                    - A command inserts your target's RP name or your own into a line, and copies it ready to paste.
-                    - Targeting or hovering a player who declared themselves available shows a **tooltip** with their RP name, state, current status and glance, without opening their profile.
-                    - The profile is edited in **five tabs** instead of one long page to scroll. The former layout is still available in the settings.
+                    - Players with the **Role-playing** tag on and a visible profile show up in "Around me".
+                    - Targeting or hovering a player from the list shows their RP name, state and glance, without opening their profile.
+                    - Chat colours emotes, out of character text and spoken lines. The message sent is never altered.
 
                     **Changed**
-                    - The profile now reads the game's **Role-playing** tag to tell whether the character is in character, instead of asking you to say it twice. Your availability is only published while that tag is on: turn it off and you leave the list and the markers, turn it back on and you return.
-                    - Privacy settings go from three to two, and sit at the top of the Profile page. A profile is viewable or not, in game as through its address, and its author separately chooses whether to appear in the site directory.
-                    - Toggles, preferences and deity save themselves, a second and a half after the last click. Text being typed still waits for the button.
-                    - The glance is edited slot by slot: details are added and removed one at a time instead of taking up five empty blocks, and the icon menu shows the drawing next to its name.
-                    - The plugin queries the website with a single poll instead of three, and spaces out its calls when its window is closed.
+                    - Availability follows the **Role-playing** tag: tag off, the character leaves the list, and returns as soon as it is back on.
+                    - The profile is edited in five tabs, and its toggles save themselves.
+                    - One privacy setting fewer: the profile is viewable or it is not.
 
                     **Security**
-                    - A profile flagged as **sensitive content** only opens if your website account accepts this kind of content. The plugin setting now only covers the tooltip: the screen tells you what to do and takes you there.
+                    - A profile flagged as **sensitive content** only opens if the reader's account accepts that content.
                     """),
 
         new(

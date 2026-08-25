@@ -59,6 +59,26 @@ internal static class ChatPalette
     private static ushort[]?  _keys;
     private static Vector4[]? _colors;
 
+    // Index complet des couleurs candidates. Il ne s'affiche jamais : il sert à
+    // ramener une teinte libre, choisie au sélecteur ou lue sur une fiche RP, à
+    // la ligne UIColor la plus proche. Chercher dans la seule grille faisait
+    // retomber un violet sur l'une des treize pastilles, c'est-à-dire sur autre
+    // chose que ce qui avait été demandé.
+    private static ushort[]?  _allKeys;
+    private static Vector4[]? _allColors;
+
+    /// <summary>Couleur de chaque clé lisible, pour ne pas relire la feuille à chaque image.</summary>
+    private static Dictionary<ushort, Vector4>? _byKey;
+
+    // Résultats de Nearest déjà calculés, indexés sur la couleur demandée. Le
+    // chat rappelle Nearest à chaque message reçu, toujours avec les mêmes
+    // trois ou quatre teintes : recalculer une distance sur plusieurs centaines
+    // de candidats à chaque ligne du journal serait payé pour rien.
+    //
+    // Aucun verrou : chat et interface tournent tous deux sur le fil principal
+    // du jeu.
+    private static readonly Dictionary<uint, ushort> NearestCache = [];
+
     /// <summary>Clés proposées à l'utilisateur, dans l'ordre d'affichage.</summary>
     public static IReadOnlyList<ushort> Keys
     {
@@ -70,11 +90,23 @@ internal static class ChatPalette
     {
         Build();
 
-        for (var i = 0; _keys != null && i < _keys.Length; i++)
-            if (_keys[i] == key) return _colors![i];
+        if (_byKey != null && _byKey.TryGetValue(key, out var known)) return known;
 
+        // Clé absente de l'index : elle vient d'une configuration écrite par une
+        // version antérieure, ou d'une ligne écartée pour illisibilité. On la
+        // relit plutôt que de la remplacer d'office, le choix de l'utilisateur
+        // primant sur notre tri.
         return Read(key) ?? Ui.Theme.Text;
     }
+
+    /// <summary>
+    /// Couleur telle que le chat l'affichera pour une teinte libre.
+    ///
+    /// La palette du jeu n'a pas forcément la nuance demandée : montrer la
+    /// teinte choisie plutôt que celle rendue ferait mentir les réglages, ce
+    /// qui est exactement ce qu'on nous a signalé.
+    /// </summary>
+    public static Vector4 Rendered(Vector4 free) => Color(Nearest(free));
 
     /// <summary>
     /// Clé de la palette la plus proche d'une couleur libre.
@@ -87,16 +119,19 @@ internal static class ChatPalette
     public static ushort Nearest(Vector4 color)
     {
         Build();
-        if (_keys is not { Length: > 0 }) return Off;
+        if (_allKeys is not { Length: > 0 }) return Off;
+
+        var wanted = Pack(color);
+        if (NearestCache.TryGetValue(wanted, out var cached)) return cached;
 
         var (wantedHue, wantedSaturation) = HueAndSaturation(color);
 
-        var best     = _keys[0];
+        var best     = _allKeys[0];
         var bestDist = float.MaxValue;
 
-        for (var i = 0; i < _keys.Length; i++)
+        for (var i = 0; i < _allKeys.Length; i++)
         {
-            var c    = _colors![i];
+            var c    = _allColors![i];
             var dist = (c.X - color.X) * (c.X - color.X)
                      + (c.Y - color.Y) * (c.Y - color.Y)
                      + (c.Z - color.Z) * (c.Z - color.Z);
@@ -125,8 +160,15 @@ internal static class ChatPalette
 
             if (dist >= bestDist) continue;
             bestDist = dist;
-            best     = _keys[i];
+            best     = _allKeys[i];
         }
+
+        // Le cache ne grandit qu'au rythme des couleurs distinctes réellement
+        // demandées : quelques teintes de réglages, plus un accent par fiche RP
+        // croisée. Au-delà d'un plafond on repart de zéro, plutôt que de laisser
+        // une session de plusieurs heures accumuler sans fin.
+        if (NearestCache.Count > 512) NearestCache.Clear();
+        NearestCache[wanted] = best;
 
         return best;
     }
@@ -147,6 +189,18 @@ internal static class ChatPalette
         // premières lignes venues donnait une grille entière de gris.
         var best = new (ushort Key, Vector4 Color, float Score)?[HueBuckets + 1];
 
+        // Index complet, constitué dans la même passe : la lecture de la feuille
+        // est le seul coût réel ici, et la faire deux fois n'apporterait rien.
+        var all       = new List<ushort>(256);
+        var allColors = new List<Vector4>(256);
+        var byKey     = new Dictionary<ushort, Vector4>(256);
+
+        // La feuille répète beaucoup de valeurs d'une ligne à l'autre. Les
+        // dédupliquer garde l'index court et rend le rapprochement
+        // reproductible : à couleur égale, c'est toujours la première ligne
+        // rencontrée qui l'emporte.
+        var seen = new HashSet<uint>();
+
         for (var row = ScanFrom; row <= ScanTo; row++)
         {
             var raw = ReadRaw(row);
@@ -160,6 +214,18 @@ internal static class ChatPalette
             // Le chat est sur fond sombre : une teinte trop sombre y serait
             // illisible, et le noir pur passerait pour un texte manquant.
             if (Ui.Theme.Luminance(color) < 0.22f) continue;
+
+            // Toute couleur lisible est candidate au rapprochement, même celle
+            // qu'aucune pastille ne montrera : c'est ce qui permet à un violet
+            // choisi au sélecteur de sortir violet, et non ramené à l'une des
+            // treize teintes de la grille.
+            byKey[(ushort)row] = color;
+
+            if (seen.Add(packed))
+            {
+                all.Add((ushort)row);
+                allColors.Add(color);
+            }
 
             var (hue, saturation) = HueAndSaturation(color);
 
@@ -190,10 +256,20 @@ internal static class ChatPalette
         // Rien trouvé : les données de jeu ne sont pas encore montées. On ne
         // mémorise pas cet échec, sinon la palette resterait vide pour toute la
         // session à cause d'un premier affichage trop précoce.
-        if (keys.Count == 0) return;
+        if (keys.Count == 0 || all.Count == 0) return;
 
-        _colors = [.. colors];
-        _keys   = [.. keys];
+        // Un rapprochement calculé sur une palette vide n'aurait rien à dire :
+        // le cache est vidé pour que les premières réponses, éventuellement
+        // fausses, ne survivent pas à la construction.
+        NearestCache.Clear();
+
+        _allColors = [.. allColors];
+        _allKeys   = [.. all];
+        _byKey     = byKey;
+        _colors    = [.. colors];
+
+        // Assigné en dernier : c'est lui qui sert de témoin de construction.
+        _keys = [.. keys];
     }
 
     /// <summary>
@@ -244,6 +320,23 @@ internal static class ChatPalette
             return null;
         }
     }
+
+    /// <summary>
+    /// Couleur ramenée à un entier, pour servir de clé de cache. L'opacité est
+    /// ignorée : le chat n'en tient aucun compte.
+    /// </summary>
+    private static uint Pack(Vector4 c) =>
+        (Component(c.X) << 16) | (Component(c.Y) << 8) | Component(c.Z);
+
+    /// <summary>
+    /// Composante ramenée à un octet, par arrondi et non par troncature : une
+    /// couleur reconstituée depuis la feuille vaut n sur 255, et le produit par
+    /// 255 retombe volontiers à n moins un millionième. Tronquer donnerait deux
+    /// clés distinctes pour une même couleur, et le cache manquerait à chaque
+    /// fois.
+    /// </summary>
+    private static uint Component(float v) =>
+        (uint)Math.Clamp(MathF.Round(v * 255f), 0f, 255f);
 
     /// <summary>La feuille range ses couleurs en 0xRRGGBBAA.</summary>
     private static Vector4 Unpack(uint packed) => new(

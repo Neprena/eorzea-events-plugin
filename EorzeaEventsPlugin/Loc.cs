@@ -453,6 +453,11 @@ internal sealed class Loc
     public required string CfgChatSpeechHint      { get; init; }
     public required string CfgChatColor           { get; init; }
     public required string CfgChatColorDefault    { get; init; }
+    public required string CfgChatColorCustom     { get; init; }
+    public required string CfgChatColorPicked     { get; init; }
+    public required string CfgChatColorRendered   { get; init; }
+    public required string CfgChatColorHint       { get; init; }
+    public required string CfgChatRpNameAccent    { get; init; }
     public required string CfgChatChannels        { get; init; }
     public required string CfgChatChannelsHint    { get; init; }
     public required string CfgChatChanSay         { get; init; }
@@ -1037,7 +1042,12 @@ internal sealed class Loc
         CfgChatSpeech          = "Mettre en évidence le discours",
         CfgChatSpeechHint      = "Entre guillemets : « bonsoir » ou \"bonsoir\"",
         CfgChatColor           = "Couleur",
-        CfgChatColorDefault    = "Couleur par défaut du plugin",
+        CfgChatColorDefault    = "Couleur du plugin, ramenée à la palette du jeu",
+        CfgChatColorCustom     = "Couleur personnalisée…",
+        CfgChatColorPicked     = "Couleur choisie",
+        CfgChatColorRendered   = "Telle qu'elle sortira dans le chat",
+        CfgChatColorHint       = "Le chat du jeu n'affiche que les couleurs de sa palette. La teinte choisie est ramenée à la plus proche, montrée à droite.",
+        CfgChatRpNameAccent    = "La couleur est celle de la fiche du joueur, ramenée à la teinte la plus proche que le chat sache afficher.",
         CfgChatChannels        = "Canaux traités",
         CfgChatChannelsHint    = "Limité à « dire » et aux messages privés par défaut : ailleurs, le chat charrie surtout du contenu de jeu.",
         CfgChatChanSay         = "Dire",
@@ -1605,7 +1615,12 @@ internal sealed class Loc
         CfgChatSpeech          = "Highlight speech",
         CfgChatSpeechHint      = "Between quotes: « good evening » or \"good evening\"",
         CfgChatColor           = "Colour",
-        CfgChatColorDefault    = "The plugin's default colour",
+        CfgChatColorDefault    = "The plugin's colour, matched to the game palette",
+        CfgChatColorCustom     = "Custom colour…",
+        CfgChatColorPicked     = "Chosen colour",
+        CfgChatColorRendered   = "As it will appear in chat",
+        CfgChatColorHint       = "The game's chat only displays colours from its own palette. The chosen shade is matched to the closest one, shown on the right.",
+        CfgChatRpNameAccent    = "The colour is the one from the player's profile, matched to the closest shade the chat can display.",
         CfgChatChannels        = "Channels covered",
         CfgChatChannelsHint    = "Limited to Say and tells by default: elsewhere the log mostly carries game content.",
         CfgChatChanSay         = "Say",

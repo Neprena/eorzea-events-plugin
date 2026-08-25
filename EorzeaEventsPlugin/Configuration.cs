@@ -353,8 +353,6 @@ public class Configuration : IPluginConfiguration
     public ushort ChatOocColor    { get; set; } = 0;
     public ushort ChatSpeechColor { get; set; } = 0;
 
-    /// <summary>Couleur de repli d'un nom RP dont la fiche n'a pas d'accent.</summary>
-    public ushort ChatRpNameColor { get; set; } = 0;
 
     /// <summary>
     /// Afficher le nom RP à la place du nom de personnage.

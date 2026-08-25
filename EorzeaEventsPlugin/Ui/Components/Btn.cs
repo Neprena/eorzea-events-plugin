@@ -66,7 +66,7 @@ internal static class Btn
 
         bool clicked;
         using (ImRaii.Disabled(disabled))
-            clicked = ImGui.Button($"{caption}##{id ?? label}", Dimensions(size));
+            clicked = ImGui.Button($"{caption}##{id ?? label}", Dimensions(size, caption));
 
         // Hors du scope désactivé : un widget désactivé ne remonte pas le survol.
         if (tooltip != null) Feedback.TooltipOnHover(tooltip);
@@ -102,17 +102,30 @@ internal static class Btn
 
     /// <summary>Largeur qu'occuperait le bouton, pour centrer ou aligner à droite.</summary>
     public static float Measure(string label, FontAwesomeIcon? icon = null) =>
-        ImGui.CalcTextSize(Compose(label, icon)).X + ImGui.GetStyle().FramePadding.X * 2f;
+        Width(Compose(label, icon));
 
     private static string Compose(string label, FontAwesomeIcon? icon) =>
         icon is { } value ? $"{value.S()}  {label}" : label;
 
-    private static Vector2 Dimensions(BtnSize size) => size switch
+    /// <summary>
+    /// Encombrement d'un bouton.
+    ///
+    /// La petite taille donne une largeur régulière aux boutons courts, qui
+    /// s'alignent ainsi les uns sous les autres, mais c'est un plancher et non
+    /// une largeur imposée : un libellé plus long l'emporte. Fixée pour de bon,
+    /// elle rognait « Voir la fiche » en « Voir la fich », et le libellé tronqué
+    /// se lisait comme un bug d'affichage.
+    /// </summary>
+    private static Vector2 Dimensions(BtnSize size, string caption) => size switch
     {
         BtnSize.Block => new Vector2(-1f, 0f),
-        BtnSize.Small => new Vector2(Theme.S(92f), 0f),
+        BtnSize.Small => new Vector2(Math.Max(Theme.S(92f), Width(caption)), 0f),
         _             => Vector2.Zero, // largeur ajustée au contenu
     };
+
+    /// <summary>Largeur du libellé, marges du cadre comprises.</summary>
+    private static float Width(string caption) =>
+        ImGui.CalcTextSize(caption).X + ImGui.GetStyle().FramePadding.X * 2f;
 
     private static (Vector4 Normal, Vector4 Hovered, Vector4 Active) Palette(BtnTone tone) => tone switch
     {

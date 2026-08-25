@@ -50,7 +50,7 @@ internal static class RpNameSubstitution
         if (string.IsNullOrEmpty(rpName)
             || string.Equals(rpName, speaker.Name, StringComparison.Ordinal)) return;
 
-        var color   = ResolveColor(entry!.Profile!.AccentColor, config);
+        var color   = ResolveColor(entry!.Profile!.AccentColor);
         var result  = new List<Payload>(sender.Payloads.Count + 3);
         var applied = false;
 
@@ -166,12 +166,16 @@ internal static class RpNameSubstitution
     /// Couleur d'accent de la fiche, ramenée à la palette du jeu. Le chat ne
     /// sait pas afficher une couleur libre, mais s'approcher du choix de
     /// l'auteur vaut mieux que l'ignorer.
+    ///
+    /// Aucun réglage local ne vient s'y substituer : la couleur d'un nom RP
+    /// appartient à celui qui le porte. Une fiche sans accent reprend la teinte
+    /// du plugin.
     /// </summary>
-    private static ushort ResolveColor(string? accent, Configuration config)
+    private static ushort ResolveColor(string? accent)
     {
         if (Ui.Theme.TryParseHex(accent) is { } parsed)
             return ChatPalette.Nearest(Ui.Theme.EnsureReadable(parsed));
 
-        return ChatPalette.Resolve(config.ChatRpNameColor, ChatPalette.NameDefault);
+        return ChatPalette.Nearest(ChatPalette.NameDefault);
     }
 }

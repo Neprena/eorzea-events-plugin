@@ -27,6 +27,13 @@ internal sealed class SettingsPage(Configuration config)
 
     private string _baseUrl = config.BaseUrl;
 
+    // Sélecteur de couleur du chat : identifiant du réglage déplié (un seul à la
+    // fois), et teinte en cours de manipulation. Elle ne vit que le temps du
+    // dépliage : la configuration ne retient que la clé de palette, seule chose
+    // que le chat sache afficher.
+    private string? _colorPickerOpen;
+    private readonly Dictionary<string, Vector4> _colorDrafts = [];
+
     public void Draw()
     {
         var l = Plugin.L;
@@ -363,9 +370,12 @@ internal sealed class SettingsPage(Configuration config)
 
         ChatRow(l.CfgChatRpNames, l.CfgChatRpNamesHint,
                 () => config.ChatRpNames, v => config.ChatRpNames = v);
+        // Pas de nuancier ici : la couleur d'un nom RP est celle de la fiche de
+        // son propriétaire, et laisser choisir une couleur qui ne s'appliquerait
+        // qu'aux fiches sans accent revenait à proposer un réglage sans effet
+        // visible.
         if (on && config.ChatRpNames)
-            ChatColorRow("rpname", Chat.ChatPalette.NameDefault,
-                         () => config.ChatRpNameColor, v => config.ChatRpNameColor = v);
+            Text.Small(l.CfgChatRpNameAccent, Theme.TextFaint);
 
         // Le détail des canaux et les jetons de saisie ne servent qu'une fois le
         // module en marche : les afficher éteints allongerait la carte sans rien
@@ -417,9 +427,10 @@ internal sealed class SettingsPage(Configuration config)
     /// Nuancier d'une couleur de chat.
     ///
     /// Les pastilles viennent de la feuille UIColor du jeu, seules teintes que
-    /// le chat sache afficher : un sélecteur RVB libre laisserait choisir des
-    /// couleurs qui ne sortiraient jamais à l'écran. La première pastille rend
-    /// la main au plugin, qui reprend la teinte de son interface.
+    /// le chat sache afficher. La grille reste courte : elle donne en un clic
+    /// les couleurs franches, le sélecteur qui la suit se charge de la nuance.
+    /// La première pastille rend la main au plugin, qui reprend la teinte de son
+    /// interface.
     /// </summary>
     private void ChatColorRow(string id, Vector4 fallback, Func<ushort> get, Action<ushort> set)
     {
@@ -430,28 +441,138 @@ internal sealed class SettingsPage(Configuration config)
         var size    = new Vector2(ImGui.GetFrameHeight() * 0.75f);
         var spacing = Theme.S(Theme.GapXs);
 
-        if (Swatch($"##chatcol_{id}_off", fallback, current == Chat.ChatPalette.Off, size,
+        // La pastille montre la couleur que le chat rendra, et non celle du
+        // thème du plugin : le jeu ne sait afficher que sa propre palette, et
+        // promettre le jaune exact de l'interface pour le voir sortir autrement
+        // est ce qui nous a été signalé.
+        var auto = Chat.ChatPalette.Rendered(fallback);
+
+        if (Swatch($"##chatcol_{id}_off", auto, current == Chat.ChatPalette.Off, size,
                    Plugin.L.CfgChatColorDefault))
         {
             set(Chat.ChatPalette.Off);
             config.Save();
+            SyncColorDraft(id, auto);
         }
 
-        var keys  = Chat.ChatPalette.Keys;
+        var keys   = Chat.ChatPalette.Keys;
         var perRow = 12;
+
+        // La pastille « automatique » occupe déjà la première place de la
+        // rangée : compter les pastilles réellement posées, et non le rang dans
+        // la boucle, sinon le retour à la ligne se décale d'un cran et la
+        // dernière colonne déborde de la carte.
+        var drawn = 1;
 
         for (var i = 0; i < keys.Count; i++)
         {
-            // Retour à la ligne tous les douze : au-delà, la grille déborde de
-            // la carte sur les interfaces les plus étroites.
-            if ((i + 1) % perRow != 0) ImGui.SameLine(0f, spacing);
+            if (drawn % perRow != 0) ImGui.SameLine(0f, spacing);
+            drawn++;
 
-            var key = keys[i];
-            if (!Swatch($"##chatcol_{id}_{key}", Chat.ChatPalette.Color(key), current == key, size)) continue;
+            var key   = keys[i];
+            var color = Chat.ChatPalette.Color(key);
+            if (!Swatch($"##chatcol_{id}_{key}", color, current == key, size)) continue;
 
             set(key);
             config.Save();
+            SyncColorDraft(id, color);
         }
+
+        ChatColorPicker(id, fallback, get, set);
+    }
+
+    /// <summary>
+    /// Aligne le sélecteur ouvert sur une couleur choisie à la pastille, pour que
+    /// son aperçu ne montre pas autre chose que le réglage en vigueur.
+    /// </summary>
+    private void SyncColorDraft(string id, Vector4 color)
+    {
+        if (_colorPickerOpen == id) _colorDrafts[id] = color;
+    }
+
+    /// <summary>
+    /// Sélecteur de couleur libre pour un réglage de chat.
+    ///
+    /// Le chat ne sait afficher qu'une ligne de la feuille UIColor : la teinte
+    /// choisie ici est donc ramenée à la plus proche de la palette du jeu. Plutôt
+    /// que de refuser le choix libre pour cette raison, on le montre tel qu'il
+    /// sortira, côte à côte avec ce qui a été demandé. Un joueur qui voit les
+    /// deux pastilles comprend l'écart ; un joueur à qui l'on cache l'ajustement
+    /// croit à un bug.
+    ///
+    /// Le panneau est déplié dans la carte plutôt qu'ouvert en fenêtre flottante :
+    /// c'est ce que fait déjà le reste de la page, et le plugin n'ouvre aucune
+    /// autre fenêtre surgissante.
+    /// </summary>
+    private void ChatColorPicker(string id, Vector4 fallback, Func<ushort> get, Action<ushort> set)
+    {
+        var l    = Plugin.L;
+        var open = _colorPickerOpen == id;
+
+        Layout.Spacer(Theme.GapXs);
+
+        // Taille ajustée au contenu : la petite taille est de largeur fixe et
+        // rognait le libellé.
+        if (Btn.Draw(l.CfgChatColorCustom, BtnTone.Secondary, BtnSize.Medium,
+                     id: $"chatcolopen_{id}"))
+        {
+            if (open)
+            {
+                _colorPickerOpen = null;
+                return;
+            }
+
+            // On repart de la couleur effectivement rendue, et non d'une teinte
+            // mémorisée : c'est ce que le joueur a sous les yeux dans son chat.
+            // C'est aussi un point fixe du rapprochement, la palette contenant
+            // exactement cette couleur, donc rouvrir sans rien toucher ne
+            // déplace pas le réglage.
+            _colorDrafts[id] = Chat.ChatPalette.Color(Chat.ChatPalette.Resolve(get(), fallback));
+            _colorPickerOpen = id;
+            open = true;
+        }
+
+        if (!open) return;
+
+        var draft = _colorDrafts.TryGetValue(id, out var held) ? held : fallback;
+
+        Layout.Spacer(Theme.GapXs);
+
+        // Le sélecteur est carré : sa hauteur suit la largeur qu'on lui donne, et
+        // l'étendre à toute la carte remplissait la fenêtre entière. Cette
+        // largeur-là suffit à viser une teinte au doigt.
+        ImGui.SetNextItemWidth(Theme.S(170f));
+        if (ImGui.ColorPicker4($"##chatcolwheel_{id}", ref draft,
+                ImGuiColorEditFlags.NoAlpha
+              | ImGuiColorEditFlags.NoSidePreview   // l'aperçu ci-dessous en dit plus
+              | ImGuiColorEditFlags.NoSmallPreview
+              | ImGuiColorEditFlags.DisplayHex))
+        {
+            _colorDrafts[id] = draft;
+
+            // Enregistrer seulement quand la clé change : le rapprochement
+            // renvoie longtemps la même couleur pendant que l'on glisse sur la
+            // roue, et réécrire le fichier de configuration à chaque pixel
+            // parcouru ne servirait à rien.
+            var picked = Chat.ChatPalette.Nearest(draft);
+            if (picked != get())
+            {
+                set(picked);
+                config.Save();
+            }
+        }
+
+        var rendered = Chat.ChatPalette.Rendered(draft);
+        var preview  = new Vector2(ImGui.GetFrameHeight());
+
+        Layout.Spacer(Theme.GapXs);
+
+        Swatch($"##chatcolpicked_{id}", draft, false, preview, l.CfgChatColorPicked);
+        ImGui.SameLine(0f, Theme.S(Theme.GapS));
+        Swatch($"##chatcolshown_{id}", rendered, false, preview, l.CfgChatColorRendered);
+
+        Layout.Spacer(Theme.GapXs);
+        Text.Small(l.CfgChatColorHint, Theme.TextFaint);
     }
 
     /// <summary>Pastille de couleur, cerclée quand elle est celle retenue.</summary>

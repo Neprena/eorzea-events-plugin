@@ -51,6 +51,38 @@ internal static class ReleaseNotes
     public static readonly ReleaseNote[] All =
     [
         new(
+            Version: "2.7.2",
+            TitleFr: "Les couleurs du chat au choix",
+            TitleEn: "Chat colours, your way",
+            BodyFr: """
+                    **Ajouté**
+                    - Les couleurs des emotes, du hors jeu et des répliques se choisissent sur une roue chromatique, et non plus dans une courte liste.
+
+                    **Modifié**
+                    - Un nom RP s'affiche dans la couleur de la fiche de son propriétaire. Le réglage de couleur du nom RP disparaît.
+
+                    **Corrigé**
+                    - La pastille de couleur par défaut affichait une teinte que le chat ne reprenait pas.
+                    - Des libellés de boutons étaient coupés.
+
+                    **Merci**
+                    - À Liraphyra, qui a remonté le bug des couleurs.
+                    """,
+            BodyEn: """
+                    **Added**
+                    - Emote, out of character and speech colours are picked on a colour wheel instead of a short list.
+
+                    **Changed**
+                    - An RP name appears in the colour of its owner's profile. The RP name colour setting is gone.
+
+                    **Fixed**
+                    - The default colour swatch showed a shade the chat did not use.
+                    - Some button labels were cut off.
+
+                    **Thanks**
+                    - To Liraphyra, who reported the colour bug.
+                    """),
+        new(
             Version: "2.7.1",
             TitleFr: "Le chat en couleurs, la fiche en onglets",
             TitleEn: "Coloured chat, tabbed profile",

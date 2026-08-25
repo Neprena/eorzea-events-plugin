@@ -3,7 +3,7 @@
   "Author": "Neprena",
   "Description": "Gérez vos sessions RP Eorzea Events directement depuis le jeu.",
   "Punchline": "Sessions RP Eorzea Events en un clic.",
-  "Changelog": "Les joueurs qui ont le tag Jeu de rôle et une fiche visible apparaissent dans Autour de moi. Le chat colore les emotes, le hors jeu et les répliques. La fiche s'édite en cinq onglets et ses interrupteurs s'enregistrent d'eux-mêmes.\nL'historique complet des nouveautés est dans le plugin.",
+  "Changelog": "Les couleurs du chat se choisissent sur une roue chromatique au lieu d'une courte liste. La pastille de couleur par défaut affichait une teinte que le chat ne reprenait pas, c'est corrigé. Un nom RP s'affiche désormais dans la couleur de la fiche de son propriétaire.\nL'historique complet des nouveautés est dans le plugin.",
   "InternalName": "EorzeaEventsPlugin",
   "RepoUrl": "https://github.com/Neprena/eorzea-events-plugin",
   "Tags": ["rp", "roleplay"],

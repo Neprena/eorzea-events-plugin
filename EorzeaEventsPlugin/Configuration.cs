@@ -292,9 +292,9 @@ public class Configuration : IPluginConfiguration
 
     // ─── Infobulle de ciblage ────────────────────────────────────────────────
     //
-    // Ces quatre réglages n'ont pas demandé de bump de Version : ils ont tous une
-    // valeur par défaut, une configuration antérieure les reçoit donc telle
-    // qu'ils sont écrits ici sans qu'aucune migration ait à passer.
+    // Trois de ces réglages ont suffi d'une valeur par défaut : une configuration
+    // antérieure les reçoit telle qu'ils sont écrits ici, sans migration.
+    // RpTooltipModifier fait exception, voir MigrateTooltipModifier.
 
     /// <summary>Afficher l'infobulle de fiche RP sur le joueur ciblé ou survolé.</summary>
     public bool RpTooltipEnabled { get; set; } = true;
@@ -305,8 +305,14 @@ public class Configuration : IPluginConfiguration
     /// </summary>
     public bool RpTooltipOnHover { get; set; } = true;
 
-    /// <summary>Touche à maintenir pour que l'infobulle apparaisse.</summary>
-    public RpTooltipKey RpTooltipModifier { get; set; } = RpTooltipKey.None;
+    /// <summary>
+    /// Touche à maintenir pour que l'infobulle apparaisse.
+    ///
+    /// Ctrl par défaut : livrée sans modificateur, l'infobulle suivait le curseur
+    /// sur chaque passant, et une place bondée la faisait clignoter sans répit.
+    /// Elle ne se montre donc plus que si on la demande.
+    /// </summary>
+    public RpTooltipKey RpTooltipModifier { get; set; } = RpTooltipKey.Ctrl;
 
     /// <summary>
     /// Consentement local à voir le contenu des fiches marquées sensibles.
@@ -352,6 +358,18 @@ public class Configuration : IPluginConfiguration
     public ushort ChatEmoteColor  { get; set; } = 0;
     public ushort ChatOocColor    { get; set; } = 0;
     public ushort ChatSpeechColor { get; set; } = 0;
+
+    // Teinte libre choisie à la roue chromatique, encodée par ChatPalette.Encode,
+    // 0 signifiant « aucune ». Le chat ne sait toujours afficher que la clé de
+    // palette ci-dessus : ces valeurs ne servent qu'aux réglages.
+    //
+    // Sans elles, la teinte demandée disparaissait à la fermeture de la fenêtre.
+    // Seule la couleur approchée subsistait, si bien qu'en rouvrant les réglages
+    // plus rien ne disait qu'une couleur personnalisée avait été choisie, ni
+    // laquelle.
+    public uint ChatEmoteColorCustom  { get; set; } = 0;
+    public uint ChatOocColorCustom    { get; set; } = 0;
+    public uint ChatSpeechColorCustom { get; set; } = 0;
 
 
     /// <summary>
@@ -534,6 +552,30 @@ public class Configuration : IPluginConfiguration
         ChatFormatSpeech  = true;
 
         Version = 5;
+        Save();
+    }
+
+    /// <summary>
+    /// Impose Ctrl sur les configurations qui n'avaient aucun modificateur.
+    ///
+    /// Comme en version 5, un défaut déclaré ne suffit pas : un fichier déjà
+    /// enregistré porte <c>None</c> écrit noir sur blanc, et repeindre la
+    /// déclaration ne changerait rien pour ceux qui jouent déjà, c'est-à-dire
+    /// précisément ceux que l'infobulle dérange.
+    ///
+    /// Seul <c>None</c> est touché : qui a délibérément choisi Ctrl ou Alt a déjà
+    /// réglé son affaire, et on ne lui reprend pas la main. La limite est la même
+    /// qu'en version 5, le fichier ne distinguant pas un <c>None</c> choisi d'un
+    /// <c>None</c> hérité du défaut d'origine.
+    /// </summary>
+    public void MigrateTooltipModifier()
+    {
+        if (Version >= 6) return;
+
+        if (RpTooltipModifier == RpTooltipKey.None)
+            RpTooltipModifier = RpTooltipKey.Ctrl;
+
+        Version = 6;
         Save();
     }
 

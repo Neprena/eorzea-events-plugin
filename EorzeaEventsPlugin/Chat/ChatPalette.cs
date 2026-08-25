@@ -109,6 +109,33 @@ internal static class ChatPalette
     public static Vector4 Rendered(Vector4 free) => Color(Nearest(free));
 
     /// <summary>
+    /// Encode une teinte libre pour la configuration.
+    ///
+    /// Le fichier ne retenait jusqu'ici que la clé de palette approchée : la
+    /// teinte réellement demandée était perdue à la fermeture de la fenêtre, et
+    /// rien ne disait plus qu'une couleur personnalisée avait été choisie.
+    ///
+    /// L'octet de poids fort est forcé à 0xFF pour qu'aucune couleur valide ne
+    /// vaille zéro, zéro signifiant « aucune teinte personnalisée ». Sans lui, le
+    /// noir pur serait indistinguable de l'absence de choix.
+    /// </summary>
+    public static uint Encode(Vector4 color) => 0xFF000000u | Pack(color);
+
+    /// <summary>
+    /// Teinte libre relue depuis la configuration, ou <c>null</c> si aucune n'a
+    /// été enregistrée.
+    /// </summary>
+    public static Vector4? Decode(uint stored)
+    {
+        if (stored == 0) return null;
+
+        return new Vector4(((stored >> 16) & 0xFF) / 255f,
+                           ((stored >> 8)  & 0xFF) / 255f,
+                           (stored         & 0xFF) / 255f,
+                           1f);
+    }
+
+    /// <summary>
     /// Clé de la palette la plus proche d'une couleur libre.
     ///
     /// Sert aux couleurs d'accent des fiches RP, qui sont saisies en RVB sur le

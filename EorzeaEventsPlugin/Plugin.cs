@@ -522,6 +522,10 @@ public sealed class Plugin : IDalamudPlugin
         // l'allumer sur les configurations déjà enregistrées.
         Config.MigrateChatDefaults();
 
+        // L'infobulle se montrait sans qu'on la demande : exiger Ctrl là où aucun
+        // modificateur n'avait été choisi.
+        Config.MigrateTooltipModifier();
+
         Api    = new ApiClient(Config.BaseUrl, Config.ApiToken);
 
         // Les abonnements IPC sont inertes tant que Lifestream n'est pas là :

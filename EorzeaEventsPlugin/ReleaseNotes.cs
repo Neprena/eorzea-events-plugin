@@ -51,6 +51,34 @@ internal static class ReleaseNotes
     public static readonly ReleaseNote[] All =
     [
         new(
+            Version: "2.8.0",
+            TitleFr: "Les réglages en onglets, l'infobulle sous Ctrl",
+            TitleEn: "Tabbed settings, tooltip on Ctrl",
+            BodyFr: """
+                    **Modifié**
+                    - L'infobulle des joueurs disponibles ne s'affiche plus qu'en maintenant **Ctrl**. Elle suivait le curseur sur chaque passant, ce qui la rendait pénible dans les lieux fréquentés. La touche se change, ou se retire, dans les réglages.
+                    - Les réglages sont rangés en cinq onglets : Personnages, Discussion, Rôleplay, Notifications et Divers.
+                    - L'infobulle a sa propre carte de réglages, au lieu d'être rangée au bas du profil RP.
+
+                    **Corrigé**
+                    - Une couleur de chat choisie à la roue chromatique était oubliée à la fermeture des réglages : elle est retenue et réapparaît telle qu'elle a été demandée.
+
+                    **Merci**
+                    - À Fan, qui a signalé l'infobulle envahissante.
+                    """,
+            BodyEn: """
+                    **Changed**
+                    - The tooltip on available players now only appears while **Ctrl** is held. It followed the cursor across every passer-by, which made it a nuisance in busy places. The key can be changed, or removed, in the settings.
+                    - Settings are now split into five tabs: Characters, Chat, Roleplay, Notifications and Misc.
+                    - The tooltip has its own settings card instead of sitting at the bottom of the RP profile.
+
+                    **Fixed**
+                    - A chat colour picked from the colour wheel was forgotten when the settings closed: it is now kept and comes back exactly as it was chosen.
+
+                    **Thanks**
+                    - To Fan, who reported the intrusive tooltip.
+                    """),
+        new(
             Version: "2.7.2",
             TitleFr: "Les couleurs du chat au choix",
             TitleEn: "Chat colours, your way",

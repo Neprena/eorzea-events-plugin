@@ -34,31 +34,83 @@ internal sealed class SettingsPage(Configuration config)
     private string? _colorPickerOpen;
     private readonly Dictionary<string, Vector4> _colorDrafts = [];
 
+    // Identifiants d'onglets. Constantes plutôt que chaînes libres : ils servent
+    // à la fois à construire la barre et à l'aiguillage, et une faute de frappe
+    // entre les deux se verrait à l'écran, pas à la compilation.
+    private const string TabCharacters    = "characters";
+    private const string TabChat          = "chat";
+    private const string TabRp            = "rp";
+    private const string TabNotifications = "notif";
+    private const string TabMisc          = "misc";
+
+    private string _tab = TabCharacters;
+
+    /// <summary>
+    /// Réglages, rangés en onglets.
+    ///
+    /// Les dix cartes tenaient jusqu'ici dans une seule colonne défilante, où
+    /// trouver un réglage demandait de la parcourir en entier. Elles sont
+    /// regroupées par ce que l'on vient régler, et non par ordre d'apparition.
+    ///
+    /// La discussion garde un onglet à elle : c'est le module le plus fourni de
+    /// la page, et le ranger avec le reste reviendrait à ne pas le proposer.
+    ///
+    /// La barre d'onglets est dessinée hors du Child défilant, sans quoi elle
+    /// disparaîtrait dès le premier défilement.
+    /// </summary>
     public void Draw()
     {
         var l = Plugin.L;
 
+        Tabs.Tab[] tabs =
+        [
+            new(TabCharacters,    l.CfgTabCharacters,    Icons.Character),
+            new(TabChat,          l.CfgTabChat,          Icons.Chat),
+            new(TabRp,            l.CfgTabRp,            Icons.RpLive),
+            new(TabNotifications, l.CfgTabNotifications, Icons.Notification),
+            new(TabMisc,          l.CfgTabMisc,          Icons.Misc),
+        ];
+
+        _tab = Tabs.Draw("settingstabs", tabs, _tab, Theme.Accent);
+
+        Layout.Spacer(Theme.GapS);
+
         using var scroll = ImRaii.Child("##settingsscroll", new Vector2(-1f, -1f));
         if (!scroll) return;
 
-        DrawCharacters(l);
+        switch (_tab)
+        {
+            case TabChat:
+                DrawChat(l);
+                break;
 
-        // La discussion vient juste après l'identité du personnage, avant les
-        // cartes de notification et de barre de statut : c'est ce qu'un rôliste
-        // vient régler, et la reléguer en bas de page revenait à ne pas la
-        // proposer du tout.
-        DrawChat(l);
+            case TabRp:
+                DrawRpProfile(l);
+                DrawRpTooltip(l);
+                DrawRpNotifications(l);
+                break;
 
-        DrawRpNotifications(l);
-        DrawEventNotifications(l);
-        DrawSession(l);
-        DrawRpProfile(l);
-        DrawStatusBar(l);
-        DrawLanguage(l);
-        DrawAbout(l);
+            case TabNotifications:
+                DrawEventNotifications(l);
+                DrawSession(l);
+                DrawStatusBar(l);
+                break;
+
+            case TabMisc:
+                DrawLanguage(l);
+                DrawAbout(l);
 #if DEBUG
-        DrawDeveloper();
+                DrawDeveloper();
 #endif
+                break;
+
+            // Les personnages liés ouvrent la page : c'est le seul réglage sans
+            // lequel rien d'autre ne fonctionne. C'est aussi le repli de Tabs
+            // quand l'onglet retenu n'existe plus.
+            default:
+                DrawCharacters(l);
+                break;
+        }
 
         // Respiration en fin de page : la dernière carte ne doit pas être collée
         // au bord bas, sous peine d'empêcher ses listes de s'ouvrir.
@@ -263,7 +315,25 @@ internal sealed class SettingsPage(Configuration config)
         Row(l.CfgRpProfileTabs, l.CfgRpProfileTabsHint,
             () => config.RpProfileTabs, v => config.RpProfileTabs = v);
 
-        Layout.Divider(Theme.GapS);
+        Layout.Spacer(Theme.GapS);
+        if (Btn.Draw(l.RpProfileSetup, BtnTone.Secondary, BtnSize.Medium, Icons.Edit))
+            Plugin.OpenRpProfileWizard();
+    }
+
+    // ─── Infobulle de survol ──────────────────────────────────────────────────
+
+    /// <summary>
+    /// Réglages de l'infobulle de ciblage.
+    ///
+    /// Carte à part, et non quelques lignes au bas du profil RP : c'est le
+    /// réglage que l'on vient chercher quand la bulle gêne, et il était introuvable
+    /// noyé sous le reste.
+    /// </summary>
+    private void DrawRpTooltip(Loc l)
+    {
+        using var card = Card.Begin("set_rptooltip", interactive: false);
+
+        Layout.SectionHeader(l.CfgRpTooltipCard, Icons.Tooltip);
 
         Row(l.CfgRpTooltip, l.CfgRpTooltipHint,
             () => config.RpTooltipEnabled, v => config.RpTooltipEnabled = v);
@@ -297,10 +367,6 @@ internal sealed class SettingsPage(Configuration config)
             Row(l.CfgRpNsfwShow, l.CfgRpNsfwShowHint,
                 () => config.ShowNsfwProfiles, v => config.ShowNsfwProfiles = v);
         }
-
-        Layout.Spacer(Theme.GapS);
-        if (Btn.Draw(l.RpProfileSetup, BtnTone.Secondary, BtnSize.Medium, Icons.Edit))
-            Plugin.OpenRpProfileWizard();
     }
 
     // ─── Discussion ───────────────────────────────────────────────────────────
@@ -347,7 +413,8 @@ internal sealed class SettingsPage(Configuration config)
             }
 
             ChatColorRow("emote", Chat.ChatPalette.EmoteDefault,
-                         () => config.ChatEmoteColor, v => config.ChatEmoteColor = v);
+                         () => config.ChatEmoteColor, v => config.ChatEmoteColor = v,
+                         () => config.ChatEmoteColorCustom, v => config.ChatEmoteColorCustom = v);
         }
 
         Layout.Divider(Theme.GapS);
@@ -356,7 +423,8 @@ internal sealed class SettingsPage(Configuration config)
                 () => config.ChatFormatOoc, v => config.ChatFormatOoc = v);
         if (on && config.ChatFormatOoc)
             ChatColorRow("ooc", Chat.ChatPalette.OocDefault,
-                         () => config.ChatOocColor, v => config.ChatOocColor = v);
+                         () => config.ChatOocColor, v => config.ChatOocColor = v,
+                         () => config.ChatOocColorCustom, v => config.ChatOocColorCustom = v);
 
         Layout.Divider(Theme.GapS);
 
@@ -364,7 +432,8 @@ internal sealed class SettingsPage(Configuration config)
                 () => config.ChatFormatSpeech, v => config.ChatFormatSpeech = v);
         if (on && config.ChatFormatSpeech)
             ChatColorRow("speech", Chat.ChatPalette.SpeechDefault,
-                         () => config.ChatSpeechColor, v => config.ChatSpeechColor = v);
+                         () => config.ChatSpeechColor, v => config.ChatSpeechColor = v,
+                         () => config.ChatSpeechColorCustom, v => config.ChatSpeechColorCustom = v);
 
         Layout.Divider(Theme.GapS);
 
@@ -432,12 +501,14 @@ internal sealed class SettingsPage(Configuration config)
     /// La première pastille rend la main au plugin, qui reprend la teinte de son
     /// interface.
     /// </summary>
-    private void ChatColorRow(string id, Vector4 fallback, Func<ushort> get, Action<ushort> set)
+    private void ChatColorRow(string id, Vector4 fallback, Func<ushort> get, Action<ushort> set,
+                              Func<uint> getCustom, Action<uint> setCustom)
     {
         Layout.Spacer(Theme.GapXs);
         Text.Small(Plugin.L.CfgChatColor, Theme.TextFaint);
 
         var current = get();
+        var custom  = Chat.ChatPalette.Decode(getCustom());
         var size    = new Vector2(ImGui.GetFrameHeight() * 0.75f);
         var spacing = Theme.S(Theme.GapXs);
 
@@ -447,10 +518,14 @@ internal sealed class SettingsPage(Configuration config)
         // est ce qui nous a été signalé.
         var auto = Chat.ChatPalette.Rendered(fallback);
 
-        if (Swatch($"##chatcol_{id}_off", auto, current == Chat.ChatPalette.Off, size,
+        // Une teinte libre est rendue par une clé de la palette : sans cette
+        // réserve, la pastille correspondante s'afficherait comme le choix retenu
+        // et la couleur personnalisée passerait pour un choix de nuancier.
+        if (Swatch($"##chatcol_{id}_off", auto, custom == null && current == Chat.ChatPalette.Off, size,
                    Plugin.L.CfgChatColorDefault))
         {
             set(Chat.ChatPalette.Off);
+            setCustom(0);
             config.Save();
             SyncColorDraft(id, auto);
         }
@@ -471,14 +546,17 @@ internal sealed class SettingsPage(Configuration config)
 
             var key   = keys[i];
             var color = Chat.ChatPalette.Color(key);
-            if (!Swatch($"##chatcol_{id}_{key}", color, current == key, size)) continue;
+            if (!Swatch($"##chatcol_{id}_{key}", color, custom == null && current == key, size)) continue;
 
+            // Choisir au nuancier abandonne la teinte libre : c'est un choix qui
+            // en remplace un autre, pas qui s'y ajoute.
             set(key);
+            setCustom(0);
             config.Save();
             SyncColorDraft(id, color);
         }
 
-        ChatColorPicker(id, fallback, get, set);
+        ChatColorPicker(id, fallback, get, set, getCustom, setCustom);
     }
 
     /// <summary>
@@ -504,10 +582,12 @@ internal sealed class SettingsPage(Configuration config)
     /// c'est ce que fait déjà le reste de la page, et le plugin n'ouvre aucune
     /// autre fenêtre surgissante.
     /// </summary>
-    private void ChatColorPicker(string id, Vector4 fallback, Func<ushort> get, Action<ushort> set)
+    private void ChatColorPicker(string id, Vector4 fallback, Func<ushort> get, Action<ushort> set,
+                                 Func<uint> getCustom, Action<uint> setCustom)
     {
-        var l    = Plugin.L;
-        var open = _colorPickerOpen == id;
+        var l      = Plugin.L;
+        var open   = _colorPickerOpen == id;
+        var custom = Chat.ChatPalette.Decode(getCustom());
 
         Layout.Spacer(Theme.GapXs);
 
@@ -522,14 +602,27 @@ internal sealed class SettingsPage(Configuration config)
                 return;
             }
 
-            // On repart de la couleur effectivement rendue, et non d'une teinte
-            // mémorisée : c'est ce que le joueur a sous les yeux dans son chat.
-            // C'est aussi un point fixe du rapprochement, la palette contenant
-            // exactement cette couleur, donc rouvrir sans rien toucher ne
-            // déplace pas le réglage.
-            _colorDrafts[id] = Chat.ChatPalette.Color(Chat.ChatPalette.Resolve(get(), fallback));
+            // La teinte enregistrée prime sur la couleur rendue : rouvrir les
+            // réglages doit remettre sous les yeux ce qui a été demandé, et non
+            // la couleur du nuancier qui s'en est approchée.
+            //
+            // Sans teinte enregistrée, on repart de la couleur effectivement
+            // rendue : c'est ce que le joueur a sous les yeux dans son chat, et
+            // c'est un point fixe du rapprochement, donc rouvrir sans rien
+            // toucher ne déplace pas le réglage.
+            _colorDrafts[id] = custom
+                            ?? Chat.ChatPalette.Color(Chat.ChatPalette.Resolve(get(), fallback));
             _colorPickerOpen = id;
             open = true;
+        }
+
+        // Rappel de la teinte retenue, à côté du bouton : replié, le sélecteur ne
+        // montrait plus rien, et le réglage semblait perdu.
+        if (custom is { } chosen)
+        {
+            ImGui.SameLine(0f, Theme.S(Theme.GapS));
+            Swatch($"##chatcolcustom_{id}", chosen, true,
+                   new Vector2(ImGui.GetFrameHeight() * 0.75f), l.CfgChatColorPicked);
         }
 
         if (!open) return;
@@ -550,10 +643,13 @@ internal sealed class SettingsPage(Configuration config)
         {
             _colorDrafts[id] = draft;
 
-            // Enregistrer seulement quand la clé change : le rapprochement
-            // renvoie longtemps la même couleur pendant que l'on glisse sur la
-            // roue, et réécrire le fichier de configuration à chaque pixel
-            // parcouru ne servirait à rien.
+            // La teinte demandée est enregistrée à chaque mouvement, elle : c'est
+            // elle que l'on veut retrouver en rouvrant, et elle change à chaque
+            // pixel parcouru là où la clé de palette, elle, reste longtemps la
+            // même. L'écriture du fichier reste conditionnée au changement de
+            // clé, pour ne pas le réécrire en continu pendant le glissement.
+            setCustom(Chat.ChatPalette.Encode(draft));
+
             var picked = Chat.ChatPalette.Nearest(draft);
             if (picked != get())
             {
@@ -561,6 +657,12 @@ internal sealed class SettingsPage(Configuration config)
                 config.Save();
             }
         }
+
+        // Filet indispensable : une teinte peut bouger longuement sans jamais
+        // changer de clé de palette, et le bloc ci-dessus n'écrirait alors rien.
+        // Elle ne vivrait qu'en mémoire, c'est-à-dire jusqu'à la fermeture de la
+        // fenêtre, soit exactement le défaut que ces lignes corrigent.
+        if (ImGui.IsItemDeactivatedAfterEdit()) config.Save();
 
         var rendered = Chat.ChatPalette.Rendered(draft);
         var preview  = new Vector2(ImGui.GetFrameHeight());

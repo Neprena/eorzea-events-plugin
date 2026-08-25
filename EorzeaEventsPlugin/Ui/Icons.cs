@@ -25,6 +25,11 @@ internal static class Icons
     public const FontAwesomeIcon Settings = FontAwesomeIcon.Cog;
     public const FontAwesomeIcon Debug    = FontAwesomeIcon.Bug;
 
+    // ─── Onglets des réglages ─────────────────────────────────────────────────
+    public const FontAwesomeIcon Notification = FontAwesomeIcon.Bell;
+    public const FontAwesomeIcon Misc         = FontAwesomeIcon.EllipsisH;
+    public const FontAwesomeIcon Tooltip      = FontAwesomeIcon.CommentAlt;
+
     // ─── Contexte in-game ─────────────────────────────────────────────────────
     public const FontAwesomeIcon Location  = FontAwesomeIcon.MapMarkerAlt;
     public const FontAwesomeIcon Character = FontAwesomeIcon.User;

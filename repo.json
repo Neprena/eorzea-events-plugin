@@ -3,8 +3,8 @@
     "Author": "Neprena",
     "Name": "Eorzea Events",
     "InternalName": "EorzeaEventsPlugin",
-    "AssemblyVersion": "2.7.2.0",
-    "TestingAssemblyVersion": "2.7.2.0",
+    "AssemblyVersion": "2.8.0.0",
+    "TestingAssemblyVersion": "2.8.0.0",
     "Description": "Gérez vos sessions RP Eorzea Events directement depuis le jeu.",
     "Punchline": "Sessions RP Eorzea Events en un clic.",
     "ApplicableVersion": "any",
@@ -15,10 +15,10 @@
     "DalamudApiLevel": 15,
     "IconUrl": "https://raw.githubusercontent.com/Neprena/eorzea-events-plugin/main/Plugin_Logo.png",
     "RepoUrl": "https://github.com/Neprena/eorzea-events-plugin",
-    "DownloadLinkInstall": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.7.2/EorzeaEventsPlugin.zip",
-    "DownloadLinkTesting": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.7.2/EorzeaEventsPlugin.zip",
-    "DownloadLinkUpdate": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.7.2/EorzeaEventsPlugin.zip",
-    "Changelog": "Les couleurs du chat se choisissent sur une roue chromatique au lieu d'une courte liste. La pastille de couleur par défaut affichait une teinte que le chat ne reprenait pas, c'est corrigé. Un nom RP s'affiche désormais dans la couleur de la fiche de son propriétaire.\nL'historique complet des nouveautés est dans le plugin.",
-    "LastUpdate": 1787692841
+    "DownloadLinkInstall": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.8.0/EorzeaEventsPlugin.zip",
+    "DownloadLinkTesting": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.8.0/EorzeaEventsPlugin.zip",
+    "DownloadLinkUpdate": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.8.0/EorzeaEventsPlugin.zip",
+    "Changelog": "L'infobulle des joueurs disponibles demande maintenant de maintenir Ctrl pour apparaître, la touche restant réglable. Les réglages sont rangés en cinq onglets. Une couleur de chat choisie à la roue chromatique n'est plus oubliée à la fermeture des réglages.\nL'historique complet des nouveautés est dans le plugin.",
+    "LastUpdate": 1787699505
   }
 ]

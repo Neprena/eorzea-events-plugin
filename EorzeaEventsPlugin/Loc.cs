@@ -424,7 +424,15 @@ internal sealed class Loc
     public required string CfgRpProfileHeader      { get; init; }
     public required string CfgRpIndicator          { get; init; }
 
+    // ── Onglets des réglages ──────────────────────────────────────────────────
+    public required string CfgTabCharacters         { get; init; }
+    public required string CfgTabChat               { get; init; }
+    public required string CfgTabRp                 { get; init; }
+    public required string CfgTabNotifications      { get; init; }
+    public required string CfgTabMisc               { get; init; }
+
     // ── Infobulle de ciblage ──────────────────────────────────────────────────
+    public required string CfgRpTooltipCard         { get; init; }
     public required string CfgRpTooltip             { get; init; }
     public required string CfgRpTooltipHint         { get; init; }
     public required string CfgRpTooltipHover        { get; init; }
@@ -1016,6 +1024,13 @@ internal sealed class Loc
         CfgRpProfileHeader      = "Profil RP & Disponibilité",
         CfgRpIndicator          = "Afficher le marqueur sur les nameplates des joueurs disponibles",
 
+        CfgTabCharacters         = "Personnages",
+        CfgTabChat               = "Discussion",
+        CfgTabRp                 = "Rôleplay",
+        CfgTabNotifications      = "Notifications",
+        CfgTabMisc               = "Divers",
+
+        CfgRpTooltipCard         = "Infobulle de survol",
         CfgRpTooltip             = "Afficher une infobulle sur les joueurs disponibles",
         CfgRpTooltipHint         = "Nom RP, état de jeu et coup d'œil apparaissent près du curseur. Rien n'est demandé au serveur : seuls les joueurs déjà déclarés disponibles s'y affichent.",
         CfgRpTooltipHover        = "Afficher aussi au simple survol",
@@ -1589,6 +1604,13 @@ internal sealed class Loc
         CfgRpProfileHeader      = "RP Profile & Availability",
         CfgRpIndicator          = "Show the marker on nameplates of available players",
 
+        CfgTabCharacters         = "Characters",
+        CfgTabChat               = "Chat",
+        CfgTabRp                 = "Roleplay",
+        CfgTabNotifications      = "Notifications",
+        CfgTabMisc               = "Misc",
+
+        CfgRpTooltipCard         = "Hover tooltip",
         CfgRpTooltip             = "Show a tooltip on available players",
         CfgRpTooltipHint         = "RP name, in-character state and glance appear next to the cursor. Nothing is asked of the server: only players already listed as available show up there.",
         CfgRpTooltipHover        = "Show on mouseover as well",

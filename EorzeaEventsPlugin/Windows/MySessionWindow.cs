@@ -342,6 +342,12 @@ public class MySessionWindow : ThemedWindow
     {
         if (_activeSession == null || _busy) return;
         if (!_config.AutoRefreshPosition) return;
+
+        // Rien à rafraîchir sans personnage en jeu : le tour de boucle continue
+        // à l'écran de titre comme pendant un chargement, et la position s'y
+        // relève en « zone inconnue » sur « monde inconnu ». La session publiée
+        // perdait alors son lieu, cinq minutes après une simple déconnexion.
+        if (Plugin.ObjectTable.LocalPlayer == null) return;
         if ((DateTime.UtcNow - _lastAutoPositionRefresh).TotalSeconds < AutoPositionRefreshSeconds) return;
         RefreshPosition(silent: true);
     }

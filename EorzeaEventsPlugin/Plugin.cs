@@ -1595,6 +1595,9 @@ public sealed class Plugin : IDalamudPlugin
 
         SyncRpAvailabilityDisplay(now);
 
+        // Après la connexion, au premier passage où le personnage est lisible.
+        CheckAskOnLogin();
+
         // Après les disponibilités : l'infobulle ne lit que ce cache-là.
         UpdateRpTooltip();
 
@@ -2016,15 +2019,26 @@ public sealed class Plugin : IDalamudPlugin
             var trustAbsence   = sinceHeartbeat > TimeSpan.FromSeconds(15)
                               && sinceHeartbeat < TimeSpan.FromMinutes(4);
 
-            if (listIsAuthoritative && onServer != local && (onServer || trustAbsence))
+            if (listIsAuthoritative && (onServer || trustAbsence))
             {
-                CurrentCharacterAvailable = onServer;
+                if (onServer != local)
+                    CurrentCharacterAvailable = onServer;
+
+                // Figurer dans la liste publique, c'est être visible de tous :
+                // l'intention doit le dire aussi. Elle pouvait rester éteinte
+                // après une activation depuis le site, ou après une absence de
+                // liste passagère prise pour un arrêt ; la barre de statut
+                // affichait alors une croix pendant que le nameplate annonçait
+                // « Dispo RP », et le clic suivant faisait l'inverse du geste
+                // attendu.
+                if (onServer && !CurrentCharacterAvailabilityWanted)
+                    CurrentCharacterAvailabilityWanted = true;
 
                 // Retiré depuis le site alors que le tag autorisait la
                 // publication : c'est un arrêt voulu, l'intention tombe avec. Tag
                 // éteint, au contraire, l'absence est attendue et ne dit rien du
                 // souhait du joueur.
-                if (!onServer && RpTagActive)
+                if (!onServer && RpTagActive && CurrentCharacterAvailabilityWanted)
                     CurrentCharacterAvailabilityWanted = false;
             }
         }
@@ -2060,10 +2074,18 @@ public sealed class Plugin : IDalamudPlugin
             // menu contextuel veulent la fiche entière.
             AvailableEntries = entries;
 
+            // Les seuls déclarés : depuis que le relevé rapporte aussi les joueurs
+            // au tag « Jeu de rôle », prendre la liste entière collait un titre
+            // « Dispo RP » sur des nameplates de gens qui n'avaient rien demandé,
+            // et faisait passer le porteur du plugin pour disponible auprès de
+            // son propre plugin (voir IsLocalPlayerAvailable). Allumer le tag dit
+            // « je joue », pas « venez me parler ».
+            //
             // GroupBy plutôt que ToDictionary : deux personnages homonymes sur le
             // même monde lèveraient sur clé dupliquée, et le catch silencieux
             // laisserait alors la liste vide sans que rien ne le signale.
             _availablePlayers = entries
+                .Where(e => e.Source is not "rp_tag")
                 .GroupBy(e => (e.CharacterName, e.Server.ToLowerInvariant()))
                 .ToDictionary(
                     g => g.Key,
@@ -2241,10 +2263,30 @@ public sealed class Plugin : IDalamudPlugin
 
     internal static void DismissLoginPrompt() => LoginPromptPending = false;
 
+    /// <summary>
+    /// La question « rester disponible ? » reste à poser dès qu'un personnage
+    /// sera connu.
+    ///
+    /// L'évènement de connexion arrive avant que la table d'objets porte le
+    /// joueur : <see cref="CurrentCharacter"/> y vaut encore null, la
+    /// disponibilité était donc lue comme éteinte et la question ne se posait
+    /// jamais, quel que soit le réglage.
+    /// </summary>
+    private bool _askOnLoginPending;
+
     private void OnLogin()
     {
         DoFirstRunCheck();
         _tokenInvalidNotified = false;
+        _askOnLoginPending    = true;
+    }
+
+    /// <summary>Pose la question de connexion au premier passage où le personnage est lisible.</summary>
+    private void CheckAskOnLogin()
+    {
+        if (!_askOnLoginPending || CurrentCharacter is null) return;
+
+        _askOnLoginPending = false;
         if (Config.RpAskOnLogin && CurrentCharacterAvailabilityWanted)
             LoginPromptPending = true;
     }

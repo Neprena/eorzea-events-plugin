@@ -3,7 +3,7 @@
   "Author": "Neprena",
   "Description": "Gérez vos sessions RP Eorzea Events directement depuis le jeu.",
   "Punchline": "Sessions RP Eorzea Events en un clic.",
-  "Changelog": "L'infobulle des joueurs disponibles demande maintenant de maintenir Ctrl pour apparaître, la touche restant réglable. Les réglages sont rangés en cinq onglets. Une couleur de chat choisie à la roue chromatique n'est plus oubliée à la fermeture des réglages.\nL'historique complet des nouveautés est dans le plugin.",
+  "Changelog": "Le titre « Dispo RP » ne s'affiche plus au-dessus des joueurs qui ont seulement allumé le tag « Jeu de rôle » : il revient à ceux qui se sont déclarés disponibles, les autres restant visibles dans « Autour de moi ». La barre de statut suit une disponibilité déclarée depuis le site, et la question « rester disponible ? » est de nouveau posée à la connexion. Une session de RP ouvert ne perd plus son lieu après une déconnexion.\nL'historique complet des nouveautés est dans le plugin.",
   "InternalName": "EorzeaEventsPlugin",
   "RepoUrl": "https://github.com/Neprena/eorzea-events-plugin",
   "Tags": ["rp", "roleplay"],

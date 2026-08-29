@@ -309,6 +309,7 @@ internal sealed class Loc
     // est traduit : le sélecteur ImGui n'affiche pas de pictogramme dans sa
     // liste déroulante, seul le libellé permet donc de choisir.
     public required string RpProfileGlance         { get; init; }
+    public required string RpProfileGallery        { get; init; }
     public required string RpProfileGlanceHint     { get; init; }
     public required string RpProfileGlanceBody     { get; init; }
     public required string RpProfileGlanceActive   { get; init; }
@@ -904,6 +905,7 @@ internal sealed class Loc
         RpProfileCurrentQuest   = "Intrigue en cours",
 
         RpProfileGlance         = "Coup d'œil",
+        RpProfileGallery        = "Galerie",
         RpProfileGlanceHint     = "Jusqu'à cinq détails que l'on remarque au premier regard, avant même de vous parler.",
         RpProfileGlanceBody     = "Description",
         RpProfileGlanceActive   = "Affiché",
@@ -1484,6 +1486,7 @@ internal sealed class Loc
         RpProfileCurrentQuest   = "Current storyline",
 
         RpProfileGlance         = "At a glance",
+        RpProfileGallery        = "Gallery",
         RpProfileGlanceHint     = "Up to five details people notice at first sight, before they even talk to you.",
         RpProfileGlanceBody     = "Description",
         RpProfileGlanceActive   = "Shown",

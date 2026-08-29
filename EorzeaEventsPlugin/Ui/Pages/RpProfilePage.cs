@@ -206,7 +206,7 @@ internal sealed class RpProfilePage(Configuration config)
     // ci-dessous sont lus par position, tout décalage réglerait une section sur
     // l'audience d'une autre.
     private static readonly string[] SectionKeys =
-        ["identity", "hooks", "glance", "traits", "belonging", "description", "relations", "limits", "links", "sync"];
+        ["identity", "hooks", "glance", "gallery", "traits", "belonging", "description", "relations", "limits", "links", "sync"];
 
     /// <summary>
     /// Audiences, de la plus large à la plus étroite, dans le même ordre que
@@ -261,7 +261,7 @@ internal sealed class RpProfilePage(Configuration config)
     /// <c>RP_SECTIONS</c> (src/lib/rp-vocabulary.ts).
     /// </summary>
     private static readonly string[] SectionDefaultKeys =
-        ["public", "public", "public", "public", "owner", "public", "owner", "public", "public", "owner"];
+        ["public", "public", "public", "public", "public", "owner", "public", "owner", "public", "public", "owner"];
 
     /// <summary>
     /// Les Douze, dans l'ordre du serveur, précédés d'une entrée vide : l'index
@@ -1425,6 +1425,7 @@ internal sealed class RpProfilePage(Configuration config)
         "identity"    => l.RpProfileIdentity,
         "hooks"       => l.RpProfileHooks,
         "glance"      => l.RpProfileGlance,
+        "gallery"     => l.RpProfileGallery,
         "traits"      => l.RpProfileTraits,
         "belonging"   => l.RpProfileBelonging,
         "description" => l.RpProfileDescription,

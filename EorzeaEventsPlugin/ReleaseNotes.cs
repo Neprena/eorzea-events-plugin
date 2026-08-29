@@ -51,6 +51,22 @@ internal static class ReleaseNotes
     public static readonly ReleaseNote[] All =
     [
         new(
+            Version: "2.8.1",
+            TitleFr: "La disponibilité RP dit enfin la même chose partout",
+            TitleEn: "RP availability now says the same thing everywhere",
+            BodyFr: """
+                    **Corrigé**
+                    - Le titre « Dispo RP » ne s'affiche plus au-dessus des joueurs qui ont seulement allumé le tag « Jeu de rôle » : il revient à ceux qui se sont déclarés disponibles. Les autres restent visibles dans « Autour de moi ».
+                    - La barre de statut suit une disponibilité déclarée depuis le site, et la question « rester disponible ? » est de nouveau posée à la connexion quand le réglage est actif.
+                    - Une session de RP ouvert ne perd plus son lieu après une déconnexion.
+                    """,
+            BodyEn: """
+                    **Fixed**
+                    - The "RP Avail" title no longer appears above players who merely turned on the game's Role-playing tag: it is back to those who declared themselves available. The others remain visible in "Around me".
+                    - The status bar follows an availability declared from the website, and the "stay available?" prompt is asked again at login when the setting is on.
+                    - An open RP session no longer loses its location after a disconnection.
+                    """),
+        new(
             Version: "2.8.0",
             TitleFr: "Les réglages en onglets, l'infobulle sous Ctrl",
             TitleEn: "Tabbed settings, tooltip on Ctrl",

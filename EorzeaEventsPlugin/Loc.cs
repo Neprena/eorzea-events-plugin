@@ -424,6 +424,8 @@ internal sealed class Loc
     public required string RpProfileViewTitle      { get; init; }
     public required string CfgRpProfileHeader      { get; init; }
     public required string CfgRpIndicator          { get; init; }
+    public required string CfgRpNameplateNames     { get; init; }
+    public required string CfgRpNameplateNamesHint { get; init; }
 
     // ── Onglets des réglages ──────────────────────────────────────────────────
     public required string CfgTabCharacters         { get; init; }
@@ -1025,6 +1027,8 @@ internal sealed class Loc
         RpProfileViewTitle      = "Profil RP",
         CfgRpProfileHeader      = "Profil RP & Disponibilité",
         CfgRpIndicator          = "Afficher le marqueur sur les nameplates des joueurs disponibles",
+        CfgRpNameplateNames     = "Afficher les noms RP sur les nameplates",
+        CfgRpNameplateNamesHint = "Le nom du personnage est remplacé par son nom RP au-dessus de sa tête. Concerne tous les joueurs dont la fiche est publique et le tag « Jeu de rôle » allumé, pas seulement ceux qui se sont déclarés disponibles. Le clic droit vise toujours le vrai personnage.",
 
         CfgTabCharacters         = "Personnages",
         CfgTabChat               = "Discussion",
@@ -1606,6 +1610,8 @@ internal sealed class Loc
         RpProfileViewTitle      = "RP Profile",
         CfgRpProfileHeader      = "RP Profile & Availability",
         CfgRpIndicator          = "Show the marker on nameplates of available players",
+        CfgRpNameplateNames     = "Show RP names on nameplates",
+        CfgRpNameplateNamesHint = "The character name is replaced by their RP name above their head. This covers every player with a public profile and the Roleplaying tag on, not just those flagged as available. Right-click still targets the real character.",
 
         CfgTabCharacters         = "Characters",
         CfgTabChat               = "Chat",

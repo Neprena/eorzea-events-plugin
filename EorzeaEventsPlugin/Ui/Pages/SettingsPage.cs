@@ -310,6 +310,9 @@ internal sealed class SettingsPage(Configuration config)
         Row(l.CfgRpIndicator, null,
             () => config.ShowRpAvailableIndicator, v => config.ShowRpAvailableIndicator = v);
 
+        Row(l.CfgRpNameplateNames, l.CfgRpNameplateNamesHint,
+            () => config.NameplateRpNames, v => config.NameplateRpNames = v);
+
         // Forme de l'écran d'édition, pas contenu de la fiche : il vit avec les
         // réglages du profil parce que c'est là qu'on le cherchera.
         Row(l.CfgRpProfileTabs, l.CfgRpProfileTabsHint,

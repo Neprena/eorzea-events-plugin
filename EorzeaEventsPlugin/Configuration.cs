@@ -290,6 +290,21 @@ public class Configuration : IPluginConfiguration
     /// <summary>Afficher le marqueur ♦ sur les nameplates des joueurs disponibles pour du RP.</summary>
     public bool ShowRpAvailableIndicator { get; set; } = true;
 
+    /// <summary>
+    /// Afficher le nom RP à la place du nom de personnage sur les nameplates.
+    ///
+    /// Indépendant du marqueur ci-dessus, et volontairement plus large que lui :
+    /// le titre « Dispo RP » ne revient qu'aux joueurs qui se sont déclarés, alors
+    /// qu'un nom RP est simplement celui sous lequel son porteur joue. Le tag
+    /// « Jeu de rôle » allumé suffit donc, dès lors que la fiche est publique et
+    /// qu'un nom y figure.
+    ///
+    /// Le nom de personnage n'est jamais perdu : il reste sur la fiche, dans
+    /// l'infobulle de survol et dans « Autour de moi », et le clic droit continue
+    /// de viser le vrai joueur.
+    /// </summary>
+    public bool NameplateRpNames { get; set; } = true;
+
     // ─── Infobulle de ciblage ────────────────────────────────────────────────
     //
     // Trois de ces réglages ont suffi d'une valeur par défaut : une configuration
@@ -333,7 +348,7 @@ public class Configuration : IPluginConfiguration
     // retour reçu portait sur des réglages cochés qui ne faisaient rien. Le
     // risque est faible et réversible, puisque seules les couleurs de sa propre
     // fenêtre changent, et seulement sur « dire » et les messages privés.
-    // Substituer un NOM reste éteint, lui : voir ChatRpNames.
+    // Substituer un NOM suit désormais la même règle : voir ChatRpNames.
 
     /// <summary>Interrupteur général du module : rien n'est touché tant qu'il est éteint.</summary>
     public bool ChatFormatEnabled { get; set; } = true;
@@ -375,11 +390,13 @@ public class Configuration : IPluginConfiguration
     /// <summary>
     /// Afficher le nom RP à la place du nom de personnage.
     ///
-    /// Éteint même quand le module est allumé : c'est le réglage qui change le
-    /// plus la lecture du chat, et confondre deux joueurs parce que l'un
-    /// d'eux s'affiche sous un autre nom se paie cher en pleine scène.
+    /// Allumé, comme le nom RP sur les nameplates : livré éteint, ce réglage
+    /// n'était trouvé par personne, et un nom RP renseigné restait invisible
+    /// partout où on lit réellement du RP. Le nom de personnage reste lisible
+    /// sur la fiche et dans l'infobulle, et le lien de joueur n'est pas touché :
+    /// le clic droit vise toujours le vrai personnage.
     /// </summary>
-    public bool ChatRpNames { get; set; } = false;
+    public bool ChatRpNames { get; set; } = true;
 
     // Canaux traités. Par défaut, « dire » et les messages privés seulement :
     // ce sont ceux où l'on joue. Les canaux de groupe et de compagnie libre
@@ -539,8 +556,8 @@ public class Configuration : IPluginConfiguration
     /// version, et n'ayant à peu près rien fait pendant celle-ci, ils sont au
     /// plus une poignée, et il leur reste un interrupteur bien visible.
     ///
-    /// <c>ChatRpNames</c> n'est jamais touché : c'est le seul réglage qui change
-    /// ce que l'on croit lire, il se coche à la main ou pas du tout.
+    /// <c>ChatRpNames</c> n'était pas touché ici : à l'époque, il se cochait à la
+    /// main ou pas du tout. La version 7 est revenue sur ce choix.
     /// </summary>
     public void MigrateChatDefaults()
     {
@@ -576,6 +593,31 @@ public class Configuration : IPluginConfiguration
             RpTooltipModifier = RpTooltipKey.Ctrl;
 
         Version = 6;
+        Save();
+    }
+
+    /// <summary>
+    /// Allume l'affichage des noms RP sur les configurations existantes.
+    ///
+    /// Même raisonnement qu'en version 5 : un fichier déjà enregistré porte
+    /// <c>false</c> écrit noir sur blanc, et repeindre la déclaration ne
+    /// changerait rien pour ceux qui jouent déjà. Un nom RP renseigné dans une
+    /// fiche publique doit se voir là où l'on joue, c'est-à-dire au-dessus du
+    /// personnage et dans le chat.
+    ///
+    /// Limite assumée, la même qu'en version 5 : le fichier ne dit pas si le
+    /// <c>false</c> vient d'un refus ou du défaut d'origine, et la migration
+    /// rallume donc aussi les rares joueurs qui avaient éteint la substitution
+    /// dans le chat. Les deux interrupteurs restent à portée dans les réglages.
+    /// </summary>
+    public void MigrateRpNameDefaults()
+    {
+        if (Version >= 7) return;
+
+        ChatRpNames      = true;
+        NameplateRpNames = true;
+
+        Version = 7;
         Save();
     }
 

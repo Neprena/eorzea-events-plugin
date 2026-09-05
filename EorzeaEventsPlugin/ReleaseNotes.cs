@@ -51,6 +51,28 @@ internal static class ReleaseNotes
     public static readonly ReleaseNote[] All =
     [
         new(
+            Version: "2.9.0",
+            TitleFr: "Chacun sous son nom RP",
+            TitleEn: "Everyone under their RP name",
+            BodyFr: """
+                    **Ajouté**
+                    - Le nom RP remplace le nom du personnage au-dessus de sa tête, dès lors que sa fiche est publique et son tag « Jeu de rôle » allumé.
+                    - Le ciblage et le clic droit continuent de viser le vrai personnage, dont le nom reste lisible dans l'infobulle et dans « Autour de moi ».
+
+                    **Modifié**
+                    - Les noms RP dans le chat s'appliquent sans avoir à les activer : le réglage était livré éteint, et personne n'allait le chercher.
+                    - Les deux affichages se coupent séparément, dans les onglets « Rôleplay » et « Discussion » des réglages.
+                    """,
+            BodyEn: """
+                    **Added**
+                    - The RP name replaces the character name above their head, as soon as their profile is public and their Role-playing tag is on.
+                    - Targeting and right-click still reach the real character, whose name stays readable in the tooltip and in "Around me".
+
+                    **Changed**
+                    - RP names in chat now apply without being switched on: the setting shipped off, and nobody went looking for it.
+                    - Both displays can be turned off separately, in the "Roleplay" and "Chat" tabs of the settings.
+                    """),
+        new(
             Version: "2.8.1",
             TitleFr: "La disponibilité RP dit enfin la même chose partout",
             TitleEn: "RP availability now says the same thing everywhere",

@@ -100,6 +100,17 @@ public sealed class Plugin : IDalamudPlugin
     private static Dictionary<(string Name, string World), (string? Level, string? ApproachMode)> _availablePlayers = [];
 
     /// <summary>
+    /// Noms RP à afficher sur les nameplates (nom + monde → nom RP).
+    ///
+    /// Table distincte de <see cref="_availablePlayers"/> et non un champ de
+    /// plus : le titre « Dispo RP » ne revient qu'aux joueurs déclarés, alors
+    /// que le nom RP vaut aussi pour ceux qui ont seulement allumé le tag
+    /// « Jeu de rôle ». Une seule table obligerait à porter la distinction dans
+    /// la boucle de rendu, appelée à chaque frame et pour chaque plaque.
+    /// </summary>
+    private static Dictionary<(string Name, string World), string> _nameplateRpNames = [];
+
+    /// <summary>
     /// Joueurs actuellement déclarés disponibles pour du RP, tels que renvoyés
     /// par l'API publique. Alimente la page « Autour de moi » et le menu
     /// contextuel, qui ont besoin de la fiche et non du seul couple
@@ -525,6 +536,10 @@ public sealed class Plugin : IDalamudPlugin
         // L'infobulle se montrait sans qu'on la demande : exiger Ctrl là où aucun
         // modificateur n'avait été choisi.
         Config.MigrateTooltipModifier();
+
+        // Les noms RP étaient livrés éteints dans le chat : les allumer, avec
+        // ceux des nameplates, sur les configurations déjà enregistrées.
+        Config.MigrateRpNameDefaults();
 
         Api    = new ApiClient(Config.BaseUrl, Config.ApiToken);
 
@@ -2091,6 +2106,22 @@ public sealed class Plugin : IDalamudPlugin
                     g => g.Key,
                     g => (g.First().Profile?.RpLevel, g.First().Profile?.ApproachMode));
 
+            // Les noms RP, eux, prennent la liste entière : allumer le tag dit
+            // « je joue mon personnage », et c'est précisément le moment où le
+            // nom sous lequel on le joue a lieu d'être lu.
+            //
+            // Un nom RP identique au nom de personnage n'entre pas dans la
+            // table : le rendu n'aurait rien à substituer, et la plaque serait
+            // reconstruite pour rien à chaque frame.
+            _nameplateRpNames = entries
+                .Select(e => (Name:   e.CharacterName,
+                              World:  e.Server.ToLowerInvariant(),
+                              RpName: e.Profile?.RpName?.Trim()))
+                .Where(e => e.RpName is { Length: > 0 }
+                         && !string.Equals(e.RpName, e.Name, StringComparison.Ordinal))
+                .GroupBy(e => (e.Name, e.World))
+                .ToDictionary(g => g.Key, g => g.First().RpName!);
+
             _availabilityListAt = DateTime.UtcNow;
         }
         catch { /* silencieux */ }
@@ -2225,7 +2256,12 @@ public sealed class Plugin : IDalamudPlugin
         INamePlateUpdateContext context,
         IReadOnlyList<INamePlateUpdateHandler> handlers)
     {
-        if (!Config.ShowRpAvailableIndicator || _availablePlayers.Count == 0) return;
+        // Deux traitements indépendants, chacun avec son interrupteur et sa
+        // table : le titre aux seuls joueurs déclarés, le nom RP à tous ceux qui
+        // en portent un. Rien à faire si les deux sont hors course.
+        var wantTitle = Config.ShowRpAvailableIndicator && _availablePlayers.Count > 0;
+        var wantName  = Config.NameplateRpNames         && _nameplateRpNames.Count > 0;
+        if (!wantTitle && !wantName) return;
 
         foreach (var handler in handlers)
         {
@@ -2236,9 +2272,16 @@ public sealed class Plugin : IDalamudPlugin
 
             var name  = character.Name.TextValue;
             var world = character.HomeWorld.Value.Name.ToString().ToLowerInvariant();
-            if (!_availablePlayers.TryGetValue((name, world), out var data)) continue;
+            var l     = Plugin.L;
 
-            var l = Plugin.L;
+            // Le nom seulement : le lien de joueur porté par la plaque n'est pas
+            // touché, le clic droit continue donc de viser le vrai personnage,
+            // et le menu contextuel de s'ouvrir sur son nom réel.
+            if (wantName && _nameplateRpNames.TryGetValue((name, world), out var rpName))
+                handler.NameParts.Text = new SeStringBuilder().AddText(rpName).Build();
+
+            if (!wantTitle) continue;
+            if (!_availablePlayers.TryGetValue((name, world), out var data)) continue;
 
             // Genre : Customize[1] → 0 = masculin, 1 = féminin
             var isFemale = character.Customize[1] != 0;

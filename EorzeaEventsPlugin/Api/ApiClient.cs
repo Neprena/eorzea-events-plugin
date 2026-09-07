@@ -377,6 +377,16 @@ public class RpProfileDto
     /// </summary>
     [JsonPropertyName("staffRole")] public string? StaffRole { get; set; }
 
+    /// <summary>
+    /// Droit d'usage de l'habillage réservé aux membres, servi au seul
+    /// propriétaire. Faux par défaut : un serveur antérieur au champ ne dit rien,
+    /// et mieux vaut ne pas proposer un réglage que le promettre à tort.
+    /// </summary>
+    [JsonPropertyName("cosmeticsAllowed")] public bool CosmeticsAllowed { get; set; }
+
+    /// <summary>Titre RP interdit par une sanction. Faux par défaut.</summary>
+    [JsonPropertyName("titlesBlocked")] public bool TitlesBlocked { get; set; }
+
     [JsonPropertyName("height")] public string? Height { get; set; }
     [JsonPropertyName("build")]  public string? Build  { get; set; }
     [JsonPropertyName("marks")]  public string? Marks  { get; set; }
@@ -446,6 +456,52 @@ public class PluginSyncResult
     public bool           Unsupported { get; set; }
 }
 
+/// <summary>
+/// Une fiche du personnage lié, telle que le sélecteur la présente.
+///
+/// Juste de quoi choisir : le contenu se demande à `api/rp-profile` une fois la
+/// bascule faite. Créer, dupliquer ou supprimer une fiche se fait sur le site.
+/// </summary>
+/// <summary>Issue d'un geste sur les fiches, telle que l'écran a besoin de la dire.</summary>
+public enum RpSlotResult
+{
+    Ok,
+    /// <summary>Refus général, ou serveur trop ancien pour connaître la route.</summary>
+    Failed,
+    /// <summary>Le personnage porte déjà autant de fiches qu'il en a le droit.</summary>
+    Quota,
+    /// <summary>On ne supprime pas la dernière fiche d'un personnage.</summary>
+    LastProfile,
+}
+
+/// <summary>
+/// Les fiches d'un personnage et le nombre qu'il peut en tenir.
+///
+/// Le plafond vient du serveur : le figer dans le plugin le rendrait faux le
+/// jour où la règle change, sans que personne pense à le corriger ici.
+/// </summary>
+/// <summary>Réponse de la création d'une fiche.</summary>
+public class RpSlotCreatedDto
+{
+    [JsonPropertyName("profileId")] public string? ProfileId { get; set; }
+}
+
+public class RpProfileListDto
+{
+    [JsonPropertyName("profiles")] public List<RpProfileSummaryDto> Profiles { get; set; } = [];
+    [JsonPropertyName("max")]      public int                      Max      { get; set; }
+}
+
+public class RpProfileSummaryDto
+{
+    [JsonPropertyName("id")]        public string   Id        { get; set; } = "";
+    /// <summary>Nom RP. Vide, le sélecteur nomme la fiche par son rang.</summary>
+    [JsonPropertyName("rpName")]    public string?  RpName    { get; set; }
+    /// <summary>Celle que le personnage publie. Une seule à la fois.</summary>
+    [JsonPropertyName("isActive")]  public bool     IsActive  { get; set; }
+    [JsonPropertyName("updatedAt")] public DateTime UpdatedAt { get; set; }
+}
+
 public class RpAvailabilityEntryDto
 {
     [JsonPropertyName("id")]            public string       Id            { get; set; } = string.Empty;
@@ -466,6 +522,20 @@ public class RpAvailabilityEntryDto
     /// </summary>
     [JsonPropertyName("source")]        public string       Source        { get; set; } = "declared";
     [JsonPropertyName("profile")]       public RpProfileDto? Profile      { get; set; }
+
+    /// <summary>
+    /// Position partagée par un joueur déclaré disponible, coordonnées carte.
+    /// Absente pour qui ne partage rien, pour les entrées au seul tag « Jeu de
+    /// rôle », et pour un serveur antérieur au champ.
+    /// </summary>
+    [JsonPropertyName("posX")]       public float? PosX       { get; set; }
+    [JsonPropertyName("posZ")]       public float? PosZ       { get; set; }
+    [JsonPropertyName("mapId")]      public uint?  MapId      { get; set; }
+    [JsonPropertyName("instanceId")] public uint?  InstanceId { get; set; }
+
+    /// <summary>Tout ce qu'il faut pour poser un drapeau de carte.</summary>
+    [JsonIgnore]
+    public bool HasPosition => PosX.HasValue && PosZ.HasValue && MapId.HasValue && TerritoryId.HasValue;
 }
 
 /// <summary>
@@ -528,6 +598,12 @@ public class SetRpAvailableRequest
 /// </summary>
 public class SaveRpProfileRequest
 {
+    /// <summary>
+    /// Fiche visée parmi celles du personnage. Absente, l'écriture porte sur
+    /// celle qu'il publie, ce qui reste le cas courant.
+    /// </summary>
+    [JsonPropertyName("profileId")] public string? ProfileId { get; set; }
+
     [JsonPropertyName("rpLevel")]       public string    RpLevel       { get; set; } = string.Empty;
     [JsonPropertyName("approachMode")]  public string    ApproachMode  { get; set; } = string.Empty;
     [JsonPropertyName("languages")]     public string[]  Languages     { get; set; } = [];
@@ -554,6 +630,12 @@ public class SaveRpProfileRequest
     /// seule façon de vider un emplacement depuis le jeu.
     /// </summary>
     [JsonPropertyName("glances")] public RpGlanceDto[]? Glances { get; set; }
+
+    /// <summary>
+    /// Relations du personnage. Absentes du corps, le serveur garde celles qu'il
+    /// a : un client qui ne sait pas les éditer ne doit pas les effacer.
+    /// </summary>
+    [JsonPropertyName("relations")] public RpRelationDto[]? Relations { get; set; }
     [JsonPropertyName("avoidThemes")]  public string[]? AvoidThemes { get; set; }
     [JsonPropertyName("limits")]       public string?  Limits       { get; set; }
 
@@ -824,6 +906,12 @@ public class UpdateSessionRequest
     [JsonPropertyName("room")]          public int?    Room          { get; set; }
     [JsonPropertyName("rawPlot")]       public int?    RawPlot       { get; set; }
     [JsonPropertyName("duration")]      public int?    Duration      { get; set; }
+    /// <summary>
+    /// Heures à AJOUTER au temps restant. Exclusif avec <see cref="Duration"/>,
+    /// qui remplace l'expiration : c'est ce remplacement qui faisait raccourcir
+    /// une session par le bouton « Prolonger ».
+    /// </summary>
+    [JsonPropertyName("extendHours")]   public int?    ExtendHours   { get; set; }
     [JsonPropertyName("territoryId")]   public uint?   TerritoryId   { get; set; }
     // Suit la position : on peut changer d'instance sans bouger d'un pas.
     [JsonPropertyName("instanceId")]    public uint?   InstanceId    { get; set; }
@@ -966,6 +1054,13 @@ public class ApiClient : IDisposable
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             if (!string.IsNullOrEmpty(etag))
                 request.Headers.TryAddWithoutValidation("If-None-Match", etag);
+
+            // Le relevé reste public, mais la position partagée n'est servie
+            // qu'à un jeton de personnage. On ne le joint que s'il est tenu pour
+            // valide : un jeton révoqué envoyé toutes les cinq secondes
+            // remplirait le seau des échecs Bearer et bloquerait le heartbeat.
+            if (HasToken && IsTokenValid)
+                request.Headers.Authorization = _http.DefaultRequestHeaders.Authorization;
 
             using var response = await _publicHttp.SendAsync(request, ct);
 
@@ -1150,12 +1245,23 @@ public class ApiClient : IDisposable
         string? contentId = null,
         bool? rpTag = null,
         string? zone = null,
+        float? posX = null,
+        float? posZ = null,
+        uint? mapId = null,
+        uint? instanceId = null,
         CancellationToken ct = default)
     {
         try
         {
-            var body = new { version, territoryId, worldName, ward, plot, room, characterName,
-                             contentId, rpTag, zone };
+            var body = new
+            {
+                version, territoryId, worldName, ward, plot, room, characterName,
+                contentId, rpTag, zone, mapId, instanceId,
+                // Arrondi à la décimale, comme la présence anonyme : c'est la
+                // précision affichée en jeu, et elle suffit à poser un drapeau.
+                posX = posX.HasValue ? MathF.Round(posX.Value, 1) : (float?)null,
+                posZ = posZ.HasValue ? MathF.Round(posZ.Value, 1) : (float?)null,
+            };
             var res  = await _http.PostAsJsonAsync("api/plugin/heartbeat", body, JsonOptions, ct);
             HandleAuthResponse(res); // capture aussi X-Token-Deprecated
         }
@@ -1255,16 +1361,129 @@ public class ApiClient : IDisposable
 
     // ─── RP Profile ──────────────────────────────────────────────────────────
 
-    public async Task<RpProfileDto?> GetRpProfileAsync(CancellationToken ct = default)
+    /// <summary>
+    /// La fiche du personnage lié.
+    ///
+    /// Sans <paramref name="profileId"/>, celle qu'il publie. Avec, la fiche
+    /// nommée, ce qui permet de travailler une fiche gardée en réserve sans
+    /// avoir à la publier d'abord.
+    /// </summary>
+    public async Task<RpProfileDto?> GetRpProfileAsync(string? profileId = null,
+                                                       CancellationToken ct = default)
     {
         try
         {
-            var res = await _http.GetAsync("api/rp-profile", ct);
+            var url = string.IsNullOrEmpty(profileId)
+                ? "api/rp-profile"
+                : $"api/rp-profile?profileId={Uri.EscapeDataString(profileId)}";
+            var res = await _http.GetAsync(url, ct);
             HandleAuthResponse(res.StatusCode);
             if (!res.IsSuccessStatusCode) return null;
             return await res.Content.ReadFromJsonAsync<RpProfileDto>(JsonOptions, ct);
         }
         catch { return null; }
+    }
+
+    /// <summary>
+    /// Les fiches du personnage lié, avec celle qu'il publie.
+    ///
+    /// Un serveur antérieur aux fiches multiples répond 404 : la liste est alors
+    /// vide, et le sélecteur ne s'affiche pas. Le plugin continue de lire et
+    /// d'écrire la fiche publiée comme il l'a toujours fait.
+    /// </summary>
+    public async Task<RpProfileListDto?> GetRpProfileListAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var res = await _http.GetAsync("api/rp-profile/list", ct);
+            HandleAuthResponse(res.StatusCode);
+
+            if (!res.IsSuccessStatusCode)
+            {
+                Plugin.Log.Warning("[EorzeaEvents] Liste des fiches refusée : {0}",
+                                   (int)res.StatusCode);
+                return null;
+            }
+
+            return await res.Content.ReadFromJsonAsync<RpProfileListDto>(JsonOptions, ct);
+        }
+        catch (Exception ex)
+        {
+            Plugin.Log.Warning(ex, "[EorzeaEvents] Liste des fiches impossible.");
+            return null;
+        }
+    }
+
+    /// <summary>Publie une autre fiche du personnage.</summary>
+    public Task<RpSlotResult> ActivateRpProfileAsync(string profileId, CancellationToken ct = default) =>
+        PostSlotAsync("api/rp-profile/activate", new { profileId }, ct);
+
+    /// <summary>
+    /// Crée une fiche vierge pour le personnage lié, et rend son identifiant.
+    ///
+    /// L'identifiant sert à ouvrir aussitôt la nouvelle fiche : la créer pour
+    /// devoir ensuite la retrouver dans une liste serait un pas de trop.
+    /// </summary>
+    public async Task<(RpSlotResult Result, string? ProfileId)> CreateRpProfileAsync(
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var res = await _http.PostAsJsonAsync("api/rp-profile/create", new { }, JsonOptions, ct);
+            HandleAuthResponse(res.StatusCode);
+
+            if (res.IsSuccessStatusCode)
+            {
+                var created = await res.Content.ReadFromJsonAsync<RpSlotCreatedDto>(JsonOptions, ct);
+                return (RpSlotResult.Ok, created?.ProfileId);
+            }
+
+            if (res.StatusCode != System.Net.HttpStatusCode.Conflict)
+                return (RpSlotResult.Failed, null);
+
+            var body = await res.Content.ReadAsStringAsync(ct);
+            return (body.Contains("quota") ? RpSlotResult.Quota : RpSlotResult.Failed, null);
+        }
+        catch (Exception ex)
+        {
+            Plugin.Log.Warning(ex, "[EorzeaEvents] Création de fiche impossible.");
+            return (RpSlotResult.Failed, null);
+        }
+    }
+
+    /// <summary>Recopie une fiche dans un nouvel emplacement du même personnage.</summary>
+    public Task<RpSlotResult> DuplicateRpProfileAsync(string profileId, CancellationToken ct = default) =>
+        PostSlotAsync("api/rp-profile/duplicate", new { profileId }, ct);
+
+    /// <summary>Supprime une fiche. La dernière d'un personnage est refusée.</summary>
+    public Task<RpSlotResult> DeleteRpProfileAsync(string profileId, CancellationToken ct = default) =>
+        PostSlotAsync("api/rp-profile/delete", new { profileId }, ct);
+
+    /// <summary>
+    /// Les quatre gestes du cycle de vie des fiches partagent leur forme.
+    ///
+    /// Le refus est distingué de la panne : un plafond atteint ou une dernière
+    /// fiche méritent d'être dits au joueur, là où un serveur injoignable ne
+    /// mérite qu'un silence et une nouvelle tentative.
+    /// </summary>
+    private async Task<RpSlotResult> PostSlotAsync(string url, object body, CancellationToken ct)
+    {
+        try
+        {
+            var res = await _http.PostAsJsonAsync(url, body, JsonOptions, ct);
+            HandleAuthResponse(res.StatusCode);
+            if (res.IsSuccessStatusCode) return RpSlotResult.Ok;
+
+            // 404 sur ces routes veut dire « serveur trop ancien » aussi bien que
+            // « fiche inconnue » : dans les deux cas il n'y a rien à expliquer.
+            if (res.StatusCode != System.Net.HttpStatusCode.Conflict) return RpSlotResult.Failed;
+
+            var body404 = await res.Content.ReadAsStringAsync(ct);
+            if (body404.Contains("quota"))        return RpSlotResult.Quota;
+            if (body404.Contains("last_profile")) return RpSlotResult.LastProfile;
+            return RpSlotResult.Failed;
+        }
+        catch { return RpSlotResult.Failed; }
     }
 
     public async Task<RpProfileDto?> SaveRpProfileAsync(SaveRpProfileRequest req, CancellationToken ct = default)
@@ -1273,10 +1492,27 @@ public class ApiClient : IDisposable
         {
             var res = await _http.PutAsJsonAsync("api/rp-profile", req, JsonOptions, ct);
             HandleAuthResponse(res.StatusCode);
-            if (!res.IsSuccessStatusCode) return null;
+
+            // Un refus muet ne laissait rien à chercher : l'écran disait
+            // « l'enregistrement a échoué » et le journal restait vide. Le code
+            // et le début du corps suffisent à savoir quel champ le serveur a
+            // rejeté, sans recopier une fiche entière dans les traces.
+            if (!res.IsSuccessStatusCode)
+            {
+                var body = await res.Content.ReadAsStringAsync(ct);
+                Plugin.Log.Warning("[EorzeaEvents] Enregistrement de fiche refusé : {0} {1}",
+                                   (int)res.StatusCode,
+                                   body.Length > 400 ? body[..400] : body);
+                return null;
+            }
+
             return await res.Content.ReadFromJsonAsync<RpProfileDto>(JsonOptions, ct);
         }
-        catch { return null; }
+        catch (Exception ex)
+        {
+            Plugin.Log.Warning(ex, "[EorzeaEvents] Enregistrement de fiche impossible.");
+            return null;
+        }
     }
 
     /// <summary>

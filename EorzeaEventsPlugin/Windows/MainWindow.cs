@@ -69,6 +69,7 @@ public class MainWindow : ThemedWindow, IDisposable
     private readonly RpProfilePage _rpProfile;
     private readonly AroundPage    _around = new();
     private readonly FriendsPage   _friends = new();
+    private readonly EncountersPage _encounters = new();
 
     // Le nom de la fenêtre est la clé de persistance de imgui.ini : le changer
     // réinitialiserait position et taille chez tous les utilisateurs.
@@ -128,6 +129,13 @@ public class MainWindow : ThemedWindow, IDisposable
             },
             new ShellPage
             {
+                Id    = "encounters",
+                Icon  = Icons.History,
+                Label = () => Plugin.L.TabEncounters,
+                Draw  = _encounters.Draw,
+            },
+            new ShellPage
+            {
                 Id    = "events",
                 Icon  = Icons.Events,
                 Label = () => Plugin.L.TabEvents,
@@ -184,6 +192,13 @@ public class MainWindow : ThemedWindow, IDisposable
     {
         _shell.Navigate(pageId);
         IsOpen = true;
+    }
+
+    /// <summary>Ouvre « Rencontres » sur la note d'un personnage.</summary>
+    public void FocusEncounterNote(string characterId)
+    {
+        _encounters.FocusNote(characterId);
+        OpenAt("encounters");
     }
 
     /// <summary>La coque peint elle-même les bords, sans marge de fenêtre.</summary>

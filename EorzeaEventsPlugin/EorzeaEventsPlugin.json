@@ -3,9 +3,12 @@
   "Author": "Neprena",
   "Description": "Gérez vos sessions RP Eorzea Events directement depuis le jeu.",
   "Punchline": "Sessions RP Eorzea Events en un clic.",
-  "Changelog": "Le nom RP remplace le nom du personnage au-dessus de sa tête, dès lors que sa fiche est publique et son tag « Jeu de rôle » allumé ; le ciblage et le clic droit visent toujours le vrai personnage. Les noms RP dans le chat s'appliquent désormais sans avoir à les activer. Les deux affichages se coupent séparément dans les réglages.\nL'historique complet des nouveautés est dans le plugin.",
+  "Changelog": "Un personnage peut désormais tenir jusqu'à trois fiches RP et choisir celle que les autres voient, un assistant guidant la création de la suivante. La fiche se remplit entièrement en jeu, textes longs compris, et un onglet « Rencontres » garde une note privée sur chaque rôliste croisé. Vous pouvez aussi partager votre position quand vous êtes déclaré disponible. L'historique complet des nouveautés est dans le plugin.",
   "InternalName": "EorzeaEventsPlugin",
   "RepoUrl": "https://github.com/Neprena/eorzea-events-plugin",
-  "Tags": ["rp", "roleplay"],
+  "Tags": [
+    "rp",
+    "roleplay"
+  ],
   "IconUrl": "https://raw.githubusercontent.com/Neprena/eorzea-events-plugin/main/Plugin_Logo.png"
 }

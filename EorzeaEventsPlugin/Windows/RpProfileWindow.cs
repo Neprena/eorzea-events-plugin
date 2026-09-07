@@ -288,6 +288,12 @@ public class RpProfileWindow : ThemedWindow
                 {
                     _viewFull       = full;
                     _viewFetchEmpty = false;
+
+                    // Rencontre : une fiche réellement servie, jamais la sienne
+                    // (aperçu). Ici et non à l'ouverture de la fenêtre, pour ne
+                    // pas retenir une fiche que le serveur a refusée.
+                    if (!_isPreview && _viewTarget is { } target)
+                        EncounterRegistry.RecordProfileOpened(characterId, target.CharacterName, target.Server, full);
                 }
                 else
                 {

@@ -185,11 +185,16 @@ public sealed class RpTooltipWindow : ThemedWindow
         _size = ImGui.GetWindowSize();
 
         var l       = Plugin.L;
+        var config  = Plugin.Config;
         var accent  = RpProfileView.Accent(profile);
         var accent2 = RpProfileView.Accent2(profile);
 
         var wrapAt = ImGui.GetCursorPosX() + Theme.S(ContentWidth);
         ImGui.PushTextWrapPos(wrapAt);
+
+        // Même limite, en coordonnées écran : c'est dans ce repère que se lit
+        // le bord droit du dernier item dessiné.
+        var limitScreen = ImGui.GetCursorScreenPos().X + Theme.S(ContentWidth);
 
         // Impose la largeur avant tout contenu, sinon l'infobulle se rétrécit sur
         // un nom court puis s'élargit sur le suivant.
@@ -200,12 +205,22 @@ public sealed class RpTooltipWindow : ThemedWindow
         var displayName = profile.RpName is { Length: > 0 } rpName ? rpName : entry.CharacterName;
 
         Text.H2(displayName);
+
+        // Le surnom sous le nom, dans la couleur de la fiche : c'est ainsi qu'on
+        // l'appellera, avant même de lire le reste.
+        if (config.RpTooltipShowNickname && profile.Nickname is { Length: > 0 } nickname)
+            Text.Small($"« {nickname} »", accent);
+
         AnimatedText.Draw(profile.RpTitle, accent2, profile.TitleAnimation, accent);
-        Text.Small($"{entry.CharacterName} · {entry.Server}");
+
+        var identity = $"{entry.CharacterName} · {entry.Server}";
+        if (config.RpTooltipShowPronouns && profile.Pronouns is { Length: > 0 } pronouns)
+            identity += $" · {pronouns}";
+        Text.Small(identity);
 
         // Le marquage sensible se voit toujours, son contenu non : c'est
         // l'avertissement qui permet de décider d'ouvrir la fiche ou pas.
-        var masked = profile.Nsfw && !Plugin.Config.ShowNsfwProfiles;
+        var masked = profile.Nsfw && !config.ShowNsfwProfiles;
 
         if (profile.Nsfw)
         {
@@ -214,25 +229,68 @@ public sealed class RpTooltipWindow : ThemedWindow
             if (masked) Text.Small(l.RpTooltipNsfwHidden);
         }
 
-        if (!masked) DrawPresent(profile, accent, l);
+        var friend = config.RpTooltipShowFriend && Plugin.IsFriend(profile.CharacterId);
+
+        if (!masked)
+        {
+            DrawRaceAndOccupation(profile, config, l);
+            DrawPresent(profile, accent, friend, l);
+        }
+        else if (friend)
+        {
+            Layout.Spacer(Theme.GapS);
+            Chip.Draw(l.RpFriendChip, ChipTone.Accent, Icons.Friend);
+        }
 
         DrawChips(profile, accent, l, wrapAt);
 
+        if (!masked && config.RpTooltipShowThemes && profile.Themes.Length > 0)
+        {
+            Layout.Spacer(Theme.GapXs);
+            DrawThemeRow(profile, l, limitScreen);
+        }
+
+        // Ma note, en dernier et à part : elle n'appartient pas à la fiche, et
+        // se lit même quand le contenu de la fiche est retenu.
+        if (config.RpTooltipShowNote
+            && EncounterRegistry.NoteFor(profile.CharacterId) is { Length: > 0 } note)
+        {
+            Layout.Divider(Theme.GapS);
+            Text.WithIcon(Icons.Edit, note, Theme.Idle, Theme.TextMuted, wrap: true);
+        }
+
         ImGui.PopTextWrapPos();
+    }
+
+    /// <summary>Race traduite et occupation, sur une ligne, si demandé et connu.</summary>
+    private static void DrawRaceAndOccupation(RpProfileDto profile, Configuration config, Loc l)
+    {
+        if (!config.RpTooltipShowRaceOccupation) return;
+
+        var parts = new List<string>(2);
+        if (profile.Race       is { Length: > 0 } race)       parts.Add(RpProfileView.RaceLabel(race, l));
+        if (profile.Occupation is { Length: > 0 } occupation) parts.Add(occupation);
+        if (parts.Count > 0) Text.Small(string.Join(" · ", parts));
     }
 
     /// <summary>
     /// Instant présent et coup d'œil, c'est-à-dire tout ce qui se périme dans la
     /// soirée. En tête du corps parce que c'est ce sur quoi se décide un abord :
-    /// le niveau et les langues, eux, ne changent jamais.
+    /// le niveau et les langues, eux, ne changent jamais. La pastille « ami »
+    /// se range à côté de l'état de jeu : elle dit aussi comment aborder.
     /// </summary>
-    private static void DrawPresent(RpProfileDto profile, Vector4 accent, Loc l)
+    private static void DrawPresent(RpProfileDto profile, Vector4 accent, bool friend, Loc l)
     {
+        var hasState = profile.IcState is { Length: > 0 };
+        if (hasState || friend) Layout.Spacer(Theme.GapS);
+
         if (profile.IcState is { Length: > 0 } state)
+            Chip.Draw(RpProfileView.IcStateLabel(state, l), RpProfileView.IcStateTone(state), Icons.RpLive);
+
+        if (friend)
         {
-            Layout.Spacer(Theme.GapS);
-            Chip.Draw(RpProfileView.IcStateLabel(state, l),
-                      RpProfileView.IcStateTone(state), Icons.RpLive);
+            if (hasState) ImGui.SameLine(0f, Theme.S(Theme.GapXs));
+            Chip.Draw(l.RpFriendChip, ChipTone.Accent, Icons.Friend);
         }
 
         if (profile.Currently is { Length: > 0 } currently)
@@ -276,5 +334,26 @@ public sealed class RpTooltipWindow : ThemedWindow
         var languages = string.Join(" / ", profile.Languages.Select(RpProfileView.LanguageLabel));
         SameLineIfRoom(Chip.Measure(languages));
         Chip.Draw(languages, ChipTone.Neutral);
+    }
+
+    /// <summary>
+    /// Thèmes recherchés sur la largeur contrainte. Chaque pastille ne reste
+    /// sur la ligne que si elle y tient, mesurée depuis le bord droit de la
+    /// précédente : après un item, le curseur ImGui est déjà revenu en début
+    /// de ligne, et c'est le rectangle de l'item qui dit où l'on en est.
+    /// DrawThemeChips de la fiche enchaîne les SameLine sans mesurer, et
+    /// ferait déborder une infobulle à largeur fixe.
+    /// </summary>
+    private static void DrawThemeRow(RpProfileDto profile, Loc l, float limitScreen)
+    {
+        var gap = Theme.S(Theme.GapXs);
+
+        for (var i = 0; i < profile.Themes.Length; i++)
+        {
+            var label = RpProfileView.ThemeLabel(profile.Themes[i], l);
+            if (i > 0 && ImGui.GetItemRectMax().X + gap + Chip.Measure(label) <= limitScreen)
+                ImGui.SameLine(0f, gap);
+            Chip.Draw(label, ChipTone.Neutral);
+        }
     }
 }

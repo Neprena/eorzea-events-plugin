@@ -22,6 +22,7 @@ internal static class Icons
     public const FontAwesomeIcon Events   = FontAwesomeIcon.CalendarAlt;
     public const FontAwesomeIcon Venues   = FontAwesomeIcon.Store;
     public const FontAwesomeIcon Profile  = FontAwesomeIcon.IdCard;
+    public const FontAwesomeIcon History  = FontAwesomeIcon.History;
     public const FontAwesomeIcon Settings = FontAwesomeIcon.Cog;
     public const FontAwesomeIcon Debug    = FontAwesomeIcon.Bug;
 
@@ -46,6 +47,14 @@ internal static class Icons
     public const FontAwesomeIcon Refresh  = FontAwesomeIcon.SyncAlt;
     public const FontAwesomeIcon External = FontAwesomeIcon.ExternalLinkAlt;
     public const FontAwesomeIcon Close    = FontAwesomeIcon.Times;
+    // Barre d'outils de l'éditeur de texte, aux symboles d'un traitement de
+    // texte : ce sont ceux que tout le monde reconnaît sans les lire.
+    public const FontAwesomeIcon Bold       = FontAwesomeIcon.Bold;
+    public const FontAwesomeIcon Italic     = FontAwesomeIcon.Italic;
+    public const FontAwesomeIcon Heading    = FontAwesomeIcon.Heading;
+    public const FontAwesomeIcon BulletList = FontAwesomeIcon.ListUl;
+    public const FontAwesomeIcon Quote      = FontAwesomeIcon.QuoteLeft;
+
     public const FontAwesomeIcon Hide     = FontAwesomeIcon.EyeSlash;
     public const FontAwesomeIcon Show     = FontAwesomeIcon.Eye;
     public const FontAwesomeIcon Copy     = FontAwesomeIcon.Copy;
@@ -144,11 +153,12 @@ internal static class Icons
     /// </summary>
     public static readonly FontAwesomeIcon[] All =
     [
-        RpLive, Around, Events, Venues, Profile, Settings, Debug,
+        RpLive, Around, Events, Venues, Profile, History, Settings, Debug,
         Location, Character, Housing, Map, World, Clock, Recurring, Language,
         Search, Refresh, External, Close, Hide, Show, Copy, Edit, Plus, Trash, Travel,
         Warning, Info, Check, Blocked, Sparkle, Diamond, Chevron, Shield,
         Friend, FriendAdd,
+        Bold, Italic, Heading, BulletList, Quote,
 
         // Les 24 glyphes du coup d'œil : le joueur choisit librement parmi eux,
         // n'importe lequel peut donc apparaître sur n'importe quelle fiche.

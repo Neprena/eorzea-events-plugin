@@ -233,6 +233,9 @@ internal sealed class SettingsPage(Configuration config)
                     string.Format(l.NotifNearbyRp, SampleRpTitle),
                     new QuestToastOptions { PlaySound = true, DisplayCheckmark = false })));
 
+        Row(l.CfgNotifyRpArrival, l.CfgNotifyRpArrivalHint,
+            () => config.NotifyRpArrival, v => config.NotifyRpArrival = v);
+
         // Les filtres n'ont de sens que si au moins un canal est actif.
         var anyChannel = config.NotifyRpLiveScreen || config.NotifyRpLive || config.NotifyRpLiveChat;
         if (!anyChannel && !config.NotifyNearbyZone) return;
@@ -307,11 +310,27 @@ internal sealed class SettingsPage(Configuration config)
             () => Plugin.CurrentCharacterAvailabilityWanted,
             Plugin.SetRpAvailability);
 
+        // Sous la disponibilité, parce qu'il n'a de sens qu'avec elle. Basculer
+        // force un battement : le drapeau apparaît ou disparaît sans attendre.
+        Row(l.CfgRpSharePosition, l.CfgRpSharePositionHint,
+            () => config.SharePositionWhenAvailable,
+            v => { config.SharePositionWhenAvailable = v; Plugin.RequestHeartbeat(); });
+
         Row(l.CfgRpIndicator, null,
             () => config.ShowRpAvailableIndicator, v => config.ShowRpAvailableIndicator = v);
 
         Row(l.CfgRpNameplateNames, l.CfgRpNameplateNamesHint,
             () => config.NameplateRpNames, v => config.NameplateRpNames = v);
+
+        Row(l.CfgRpNameplateColor, l.CfgRpNameplateColorHint,
+            () => config.NameplateRpNameColor, v => config.NameplateRpNameColor = v);
+        Row(l.CfgRpNameplateTitles, l.CfgRpNameplateTitlesHint,
+            () => config.NameplateRpTitles, v => config.NameplateRpTitles = v);
+        Row(l.CfgRpNameplateFriend, l.CfgRpNameplateFriendHint,
+            () => config.NameplateFriendMarker, v => config.NameplateFriendMarker = v);
+
+        Row(l.CfgEncounters, l.CfgEncountersHint,
+            () => config.EncountersEnabled, v => config.EncountersEnabled = v);
 
         // Forme de l'écran d'édition, pas contenu de la fiche : il vit avec les
         // réglages du profil parce que c'est là qu'on le cherchera.
@@ -369,6 +388,22 @@ internal sealed class SettingsPage(Configuration config)
             // dit le marquage mais n'en montre pas le contenu.
             Row(l.CfgRpNsfwShow, l.CfgRpNsfwShowHint,
                 () => config.ShowNsfwProfiles, v => config.ShowNsfwProfiles = v);
+
+            Layout.Spacer(Theme.GapS);
+            Text.Small(l.CfgRpTooltipContent);
+
+            Row(l.CfgRpTooltipNickname, null,
+                () => config.RpTooltipShowNickname, v => config.RpTooltipShowNickname = v);
+            Row(l.CfgRpTooltipPronouns, null,
+                () => config.RpTooltipShowPronouns, v => config.RpTooltipShowPronouns = v);
+            Row(l.CfgRpTooltipRaceOccupation, null,
+                () => config.RpTooltipShowRaceOccupation, v => config.RpTooltipShowRaceOccupation = v);
+            Row(l.CfgRpTooltipThemes, null,
+                () => config.RpTooltipShowThemes, v => config.RpTooltipShowThemes = v);
+            Row(l.CfgRpTooltipNote, l.CfgRpTooltipNoteHint,
+                () => config.RpTooltipShowNote, v => config.RpTooltipShowNote = v);
+            Row(l.CfgRpTooltipFriend, null,
+                () => config.RpTooltipShowFriend, v => config.RpTooltipShowFriend = v);
         }
     }
 
@@ -707,9 +742,16 @@ internal sealed class SettingsPage(Configuration config)
 
         Layout.SectionHeader(l.CfgDtrHeader, Icons.World);
 
-        var changed = Row(l.CfgDtrRp,      null, () => config.ShowDtrRp,      v => config.ShowDtrRp = v);
+        // Une seule entrée « EorzeaEvents » dans la barre ; chaque interrupteur
+        // en montre ou cache un morceau, et l'entrée disparaît si les trois sont
+        // coupés.
+        Text.Small(l.CfgDtrHint, Theme.TextMuted);
+        Layout.Spacer(Theme.GapXs);
+
+        // Dans l'ordre où la barre les affiche.
+        var changed = Row(l.CfgDtrRpAvail, null, () => config.ShowDtrRpAvail, v => config.ShowDtrRpAvail = v);
+        changed    |= Row(l.CfgDtrRp,      null, () => config.ShowDtrRp,      v => config.ShowDtrRp = v);
         changed    |= Row(l.CfgDtrEvents,  null, () => config.ShowDtrEvents,  v => config.ShowDtrEvents = v);
-        changed    |= Row(l.CfgDtrRpAvail, null, () => config.ShowDtrRpAvail, v => config.ShowDtrRpAvail = v);
 
         if (changed) Plugin.ApplyDtrVisibility();
     }

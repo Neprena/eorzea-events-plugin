@@ -5,6 +5,7 @@ using Dalamud.Game.Gui.Dtr;
 using Dalamud.Game.Gui.NamePlate;
 using Dalamud.Game.Text;
 using Dalamud.Game.Text.SeStringHandling;
+using Dalamud.Game.Text.SeStringHandling.Payloads;
 using Dalamud.IoC;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
@@ -92,6 +93,8 @@ public sealed class Plugin : IDalamudPlugin
     private static   WhatsNewWindow?       _whatsNewWindow;
     private static   PortraitZoomWindow?   _portraitZoomWindow;
     private static   RpTooltipWindow?      _rpTooltipWindow;
+    private static   MarkdownEditorWindow?  _markdownEditor;
+    private static   RpProfileWizardWindow? _rpWizard;
 
     /// <summary>Voyage assisté vers une parcelle, si Lifestream est présent.</summary>
     internal static Ipc.LifestreamIpc Lifestream { get; private set; } = null!;
@@ -99,16 +102,51 @@ public sealed class Plugin : IDalamudPlugin
     // RP Availability — nameplate indicators (name+world → (level, approachMode))
     private static Dictionary<(string Name, string World), (string? Level, string? ApproachMode)> _availablePlayers = [];
 
+    /// <summary>Habillage de plaque tiré d'une fiche : nom RP, titre RP, couleur d'accent.</summary>
+    private readonly record struct NameplateStyle(string? RpName, string? RpTitle, ushort? Color);
+
     /// <summary>
-    /// Noms RP à afficher sur les nameplates (nom + monde → nom RP).
+    /// Styles de plaque par nom + monde (monde en minuscules), pour tous les
+    /// joueurs du relevé qui portent un nom RP différent du nom de personnage
+    /// ou un titre RP. Table distincte de <see cref="_availablePlayers"/>, et
+    /// non un champ de plus : le titre « Dispo RP » ne revient qu'aux joueurs
+    /// déclarés, alors que nom et titre RP valent aussi pour ceux qui ont
+    /// seulement allumé le tag « Jeu de rôle ».
     ///
-    /// Table distincte de <see cref="_availablePlayers"/> et non un champ de
-    /// plus : le titre « Dispo RP » ne revient qu'aux joueurs déclarés, alors
-    /// que le nom RP vaut aussi pour ceux qui ont seulement allumé le tag
-    /// « Jeu de rôle ». Une seule table obligerait à porter la distinction dans
-    /// la boucle de rendu, appelée à chaque frame et pour chaque plaque.
+    /// La couleur est calculée une fois par relevé et non par plaque : la
+    /// conversion vers la palette du jeu cherche le plus proche voisin, et la
+    /// boucle de rendu passe ici à chaque frame.
     /// </summary>
-    private static Dictionary<(string Name, string World), string> _nameplateRpNames = [];
+    private static Dictionary<(string Name, string World), NameplateStyle> _nameplateStyles = [];
+
+    /// <summary>Clés nom + monde (monde en minuscules) de ma liste d'amis RP, pour le marqueur de plaque.</summary>
+    private static HashSet<(string Name, string World)> _friendKeys = [];
+
+    /// <summary>
+    /// Entrées du relevé, indexées par nom + monde (monde en minuscules) et par
+    /// identifiant de personnage.
+    ///
+    /// Reconstruites à chaque relevé et remplacées d'un bloc : les lecteurs
+    /// (infobulle, menu contextuel, chat, plaques) tournent sur le thread de jeu
+    /// et voient l'ancien dictionnaire ou le nouveau, jamais un état
+    /// intermédiaire. Avant cela, chaque recherche parcourait la liste, et
+    /// l'infobulle le faisait à chaque frame.
+    /// </summary>
+    private static Dictionary<(string Name, string World), Api.RpAvailabilityEntryDto> _entriesByKey = [];
+    private static Dictionary<string, Api.RpAvailabilityEntryDto> _entriesByCharacterId = [];
+
+    /// <summary>
+    /// Instant de la dernière liste de disponibilités confirmée par le serveur
+    /// (réponse pleine ou « rien n'a changé »). Sur une panne, la liste
+    /// précédente est gardée pour les nameplates ; une position, elle, ne vaut
+    /// que cinq minutes, comme côté serveur.
+    /// </summary>
+    private static DateTime _availabilitiesReceivedAt = DateTime.MinValue;
+    private static readonly TimeSpan PositionFreshness = TimeSpan.FromMinutes(5);
+
+    /// <summary>Position exploitable : complète, et tirée d'une liste récente.</summary>
+    internal static bool HasFreshPosition(Api.RpAvailabilityEntryDto entry)
+        => entry.HasPosition && DateTime.UtcNow - _availabilitiesReceivedAt <= PositionFreshness;
 
     /// <summary>
     /// Joueurs actuellement déclarés disponibles pour du RP, tels que renvoyés
@@ -309,6 +347,15 @@ public sealed class Plugin : IDalamudPlugin
         // republiera, sans que le joueur ait à recliquer.
         CurrentCharacterAvailabilityWanted = available;
 
+        // Une fois pour toutes : le réglage est éteint par défaut, et personne
+        // ne va chercher un réglage dont il ignore l'existence.
+        if (available && !Config.SharePositionWhenAvailable && !Config.PositionHintShown)
+        {
+            Config.PositionHintShown = true;
+            Config.Save();
+            ChatGui.Print($"[Eorzea Events] {L.RpPositionHint}");
+        }
+
         if (available && !RpTagActive)
         {
             // Rien à publier tant que le tag est éteint. Le joueur est prévenu une
@@ -380,6 +427,10 @@ public sealed class Plugin : IDalamudPlugin
                 _availabilityTouchedAt    = DateTime.UtcNow;
         _syncDueNow               = true;
 
+                // Le prochain battement porte (ou retire) la position partagée
+                // sans attendre la minute.
+                _heartbeatDue = true;
+
                 if (!ok) ChatGui.PrintError($"[Eorzea Events] {L.RpAvailableFailed}");
 
                 UpdateDtrRpAvail();
@@ -416,16 +467,22 @@ public sealed class Plugin : IDalamudPlugin
     /// </summary>
     private static bool _syncDueNow;
     private bool _mainWindowWasOpen;
+    /// <summary>Témoin de connexion, pour écrire le registre à la déconnexion.</summary>
+    private bool _wasLoggedIn;
     /// <summary>Le serveur ne connaît pas la route : on retombe sur les trois appels historiques.</summary>
     private bool     _syncUnsupported;
     private const int SyncIntervalActiveSeconds = 5;
     private const int SyncIntervalZoneSeconds   = 20;
     private const int SyncIntervalIdleSeconds   = 60;
 
-    // DTR bar
-    private static IDtrBarEntry? _dtrRp;
-    private static IDtrBarEntry? _dtrEvents;
-    private static IDtrBarEntry? _dtrRpAvail;
+    // Barre de statut du serveur : une seule entrée, « EorzeaEvents », qui
+    // porte le statut de disponibilité, le compte des sessions RP ouvertes et
+    // celui des événements en cours. Trois entrées séparées prenaient trop de
+    // place et se lisaient mal ; les trois interrupteurs de réglage subsistent
+    // et masquent chacun leur morceau.
+    private static IDtrBarEntry? _dtr;
+    private static int _dtrRpCount;
+    private static int _dtrEventsCount;
 
     /// <summary>
     /// État et personnage sur lesquels l'entrée de disponibilité a été peinte.
@@ -478,6 +535,32 @@ public sealed class Plugin : IDalamudPlugin
     /// statique, alors que le compteur du battement appartient à l'instance.
     /// </summary>
     private static bool _heartbeatDue;
+
+    /// <summary>
+    /// Réclame un battement au prochain tour. Sert au partage de position : le
+    /// basculer doit se voir tout de suite, dans un sens comme dans l'autre.
+    /// </summary>
+    internal static void RequestHeartbeat() => _heartbeatDue = true;
+
+    /// <summary>
+    /// Disponibilité à republier avec la nouvelle zone. Levé au changement de
+    /// territoire, consommé dès que le joueur est lisible : à l'instant du
+    /// changement, la table d'objets est vide et rien ne pourrait partir.
+    /// </summary>
+    private static bool     _availabilityZoneRefreshDue;
+    private static DateTime _availabilityZoneRefreshAt;
+
+    // ─── Bulle d'arrivée ─────────────────────────────────────────────────────
+    //
+    // Différence entre deux relevés, sur le territoire courant. Le premier
+    // relevé après un changement de territoire amorce l'ensemble sans rien
+    // dire : arriver dans une zone pleine ne doit pas déclencher une rafale.
+
+    private static readonly HashSet<string> _arrivalKnown = [];
+    private static uint     _arrivalTerritory;
+    private static bool     _arrivalPrimed;
+    private static DateTime _lastArrivalAt = DateTime.MinValue;
+
     private const int HeartbeatIntervalSeconds = 60;
 
     // Heartbeat présence en venue (toutes les 60 s, seulement si dans un quartier résidentiel)
@@ -518,6 +601,9 @@ public sealed class Plugin : IDalamudPlugin
     public Plugin()
     {
         Config = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
+        // Un fichier retouché à la main peut porter null : la page et le
+        // registre lisent le dictionnaire à chaque frame.
+        Config.Encounters ??= [];
         if (Config.Version < 2)
         {
             Config.NotifyEventStartChat = true;
@@ -560,6 +646,8 @@ public sealed class Plugin : IDalamudPlugin
         _whatsNewWindow     = new WhatsNewWindow(Config);
         _portraitZoomWindow = new PortraitZoomWindow();
         _rpTooltipWindow    = new RpTooltipWindow();
+        _markdownEditor     = new MarkdownEditorWindow();
+        _rpWizard           = new RpProfileWizardWindow();
         _windowSystem.AddWindow(_mainWindow);
         _windowSystem.AddWindow(_sessionWindow);
         _windowSystem.AddWindow(_setupWindow);
@@ -569,6 +657,8 @@ public sealed class Plugin : IDalamudPlugin
         _windowSystem.AddWindow(_whatsNewWindow);
         _windowSystem.AddWindow(_portraitZoomWindow);
         _windowSystem.AddWindow(_rpTooltipWindow);
+        _windowSystem.AddWindow(_markdownEditor);
+        _windowSystem.AddWindow(_rpWizard);
 
         CommandManager.AddHandler(CommandMain, new CommandInfo(OnCommand)
         {
@@ -590,28 +680,18 @@ public sealed class Plugin : IDalamudPlugin
         // commande s'exécute sur le fil du jeu.
         PluginInterface.UiBuilder.Draw          += Chat.ChatTokens.FlushClipboard;
 
-        // DTR bar entries
-        _dtrRp = DtrBar.Get("EorzeaEvents_RP");
-        _dtrRp.Tooltip = new SeStringBuilder().AddText(L.DtrRpTooltip).Build();
-        _dtrRp.OnClick = _ => OpenMain();
-        _dtrRp.Shown   = Config.ShowDtrRp;
-        SetDtrRp(0);
-
-        _dtrEvents = DtrBar.Get("EorzeaEvents_Ouv");
-        _dtrEvents.Tooltip = new SeStringBuilder().AddText(L.DtrEventsTooltip).Build();
-        _dtrEvents.OnClick = _ => OpenMain();
-        _dtrEvents.Shown   = Config.ShowDtrEvents;
-        SetDtrEvents(0);
-
-        _dtrRpAvail = DtrBar.Get("EorzeaEvents_RpAvail");
-        _dtrRpAvail.Tooltip = new SeStringBuilder().AddText(L.DtrRpAvailTooltip).Build();
-        // Même chemin que le toggle de la fiche RP et des réglages, gardes et
-        // messages d'erreur compris.
-        // Le clic ne bascule que l'intention de disponibilité : c'est la seule
-        // chose que le plugin ait le droit d'écrire. L'état de jeu, lui, se règle
-        // dans le jeu avec /jdr.
-        _dtrRpAvail.OnClick = _ => SetRpAvailability(!CurrentCharacterAvailabilityWanted);
-        _dtrRpAvail.Shown = Config.ShowDtrRpAvail;
+        // Barre de statut. Clic gauche : la fenêtre. Clic droit : la
+        // disponibilité, par le même chemin que le bouton de la fiche RP et des
+        // réglages, gardes et messages d'erreur compris. Le clic ne bascule que
+        // l'intention : c'est la seule chose que le plugin ait le droit
+        // d'écrire, l'état de jeu se règle dans le jeu avec /jdr.
+        _dtr = DtrBar.Get("EorzeaEvents");
+        _dtr.OnClick = e =>
+        {
+            if (e.ClickType == MouseClickType.Right) SetRpAvailability(!CurrentCharacterAvailabilityWanted);
+            else OpenMain();
+        };
+        ApplyDtrVisibility();
         UpdateDtrRpAvail();
 
 #if DEBUG
@@ -786,6 +866,56 @@ public sealed class Plugin : IDalamudPlugin
     internal static void OpenPortraitZoom(string portraitUrl, string characterName) =>
         _portraitZoomWindow?.Open(portraitUrl, characterName);
 
+    /// <summary>
+    /// Ouvre l'éditeur de texte long sur un champ de la fiche RP.
+    ///
+    /// <paramref name="apply"/> reçoit le texte validé. Fermer la fenêtre sans
+    /// valider ne rappelle rien : abandonner une réécriture doit rester possible.
+    /// </summary>
+    internal static void OpenMarkdownEditor(string title, string text, int maxLength,
+                                            Action<string> apply) =>
+        _markdownEditor?.Open(title, text, maxLength, apply);
+
+    /// <summary>
+    /// Referme l'éditeur de texte long sans rien appliquer.
+    ///
+    /// Appelé quand la fiche affichée change : le texte ouvert décrit alors une
+    /// fiche qui n'est plus à l'écran, et le laisser ouvert inviterait à valider
+    /// dans le vide.
+    /// </summary>
+    internal static void CancelMarkdownEditor() => _markdownEditor?.Cancel();
+
+    /// <summary>
+    /// Ouvre l'assistant de création de fiche RP.
+    ///
+    /// <paramref name="created"/> reçoit l'identifiant de la fiche créée, pour
+    /// que la page l'ouvre aussitôt. Abandonner l'assistant ne le rappelle pas.
+    /// </summary>
+    internal static void OpenRpProfileWizard(Action<string> created) =>
+        _rpWizard?.Open(created);
+
+    /// <summary>
+    /// Pose un drapeau de carte sur la position partagée d'un joueur. Même
+    /// mécanisme que « Voir sur la carte » d'une session : un lien de carte,
+    /// dont le jeu tire la carte et le drapeau.
+    /// </summary>
+    internal static void OpenOnMap(Api.RpAvailabilityEntryDto entry)
+    {
+        if (!HasFreshPosition(entry)) return;
+
+        var link    = SeString.CreateMapLink((uint)entry.TerritoryId!.Value, entry.MapId!.Value,
+                                             entry.PosX!.Value, entry.PosZ!.Value);
+        var payload = link.Payloads.OfType<MapLinkPayload>().FirstOrDefault();
+        if (payload != null) GameGui.OpenMapWithMapLink(payload);
+    }
+
+    /// <summary>Ouvre la page « Rencontres » sur la note privée d'un personnage.</summary>
+    internal static void OpenEncounterNote(string characterId)
+    {
+        if (IsBlocked) { OpenMain(); return; }
+        _mainWindow?.FocusEncounterNote(characterId);
+    }
+
     internal static void OpenSetup(bool tokenInvalid = false, bool migration = false)
     {
         if (IsBlocked)
@@ -809,11 +939,15 @@ public sealed class Plugin : IDalamudPlugin
         _sessionWindow.IsOpen = true;
     }
 
+    /// <summary>
+    /// L'entrée reste tant qu'un de ses trois morceaux est demandé : le nom seul,
+    /// sans rien derrière, n'aurait plus rien à dire.
+    /// </summary>
     internal static void ApplyDtrVisibility()
     {
-        if (_dtrRp      != null) _dtrRp.Shown      = Config.ShowDtrRp;
-        if (_dtrEvents  != null) _dtrEvents.Shown  = Config.ShowDtrEvents;
-        if (_dtrRpAvail != null) _dtrRpAvail.Shown = Config.ShowDtrRpAvail;
+        if (_dtr == null) return;
+        _dtr.Shown = Config.ShowDtrRp || Config.ShowDtrEvents || Config.ShowDtrRpAvail;
+        UpdateDtr();
     }
 
     /// <summary>
@@ -827,41 +961,72 @@ public sealed class Plugin : IDalamudPlugin
     /// </summary>
     internal static void UpdateDtrRpAvail()
     {
-        if (_dtrRpAvail == null) return;
+        _dtrRpAvailState     = (CurrentCharacterAvailabilityWanted, RpTagActive);
+        _dtrRpAvailCharacter = CurrentCharacter;
+        UpdateDtr();
+    }
+
+    /// <summary>
+    /// Repeint l'entrée de la barre : « ● EorzeaEvents Ⓡ 2 Ⓔ 3 ».
+    ///
+    /// Icônes de la police du jeu plutôt que des symboles Unicode : celles-ci
+    /// sont garanties présentes, là où un caractère exotique sort en « = ».
+    /// Elles reprennent en prime la convention du jeu, où le rond vaut oui et la
+    /// croix non, et l'horloge dit l'attente sans avoir à lire un libellé. Les
+    /// lettres encadrées tiennent lieu d'étiquette aux deux compteurs ; le
+    /// détail en clair est dans l'infobulle.
+    /// </summary>
+    private static void UpdateDtr()
+    {
+        if (_dtr == null) return;
 
         var wanted = CurrentCharacterAvailabilityWanted;
         var tag    = RpTagActive;
         var sb     = new SeStringBuilder();
 
-        // Icônes de la police du jeu plutôt que des symboles Unicode : celles-ci
-        // sont garanties présentes, là où un caractère exotique sort en « = ».
-        // Elles reprennent en prime la convention du jeu, où le rond vaut oui et
-        // la croix non, et l'horloge dit l'attente sans avoir à lire le libellé.
-        if (wanted && tag)
+        if (Config.ShowDtrRpAvail)
         {
-            sb.AddUiGlow(52);
-            sb.AddText($"{(char)SeIconChar.Circle} ");
-            sb.AddText(L.DtrRpAvailLabel);
-        }
-        else if (wanted)
-        {
-            sb.AddUiGlow(GlowIdle);
-            sb.AddText($"{(char)SeIconChar.Clock} ");
-            sb.AddText(L.DtrRpAvailPausedLabel);
-        }
-        else
-        {
-            sb.AddUiGlow(GlowIdle);
-            sb.AddText($"{(char)SeIconChar.Cross} ");
-            sb.AddText(L.DtrRpAvailLabel);
+            var (glyph, glow) = (wanted, tag) switch
+            {
+                (true,  true)  => (SeIconChar.Circle, (ushort)52),
+                (true,  false) => (SeIconChar.Clock,  GlowIdle),
+                _              => (SeIconChar.Cross,  GlowIdle),
+            };
+            sb.AddUiGlow(glow);
+            sb.AddText($"{(char)glyph} ");
+            sb.AddUiGlowOff();
         }
 
+        sb.AddText("EorzeaEvents");
+
+        if (Config.ShowDtrRp)     AddCounter(sb, SeIconChar.BoxedLetterR, _dtrRpCount);
+        if (Config.ShowDtrEvents) AddCounter(sb, SeIconChar.BoxedLetterE, _dtrEventsCount);
+
+        _dtr.Text = sb.Build();
+
+        var tip = new SeStringBuilder();
+        if (Config.ShowDtrRp)     tip.AddText(string.Format(L.DtrTipSessions, _dtrRpCount) + "\n");
+        if (Config.ShowDtrEvents) tip.AddText(string.Format(L.DtrTipEvents, _dtrEventsCount) + "\n");
+        if (Config.ShowDtrRpAvail)
+        {
+            var status = (wanted, tag) switch
+            {
+                (true,  true)  => L.DtrTipAvailable,
+                (true,  false) => L.DtrTipAvailablePaused,
+                _              => L.DtrTipUnavailable,
+            };
+            tip.AddText(status + "\n");
+        }
+        tip.AddText(L.DtrTipClicks);
+        _dtr.Tooltip = tip.Build();
+    }
+
+    private static void AddCounter(SeStringBuilder sb, SeIconChar letter, int count)
+    {
+        sb.AddText($"  {(char)letter} ");
+        sb.AddUiGlow(count > 0 ? GlowActive : GlowIdle);
+        sb.AddText(count.ToString());
         sb.AddUiGlowOff();
-
-        _dtrRpAvail.Text = sb.Build();
-
-        _dtrRpAvailState     = (wanted, tag);
-        _dtrRpAvailCharacter = CurrentCharacter;
     }
 
     /// <summary>État de jeu du personnage courant, tel que le cache local le connaît.</summary>
@@ -1156,6 +1321,7 @@ public sealed class Plugin : IDalamudPlugin
             await Framework.RunOnFrameworkThread(() =>
             {
                 Friends       = friends;
+                _friendKeys   = [.. friends.Select(f => (f.Name, f.WorldName.ToLowerInvariant()))];
                 _friendIds    = [.. friends.Select(f => f.CharacterId)];
                 _friendHashes = [.. friends
                     .Select(f => f.ContentIdHash)
@@ -1429,26 +1595,18 @@ public sealed class Plugin : IDalamudPlugin
     private const ushort GlowActive = 32;  // bleu
     private const ushort GlowIdle   = 17;  // jaune
 
-    private void SetDtrRp(int count)
+    private static void SetDtrRp(int count)
     {
-        if (_dtrRp == null) return;
-        var sb = new SeStringBuilder();
-        sb.AddText($"{L.DtrRpLabel}: ");
-        sb.AddUiGlow(count > 0 ? GlowActive : GlowIdle);
-        sb.AddText(count.ToString());
-        sb.AddUiGlowOff();
-        _dtrRp.Text = sb.Build();
+        if (_dtrRpCount == count) return;
+        _dtrRpCount = count;
+        UpdateDtr();
     }
 
-    private void SetDtrEvents(int count)
+    private static void SetDtrEvents(int count)
     {
-        if (_dtrEvents == null) return;
-        var sb = new SeStringBuilder();
-        sb.AddText($"{L.DtrEventsLabel}: ");
-        sb.AddUiGlow(count > 0 ? GlowActive : GlowIdle);
-        sb.AddText(count.ToString());
-        sb.AddUiGlowOff();
-        _dtrEvents.Text = sb.Build();
+        if (_dtrEventsCount == count) return;
+        _dtrEventsCount = count;
+        UpdateDtr();
     }
 
     // ─── Polling ──────────────────────────────────────────────────────────────────
@@ -1462,6 +1620,13 @@ public sealed class Plugin : IDalamudPlugin
             _lastVersionCheck = now;
             Task.Run(async () => await CheckMinimumVersionAsync());
         }
+
+        // Registre des rencontres : écriture différée, et immédiate à la
+        // déconnexion, pour ne pas perdre la soirée sur un plantage du jeu.
+        var loggedIn = ClientState.IsLoggedIn;
+        if (_wasLoggedIn && !loggedIn) EncounterRegistry.FlushIfDue(now, force: true);
+        _wasLoggedIn = loggedIn;
+        EncounterRegistry.FlushIfDue(now);
 
         if (IsBlocked)
         {
@@ -1536,6 +1701,18 @@ public sealed class Plugin : IDalamudPlugin
             // que le joueur n'a pas retirée.
             var rpTag     = ObjectTable.LocalPlayer != null ? RpTagActive : (bool?)null;
             var zone      = CurrentZone;
+
+            // Position partagée : seulement si le joueur l'a demandé, qu'il est
+            // déclaré disponible, tag allumé, et lisible en jeu. Sinon les
+            // champs partent nuls, ce qui efface la position côté serveur.
+            var sharePos  = Config.SharePositionWhenAvailable
+                         && CurrentCharacterAvailable
+                         && RpTagActive
+                         && ObjectTable.LocalPlayer != null;
+            var coords    = sharePos ? GetHeartbeatMapCoords() : null;
+            var mapId     = sharePos && ClientState.MapId > 0 ? ClientState.MapId : (uint?)null;
+            var instance  = sharePos ? GetPublicInstanceId() : null;
+
             Task.Run(async () =>
             {
                 await Api.HeartbeatAsync(
@@ -1548,7 +1725,11 @@ public sealed class Plugin : IDalamudPlugin
                     characterName: !string.IsNullOrWhiteSpace(charName) ? charName : null,
                     contentId:     contentId != 0 ? contentId.ToString() : null,
                     rpTag:         rpTag,
-                    zone:          !string.IsNullOrWhiteSpace(zone) ? zone : null);
+                    zone:          !string.IsNullOrWhiteSpace(zone) ? zone : null,
+                    posX:          coords?.x,
+                    posZ:          coords?.y,
+                    mapId:         mapId,
+                    instanceId:    instance);
             });
         }
 
@@ -1609,6 +1790,22 @@ public sealed class Plugin : IDalamudPlugin
         }
 
         SyncRpAvailabilityDisplay(now);
+
+        // Republication de la zone après un changement de territoire, une fois
+        // le personnage lisible et le tag relu. Le tag n'est relu qu'en fin de
+        // tour, après ce bloc : exiger qu'il soit connu repousse la consommation
+        // d'une frame, sans quoi un chargement de zone de plus de trois secondes
+        // consommerait le drapeau avec un tag lu comme éteint, et la zone
+        // resterait celle d'avant le téléport. Effet connu et accepté : le POST
+        // remet la date de déclaration à l'instant, ce qui remonte le joueur en
+        // tête d'une liste triée par ancienneté.
+        if (_availabilityZoneRefreshDue && now >= _availabilityZoneRefreshAt
+            && _rpTagActive.HasValue && ObjectTable.LocalPlayer != null)
+        {
+            _availabilityZoneRefreshDue = false;
+            if (CurrentCharacterAvailable && RpTagActive && Api.HasToken)
+                PublishRpAvailability(true);
+        }
 
         // Après la connexion, au premier passage où le personnage est lisible.
         CheckAskOnLogin();
@@ -1704,7 +1901,15 @@ public sealed class Plugin : IDalamudPlugin
             }
 
             _syncETag = result.ETag;
-            if (result.NotModified || result.Data is not { } data) return;
+            if (result.NotModified)
+            {
+                // Un 304 confirme la liste, positions comprises : le serveur
+                // cesserait de les servir, et la réponse changerait, si elles
+                // avaient expiré.
+                _availabilitiesReceivedAt = DateTime.UtcNow;
+                return;
+            }
+            if (result.Data is not { } data) return;
 
             ProcessSessions(data.Sessions, currentWorld);
             ProcessEvents(data.Events);
@@ -2082,12 +2287,24 @@ public sealed class Plugin : IDalamudPlugin
     /// <summary>Applique une liste de disponibilités déjà reçue (voir ProcessSessions).</summary>
     private static void ApplyAvailabilities(List<RpAvailabilityEntryDto> entries)
     {
+        _availabilitiesReceivedAt = DateTime.UtcNow;
         try
         {
             // La liste brute est conservée : les nameplates n'ont besoin que du
             // niveau et du mode d'approche, mais la page « Autour de moi » et le
             // menu contextuel veulent la fiche entière.
             AvailableEntries = entries;
+
+            // GroupBy plutôt que ToDictionary, pour la raison donnée plus bas :
+            // deux homonymes sur un même monde ne doivent pas vider la liste.
+            _entriesByKey = entries
+                .GroupBy(e => (e.CharacterName, e.Server.ToLowerInvariant()))
+                .ToDictionary(g => g.Key, g => g.First());
+
+            _entriesByCharacterId = entries
+                .Where(e => e.Profile?.CharacterId is { Length: > 0 })
+                .GroupBy(e => e.Profile!.CharacterId!)
+                .ToDictionary(g => g.Key, g => g.First());
 
             // Les seuls déclarés : depuis que le relevé rapporte aussi les joueurs
             // au tag « Jeu de rôle », prendre la liste entière collait un titre
@@ -2106,25 +2323,117 @@ public sealed class Plugin : IDalamudPlugin
                     g => g.Key,
                     g => (g.First().Profile?.RpLevel, g.First().Profile?.ApproachMode));
 
-            // Les noms RP, eux, prennent la liste entière : allumer le tag dit
-            // « je joue mon personnage », et c'est précisément le moment où le
+            // Nom RP, titre RP et couleur, pour la liste entière : allumer le tag
+            // dit « je joue mon personnage », et c'est précisément le moment où le
             // nom sous lequel on le joue a lieu d'être lu.
             //
-            // Un nom RP identique au nom de personnage n'entre pas dans la
-            // table : le rendu n'aurait rien à substituer, et la plaque serait
-            // reconstruite pour rien à chaque frame.
-            _nameplateRpNames = entries
-                .Select(e => (Name:   e.CharacterName,
-                              World:  e.Server.ToLowerInvariant(),
-                              RpName: e.Profile?.RpName?.Trim()))
-                .Where(e => e.RpName is { Length: > 0 }
-                         && !string.Equals(e.RpName, e.Name, StringComparison.Ordinal))
-                .GroupBy(e => (e.Name, e.World))
-                .ToDictionary(g => g.Key, g => g.First().RpName!);
+            // Un nom RP identique au nom de personnage ne compte pas : le rendu
+            // n'aurait rien à substituer. Une fiche sans nom RP ni titre n'entre
+            // pas dans la table, sa plaque reste celle du jeu.
+            _nameplateStyles = entries
+                .Where(e => e.Profile != null)
+                .Select(e =>
+                {
+                    var p      = e.Profile!;
+                    var rpName = p.RpName?.Trim();
+                    if (string.IsNullOrEmpty(rpName)
+                        || string.Equals(rpName, e.CharacterName, StringComparison.Ordinal))
+                        rpName = null;
+
+                    var title = p.RpTitle?.Trim();
+                    if (string.IsNullOrEmpty(title)) title = null;
+
+                    ushort? color = Ui.Theme.TryParseHex(p.AccentColor) is { } parsed
+                        ? Chat.ChatPalette.Nearest(Ui.Theme.EnsureReadable(parsed))
+                        : null;
+
+                    return (Key: (e.CharacterName, e.Server.ToLowerInvariant()),
+                            Style: new NameplateStyle(rpName, title, color));
+                })
+                .Where(x => x.Style.RpName != null || x.Style.RpTitle != null)
+                .GroupBy(x => x.Key)
+                .ToDictionary(g => g.Key, g => g.First().Style);
 
             _availabilityListAt = DateTime.UtcNow;
+
+            // Sur le thread de jeu : le territoire et le monde courant ne se
+            // lisent que là, et la notification aussi.
+            _ = Framework.RunOnFrameworkThread(CheckArrivals);
         }
         catch { /* silencieux */ }
+    }
+
+    /// <summary>
+    /// Signale les joueurs déclarés disponibles qui viennent d'entrer dans ma
+    /// zone. Une bulle par demi-minute au plus : plusieurs arrivées dans un même
+    /// relevé sont regroupées, et une arrivée pendant la pause est marquée
+    /// connue sans bulle, plutôt que d'attendre pour la dire en retard.
+    /// </summary>
+    private static void CheckArrivals()
+    {
+        try
+        {
+            if (!Config.NotifyRpArrival || !ClientState.IsLoggedIn || ObjectTable.LocalPlayer == null) return;
+
+            var territory = ClientState.TerritoryType;
+            var myWorld   = CurrentWorldName();
+            var homeWorld = HomeWorldName();
+            var self      = CurrentCharacter;
+
+            var here = new List<Api.RpAvailabilityEntryDto>();
+            foreach (var entry in AvailableEntries)
+            {
+                if (entry.Source is "rp_tag") continue;
+                if (entry.Profile?.CharacterId is not { Length: > 0 }) continue;
+                if (self is { } me
+                    && string.Equals(entry.CharacterName, me.Name, StringComparison.Ordinal)
+                    && string.Equals(entry.Server, homeWorld, StringComparison.OrdinalIgnoreCase)) continue;
+                if (IsInMyZone(entry, myWorld, territory)) here.Add(entry);
+            }
+
+            if (!_arrivalPrimed || _arrivalTerritory != territory)
+            {
+                _arrivalKnown.Clear();
+                foreach (var e in here) _arrivalKnown.Add(e.Profile!.CharacterId!);
+                _arrivalTerritory = territory;
+                _arrivalPrimed    = true;
+                return;
+            }
+
+            // Add renvoie vrai pour un identifiant nouveau : il marque et détecte
+            // d'un même geste.
+            var fresh = here.Where(e => _arrivalKnown.Add(e.Profile!.CharacterId!)).ToList();
+            if (fresh.Count == 0) return;
+
+            var now = DateTime.UtcNow;
+            if (now - _lastArrivalAt < TimeSpan.FromSeconds(30)) return;
+            _lastArrivalAt = now;
+
+            var zone = CurrentZone ?? string.Empty;
+            var content = fresh.Count == 1
+                ? string.Format(L.NotifRpArrivalOne,
+                                fresh[0].Profile?.RpName is { Length: > 0 } rp ? rp : fresh[0].CharacterName,
+                                zone)
+                : string.Format(L.NotifRpArrivalMany, fresh.Count, zone);
+
+            var active = NotificationMgr.AddNotification(new Notification
+            {
+                Title           = L.NotifRpArrivalTitle,
+                Content         = content,
+                Type            = NotificationType.Info,
+                InitialDuration = TimeSpan.FromSeconds(6),
+            });
+
+            active.Click += _ =>
+            {
+                _mainWindow?.OpenAt("around");
+                active.DismissNow();
+            };
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "[EorzeaEvents] Bulle d'arrivée impossible.");
+        }
     }
 
     /// <summary>
@@ -2137,10 +2446,66 @@ public sealed class Plugin : IDalamudPlugin
     internal static Api.RpAvailabilityEntryDto? FindAvailableEntry(string? name, string? world)
     {
         if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(world)) return null;
+        return _entriesByKey.TryGetValue((name, world.ToLowerInvariant()), out var entry) ? entry : null;
+    }
 
-        return AvailableEntries.FirstOrDefault(e =>
-            string.Equals(e.CharacterName, name, StringComparison.Ordinal)
-            && string.Equals(e.Server, world, StringComparison.OrdinalIgnoreCase));
+    /// <summary>Entrée du relevé pour un identifiant de personnage, ou null.</summary>
+    internal static Api.RpAvailabilityEntryDto? FindAvailableEntryByCharacterId(string? characterId) =>
+        characterId is { Length: > 0 } id && _entriesByCharacterId.TryGetValue(id, out var entry)
+            ? entry
+            : null;
+
+    /// <summary>
+    /// Le joueur est-il dans ma zone ? Même territoire, et soit même monde
+    /// courant, soit aperçu à portée de vue depuis moins de cinq minutes. Un
+    /// visiteur d'un autre monde jamais aperçu est exclu : rien ne le distingue
+    /// d'un homonyme de zone resté sur son serveur.
+    ///
+    /// Monde et territoire sont passés par l'appelant, qui les lit une fois par
+    /// frame : chacun interroge la table d'objets.
+    /// </summary>
+    internal static bool IsInMyZone(Api.RpAvailabilityEntryDto entry, string? myWorld, uint territory)
+    {
+        if (territory == 0 || entry.TerritoryId is not { } zone || zone != (int)territory) return false;
+        if (myWorld != null && string.Equals(entry.Server, myWorld, StringComparison.OrdinalIgnoreCase)) return true;
+        return EncounterRegistry.SightedWithin(entry.Profile?.CharacterId, TimeSpan.FromMinutes(5));
+    }
+
+    // Personnages joueurs chargés dans la table d'objets, par nom + monde
+    // d'origine en minuscules, la clé de _entriesByKey. Rebâti au plus une fois
+    // par seconde : « Autour de moi » le consulte à chaque frame, et la table
+    // compte plusieurs centaines d'emplacements.
+    private static readonly HashSet<(string Name, string World)> _visibleKeys = [];
+    private static DateTime _visibleKeysAt = DateTime.MinValue;
+    private static readonly TimeSpan VisibleKeysRefresh = TimeSpan.FromSeconds(1);
+
+    /// <summary>
+    /// Le joueur est-il à portée de vue ? C'est-à-dire chargé dans la table
+    /// d'objets, ce qui vaut « à quelques dizaines de mètres », plaque affichée
+    /// ou non. Plus précis que le registre des rencontres, qui n'enregistre un
+    /// aperçu qu'une fois par minute et seulement pour un personnage à fiche.
+    ///
+    /// Thread de jeu seulement, comme tout ce qui lit la table d'objets.
+    /// </summary>
+    internal static bool IsVisible(Api.RpAvailabilityEntryDto entry)
+    {
+        var now = DateTime.UtcNow;
+        if (now - _visibleKeysAt >= VisibleKeysRefresh)
+        {
+            _visibleKeysAt = now;
+            _visibleKeys.Clear();
+            try
+            {
+                var selfId = ObjectTable.LocalPlayer?.GameObjectId;
+                foreach (var obj in ObjectTable)
+                {
+                    if (obj is not IPlayerCharacter pc || pc.GameObjectId == selfId) continue;
+                    _visibleKeys.Add((pc.Name.TextValue, pc.HomeWorld.Value.Name.ToString().ToLowerInvariant()));
+                }
+            }
+            catch (InvalidOperationException) { /* hors du thread de jeu : personne de visible */ }
+        }
+        return _visibleKeys.Contains((entry.CharacterName, entry.Server.ToLowerInvariant()));
     }
 
     /// <summary>
@@ -2227,6 +2592,41 @@ public sealed class Plugin : IDalamudPlugin
                 PrefixColor = 52, // même teinte que le titre de nameplate
                 OnClicked   = _ => OpenRpProfileViewer(entry),
             });
+
+            if (HasFreshPosition(entry))
+            {
+                var located = entry;
+                args.AddMenuItem(new MenuItem
+                {
+                    Name        = L.AroundFindOnMap,
+                    PrefixChar  = 'E',
+                    PrefixColor = 52,
+                    OnClicked   = _ => OpenOnMap(located),
+                });
+            }
+
+            // Ni sur soi, ni quand il n'y aura rien à annoter : registre coupé
+            // et personnage jamais rencontré, la page s'ouvrirait sur du vide.
+            if (entry.Profile?.CharacterId is { Length: > 0 } noteTarget
+                && !EncounterRegistry.IsMine(noteTarget, target.TargetName,
+                                             target.TargetHomeWorld.Value.Name.ToString())
+                && (Config.EncountersEnabled || EncounterRegistry.Get(noteTarget) != null))
+            {
+                var noteName  = target.TargetName;
+                var noteWorld = target.TargetHomeWorld.Value.Name.ToString();
+                var noteEntry = entry;
+                args.AddMenuItem(new MenuItem
+                {
+                    Name        = L.RpFriendNote,
+                    PrefixChar  = 'E',
+                    PrefixColor = 52,
+                    OnClicked   = _ =>
+                    {
+                        EncounterRegistry.RecordNoteGesture(noteTarget, noteName, noteWorld, noteEntry);
+                        OpenEncounterNote(noteTarget);
+                    },
+                });
+            }
         }
 
         // Ajout en ami : contrairement à la consultation, il ne demande pas que
@@ -2256,12 +2656,20 @@ public sealed class Plugin : IDalamudPlugin
         INamePlateUpdateContext context,
         IReadOnlyList<INamePlateUpdateHandler> handlers)
     {
-        // Deux traitements indépendants, chacun avec son interrupteur et sa
-        // table : le titre aux seuls joueurs déclarés, le nom RP à tous ceux qui
-        // en portent un. Rien à faire si les deux sont hors course.
-        var wantTitle = Config.ShowRpAvailableIndicator && _availablePlayers.Count > 0;
-        var wantName  = Config.NameplateRpNames         && _nameplateRpNames.Count > 0;
-        if (!wantTitle && !wantName) return;
+        // Quatre traitements indépendants, chacun avec son interrupteur : le
+        // titre « Dispo RP » aux seuls déclarés, le nom RP et sa couleur, le
+        // titre RP, le marqueur d'ami. Plus l'aperçu du registre des rencontres,
+        // qui ne demande que des entrées.
+        var wantTitle   = Config.ShowRpAvailableIndicator && _availablePlayers.Count > 0;
+        var wantName    = Config.NameplateRpNames         && _nameplateStyles.Count > 0;
+        var wantRpTitle = Config.NameplateRpTitles        && _nameplateStyles.Count > 0;
+        var wantFriend  = Config.NameplateFriendMarker    && _friendKeys.Count > 0;
+        var wantColor   = Config.NameplateRpNameColor;
+        if (!wantTitle && !wantName && !wantRpTitle && !wantFriend && _entriesByKey.Count == 0) return;
+
+        // Sa propre plaque passe ici comme les autres : elle ne compte pas
+        // comme une rencontre.
+        var selfId = ObjectTable.LocalPlayer?.GameObjectId;
 
         foreach (var handler in handlers)
         {
@@ -2272,35 +2680,67 @@ public sealed class Plugin : IDalamudPlugin
 
             var name  = character.Name.TextValue;
             var world = character.HomeWorld.Value.Name.ToString().ToLowerInvariant();
+            var key   = (name, world);
             var l     = Plugin.L;
 
-            // Le nom seulement : le lien de joueur porté par la plaque n'est pas
-            // touché, le clic droit continue donc de viser le vrai personnage,
-            // et le menu contextuel de s'ouvrir sur son nom réel.
-            if (wantName && _nameplateRpNames.TryGetValue((name, world), out var rpName))
-                handler.NameParts.Text = new SeStringBuilder().AddText(rpName).Build();
+            // Aperçu à portée de vue : le personnage est dans la table d'objets.
+            if (character.GameObjectId != selfId && _entriesByKey.TryGetValue(key, out var seen))
+                EncounterRegistry.RecordSighting(seen, CurrentZone);
 
-            if (!wantTitle) continue;
-            if (!_availablePlayers.TryGetValue((name, world), out var data)) continue;
+            _nameplateStyles.TryGetValue(key, out var style);
+            var isFriend = wantFriend && _friendKeys.Contains(key);
 
-            // Genre : Customize[1] → 0 = masculin, 1 = féminin
-            var isFemale = character.Customize[1] != 0;
+            // Nom. Le lien de joueur porté par la plaque n'est pas touché : le
+            // clic droit continue de viser le vrai personnage.
+            var shownName = wantName ? style.RpName : null;
+            if (isFriend) shownName = $"{(char)SeIconChar.LinkMarker} {shownName ?? name}";
 
-            var qualifier = data.ApproachMode switch
+            if (shownName != null)
             {
-                "come_to_me" => " - " + l.RpNameplateTimide,
-                "i_approach" => " - " + (isFemale ? l.RpNameplateExtravertie : l.RpNameplateExtraverti),
-                _            => string.Empty,
-            };
+                handler.NameParts.Text = new SeStringBuilder().AddText(shownName).Build();
 
-            handler.TitleParts.Text = new SeStringBuilder()
-                .AddText(l.RpNameplateBase + qualifier)
-                .Build();
-            handler.TitleParts.TextWrap = (
-                new SeStringBuilder().AddUiForeground(52).Build(),
-                new SeStringBuilder().AddUiForegroundOff().Build());
-            handler.DisplayTitle  = true;
-            handler.IsPrefixTitle = false;
+                // La couleur n'accompagne qu'un nom RP : un nom réel garde la
+                // teinte du jeu, et la couleur dit à elle seule « nom de personnage ».
+                if (wantColor && wantName && style.RpName != null && style.Color is { } color)
+                    handler.NameParts.TextWrap = (
+                        new SeStringBuilder().AddUiForeground(color).Build(),
+                        new SeStringBuilder().AddUiForegroundOff().Build());
+            }
+
+            // Titre. « Dispo RP » d'abord : c'est l'information qui décide d'un
+            // abord, le titre RP ne s'affiche que faute de mieux.
+            if (wantTitle && _availablePlayers.TryGetValue(key, out var data))
+            {
+                // Genre : Customize[1] → 0 = masculin, 1 = féminin
+                var isFemale = character.Customize[1] != 0;
+
+                var qualifier = data.ApproachMode switch
+                {
+                    "come_to_me" => " - " + l.RpNameplateTimide,
+                    "i_approach" => " - " + (isFemale ? l.RpNameplateExtravertie : l.RpNameplateExtraverti),
+                    _            => string.Empty,
+                };
+
+                handler.TitleParts.Text = new SeStringBuilder()
+                    .AddText(l.RpNameplateBase + qualifier)
+                    .Build();
+                handler.TitleParts.TextWrap = (
+                    new SeStringBuilder().AddUiForeground(52).Build(),
+                    new SeStringBuilder().AddUiForegroundOff().Build());
+                handler.DisplayTitle  = true;
+                handler.IsPrefixTitle = false;
+                continue;
+            }
+
+            if (wantRpTitle && style.RpTitle is { } rpTitle)
+            {
+                handler.TitleParts.Text = new SeStringBuilder().AddText(rpTitle).Build();
+                handler.TitleParts.TextWrap = (
+                    new SeStringBuilder().AddUiForeground(style.Color ?? (ushort)52).Build(),
+                    new SeStringBuilder().AddUiForegroundOff().Build());
+                handler.DisplayTitle  = true;
+                handler.IsPrefixTitle = false;
+            }
         }
     }
 
@@ -2457,6 +2897,14 @@ public sealed class Plugin : IDalamudPlugin
     {
         CurrentZone = ResolveTerritoryName(territory);
 
+        // La zone d'un déclaré n'était écrite qu'à la déclaration : après un
+        // téléport, la liste le montrait encore là où il n'était plus.
+        _availabilityZoneRefreshDue = true;
+        _availabilityZoneRefreshAt  = DateTime.UtcNow.AddSeconds(3);
+
+        _arrivalKnown.Clear();
+        _arrivalPrimed = false;
+
         if (Config.AlertOnZoneChange && _sessionWindow is { HasActiveSession: true })
         {
             _sessionWindow.OnZoneChanged();
@@ -2477,9 +2925,7 @@ public sealed class Plugin : IDalamudPlugin
         PluginInterface.UiBuilder.OpenConfigUi -= OpenConfig;
         PluginInterface.UiBuilder.OpenMainUi   -= OpenMain;
         CommandManager.RemoveHandler(CommandMain);
-        _dtrRp?.Remove();
-        _dtrEvents?.Remove();
-        _dtrRpAvail?.Remove();
+        _dtr?.Remove();
 
         // Après le retrait de UiBuilder.Draw : plus aucune frame ne peut
         // référencer l'atlas ni les textures pendant leur libération.
@@ -2493,6 +2939,7 @@ public sealed class Plugin : IDalamudPlugin
         Ui.Fonts.Dispose();
         Ui.Textures.Dispose();
 
+        EncounterRegistry.FlushIfDue(DateTime.UtcNow, force: true);
         Api.Dispose();
     }
 

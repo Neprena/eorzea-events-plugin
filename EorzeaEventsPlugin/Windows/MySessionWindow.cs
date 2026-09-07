@@ -357,14 +357,28 @@ public class MySessionWindow : ThemedWindow
         var l = Plugin.L;
         if (_activeSession == null) return;
         _busy = true; _statusMsg = string.Empty;
-        var id = _activeSession.Id;
+        var id       = _activeSession.Id;
+        var previous = _activeSession.ExpiresAt;
         Task.Run(async () =>
         {
             try
             {
-                var updated = await Plugin.Api.UpdateSessionAsync(id, new UpdateSessionRequest { Duration = hours });
-                if (updated != null) { _activeSession = updated; _expiryDismissed = false; ShowSuccess(string.Format(l.StatusExtended, hours)); }
-                else ShowError(l.ErrExtend);
+                var updated = await Plugin.Api.UpdateSessionAsync(id, new UpdateSessionRequest { ExtendHours = hours });
+                if (updated == null) { ShowError(l.ErrExtend); return; }
+
+                // La session renvoyée est la vérité, qu'elle ait bougé ou non.
+                _activeSession = updated;
+
+                // Expiration inchangée : serveur antérieur au champ, ou plafond
+                // de huit heures déjà atteint. Annoncer « prolongée » mentirait.
+                if (string.Equals(updated.ExpiresAt, previous, StringComparison.Ordinal))
+                {
+                    ShowError(l.ErrExtend);
+                    return;
+                }
+
+                _expiryDismissed = false;
+                ShowSuccess(string.Format(l.StatusExtended, hours));
             }
             catch (Exception ex) { ShowError(ex.Message); }
             finally { _busy = false; }

@@ -261,13 +261,15 @@ internal sealed class Loc
     public required string NotifNewRpChat       { get; init; }   // {0}=title {1}=loc {2}=server
     public required string NotifEventStartScreen { get; init; }  // {0}=title {1}=establishment
     public required string NotifEventStartChat  { get; init; }   // {0}=details
-    public required string DtrRpTooltip         { get; init; }
-    public required string DtrEventsTooltip     { get; init; }
-    public required string DtrRpAvailTooltip    { get; init; }
-    public required string DtrRpAvailLabel      { get; init; }
-    public required string DtrRpAvailPausedLabel { get; init; }
-    public required string DtrRpLabel           { get; init; }
-    public required string DtrEventsLabel       { get; init; }
+    // Infobulle de l'entrée « EorzeaEvents » de la barre de statut, une ligne
+    // par morceau affiché, puis l'aide sur les clics.
+    public required string DtrTipSessions       { get; init; }   // {0} = nombre
+    public required string DtrTipEvents         { get; init; }   // {0} = nombre
+    public required string DtrTipAvailable      { get; init; }
+    public required string DtrTipAvailablePaused { get; init; }
+    public required string DtrTipUnavailable    { get; init; }
+    public required string DtrTipClicks         { get; init; }
+    public required string CfgDtrHint           { get; init; }
     public required string CfgDtrRpAvail        { get; init; }
     public required string PlayersOnline        { get; init; }   // {0} = count
     public required string MoreInfo             { get; init; }
@@ -338,6 +340,41 @@ internal sealed class Loc
     public required string RpProfilePreferences   { get; init; }
     public required string RpProfileThemes        { get; init; }
     public required string RpProfileAvoidThemes   { get; init; }
+    /// <summary>Titre de la carte qui porte les deux listes de thèmes.</summary>
+    public required string RpProfileThemesSection { get; init; }
+    /// <summary>Entrée vide d'une liste déroulante facultative.</summary>
+    public required string RpProfileUnset         { get; init; }
+
+    // Fenêtre d'édition des textes longs, en Markdown comme sur le site.
+    public required string MdEditorHint     { get; init; }
+    public required string MdEditorEmpty    { get; init; }
+    public required string MdEditorApply    { get; init; }
+    public required string MdEditorCancel   { get; init; }
+    public required string MdEditorUnsaved  { get; init; }
+    public required string MdEditorBold     { get; init; }
+    public required string MdEditorItalic   { get; init; }
+    public required string MdEditorHeading  { get; init; }
+    public required string MdEditorList     { get; init; }
+    public required string MdEditorQuote    { get; init; }
+    public required string MdEditorHelp     { get; init; }
+    public required string MdEditorHelpBody { get; init; }
+    // Exemples insérés dans le texte du joueur : dans sa langue, donc.
+    public required string MdSampleBold    { get; init; }
+    public required string MdSampleItalic  { get; init; }
+    public required string MdSampleHeading { get; init; }
+    public required string MdSampleItem1   { get; init; }
+    public required string MdSampleItem2   { get; init; }
+    public required string MdSampleQuote   { get; init; }
+    public required string RpProfileWrite   { get; init; }
+    /// <summary>Ce qu'affiche une section de texte long encore vide, dans son éditeur.</summary>
+    public required string RpProfileEmptyText { get; init; }
+
+    // Édition des relations en jeu.
+    public required string RpProfileRelationsEmpty { get; init; }
+    public required string RpProfileRelationAdd    { get; init; }
+    public required string RpProfileRelationSlot   { get; init; }   // {0} = rang
+    public required string RpProfileRelationName   { get; init; }
+    public required string RpProfileRelationNote   { get; init; }
     public required string RpProfileIdentity      { get; init; }
     public required string RpProfileRace          { get; init; }
     public required string RpProfileRaceOther     { get; init; }
@@ -365,6 +402,25 @@ internal sealed class Loc
     // faux pour huit thèmes sur douze et pour deux races.
     public required Dictionary<string, string> RpThemeLabels { get; init; }
     public required Dictionary<string, string> RpRaceLabels  { get; init; }
+
+    // Habillage réservé aux membres, réglable en jeu.
+    public required Dictionary<string, string> RpFrameLabels     { get; init; }
+    public required Dictionary<string, string> RpTitleAnimLabels { get; init; }
+    public required string RpProfileNickname        { get; init; }
+    public required string RpProfileLinksSection    { get; init; }
+    public required string RpProfileThemeSongHint   { get; init; }
+    public required string RpProfileExternalUrl     { get; init; }
+    public required string RpProfileExternalUrlHint { get; init; }
+    public required string RpProfileStyling         { get; init; }
+    public required string RpProfileStylingLocked   { get; init; }
+    public required string RpProfileStylingNone     { get; init; }
+    public required string RpProfileAccent          { get; init; }
+    public required string RpProfileAccent2         { get; init; }
+    public required string RpProfileFrame           { get; init; }
+    public required string RpProfileRpTitle         { get; init; }
+    public required string RpProfileRpTitleHint     { get; init; }
+    public required string RpProfileTitleAnim       { get; init; }
+    public required string RpProfileTitleBlocked    { get; init; }
     public required string RpProfileOpenLink       { get; init; }
     public required string RpProfileLimits        { get; init; }
 
@@ -615,13 +671,111 @@ internal sealed class Loc
     // ── Autour de moi ─────────────────────────────────────────────────────────
     public required string TabAround         { get; init; }
     public required string AroundCount       { get; init; }   // {0} joueur(s)
-    public required string AroundRpTaggedCount { get; init; }   // {0} joueur(s)
     public required string AroundRpTaggedHint  { get; init; }
     public required string AroundRpTaggedChip  { get; init; }
     public required string AroundEmpty       { get; init; }
     public required string AroundNoMatch     { get; init; }
     public required string AroundSearchHint  { get; init; }
     public required string AroundMyWorldOnly { get; init; }
+
+    // ── Rencontres ────────────────────────────────────────────────────────────
+    public required string CfgEncounters     { get; init; }
+    public required string CfgEncountersHint { get; init; }
+    public required string TabEncounters         { get; init; }
+    public required string EncountersNoticeBody  { get; init; }
+    public required string EncountersEmpty       { get; init; }
+    public required string EncountersCount       { get; init; }   // {0} personnage(s)
+    public required string EncountersSearchHint  { get; init; }
+    public required string EncountersClearAll    { get; init; }
+    public required string EncountersClearAllArm { get; init; }
+    public required string EncounterSeen         { get; init; }   // {0} = il y a…, {1} = zone
+    public required string EncounterSeenNoZone   { get; init; }   // {0} = il y a…
+    public required string EncounterOpened       { get; init; }   // {0} = il y a…
+    public required string EncounterMet          { get; init; }   // {0} = il y a…
+    public required string EncounterVisits       { get; init; }   // {0} = nombre
+    public required string EncounterOnline       { get; init; }
+    public required string EncounterForget       { get; init; }
+    public required string EncounterForgetArm    { get; init; }
+    public required string TimeJustNow           { get; init; }
+    public required string TimeMinutesAgo        { get; init; }   // {0} = minutes
+    public required string TimeHoursAgo          { get; init; }   // {0} = heures
+    public required string TimeYesterday         { get; init; }
+    public required string TimeDaysAgo           { get; init; }   // {0} = jours
+
+    public required string CfgRpTooltipContent        { get; init; }
+    public required string CfgRpTooltipNickname       { get; init; }
+    public required string CfgRpTooltipPronouns       { get; init; }
+    public required string CfgRpTooltipRaceOccupation { get; init; }
+    public required string CfgRpTooltipThemes         { get; init; }
+    public required string CfgRpTooltipNote           { get; init; }
+    public required string CfgRpTooltipNoteHint       { get; init; }
+    public required string CfgRpTooltipFriend         { get; init; }
+
+    // ── Plaques de nom ────────────────────────────────────────────────────────
+    public required string CfgRpNameplateColor      { get; init; }
+    public required string CfgRpNameplateColorHint  { get; init; }
+    public required string CfgRpNameplateTitles     { get; init; }
+    public required string CfgRpNameplateTitlesHint { get; init; }
+    public required string CfgRpNameplateFriend     { get; init; }
+    public required string CfgRpNameplateFriendHint { get; init; }
+
+    // Fiches d'un personnage : il en porte plusieurs, il n'en publie qu'une.
+    public required string RpProfileSlots            { get; init; }
+    public required string RpProfileSlotsHint        { get; init; }
+    /// <summary>Dit pourquoi la carte des fiches est vide, plutôt que de la masquer.</summary>
+    public required string RpProfileSlotsUnavailable { get; init; }
+    /// <summary>Échec d'enregistrement faute de jeton, ou jeton refusé.</summary>
+    public required string SaveFailedNoToken { get; init; }
+    public required string SaveFailedToken   { get; init; }
+    /// <summary>Rappel de la barre d'enregistrement collante.</summary>
+    public required string RpProfileUnsaved  { get; init; }
+    public required string RpProfileSlotUnnamed      { get; init; }   // {0} = rang
+    public required string RpProfileSlotNew          { get; init; }
+    public required string RpProfileSlotActivate     { get; init; }
+
+    // Assistant de création d'une fiche, dans sa propre fenêtre.
+    public required string RpWizardTitle          { get; init; }
+    public required string RpWizardStep           { get; init; }   // {0} = étape, {1} = total
+    public required string RpWizardIdentityHint   { get; init; }
+    public required string RpWizardNameHint       { get; init; }
+    public required string RpWizardPlayHint       { get; init; }
+    public required string RpWizardThemesHint     { get; init; }
+    public required string RpWizardVisibilityHint { get; init; }
+    public required string RpWizardVisibleHint    { get; init; }
+    public required string RpWizardNsfwHint       { get; init; }
+    public required string RpWizardRest           { get; init; }
+    public required string RpWizardBack           { get; init; }
+    public required string RpWizardNext           { get; init; }
+    public required string RpWizardCreate         { get; init; }
+    public required string RpWizardCancel         { get; init; }
+    /// <summary>Refus de changer de fiche tant qu'une saisie n'est pas enregistrée.</summary>
+    public required string RpProfileSlotDirty        { get; init; }
+    public required string RpProfileSlotDuplicate    { get; init; }
+    public required string RpProfileSlotDelete       { get; init; }
+    public required string RpProfileSlotDeleteConfirm { get; init; }
+    public required string RpProfileSlotErr          { get; init; }
+    public required string RpProfileSlotErrQuota     { get; init; }
+    public required string RpProfileSlotErrLast      { get; init; }
+    public required string RpProfileRpName           { get; init; }
+    public required string RpProfileRpNameHint       { get; init; }
+
+    // Les trois sections d'« Autour de moi », du plus proche au plus lointain.
+    public required string AroundVisibleCount   { get; init; }   // {0} = nombre
+    public required string AroundHereCount      { get; init; }   // {0} = nombre
+    public required string AroundElsewhereCount { get; init; }   // {0} = nombre
+
+    public required string CfgNotifyRpArrival     { get; init; }
+    public required string CfgNotifyRpArrivalHint { get; init; }
+    public required string NotifRpArrivalTitle    { get; init; }
+    public required string NotifRpArrivalOne      { get; init; }   // {0} = nom, {1} = zone
+    public required string NotifRpArrivalMany     { get; init; }   // {0} = nombre, {1} = zone
+
+    // ── Position partagée ─────────────────────────────────────────────────────
+    public required string CfgRpSharePosition     { get; init; }
+    public required string CfgRpSharePositionHint { get; init; }
+    public required string RpPositionHint         { get; init; }
+    public required string AroundFindOnMap { get; init; }
+    public required string AroundInstance  { get; init; }   // {0} = numéro d'instance
 
     // ── Static instances ──────────────────────────────────────────────────────
 
@@ -847,8 +1001,8 @@ internal sealed class Loc
         CfgLangFr           = "Français",
         CfgLangEn           = "English",
         CfgDtrHeader        = "Barre de statut",
-        CfgDtrRp            = "Afficher le compteur de sessions RP (RP: N)",
-        CfgDtrEvents        = "Afficher le compteur d'événements (Events: N)",
+        CfgDtrRp            = "Le compteur de sessions RP ouvertes (R)",
+        CfgDtrEvents        = "Le compteur d'événements en cours (E)",
         CfgTest             = "Tester",
 
         TokenInvalidLine1 = "Token API invalide ou expiré.",
@@ -866,14 +1020,14 @@ internal sealed class Loc
         NotifNewRpChat    = "Nouveau RP ouvert : {0} — {1} ({2})",
         NotifEventStartScreen = "Événement en cours !\n{0} — {1}",
         NotifEventStartChat  = "Événement en cours : {0}",
-        DtrRpTooltip      = "Sessions RP ouvertes en cours\nCliquez pour ouvrir",
-        DtrEventsTooltip  = "Événements en cours\nCliquez pour ouvrir",
-        DtrRpAvailTooltip = "Disponibilité pour du RP spontané\nElle n'est publiée que si le tag « Jeu de rôle » du jeu est actif (commande /jdr)\nCliquez pour vous déclarer disponible ou non",
-        DtrRpAvailLabel   = "Dispo RP",
-        DtrRpAvailPausedLabel = "Dispo RP (tag éteint)",
-        DtrRpLabel        = "RP",
-        DtrEventsLabel    = "Événements",
-        CfgDtrRpAvail     = "Afficher le statut de disponibilité RP",
+        DtrTipSessions    = "{0} session(s) RP ouverte(s)",
+        DtrTipEvents      = "{0} événement(s) en cours",
+        DtrTipAvailable   = "Disponible pour du RP spontané",
+        DtrTipAvailablePaused = "Disponible pour du RP spontané, mais le tag « Jeu de rôle » du jeu est éteint (commande /jdr) : rien n'est publié",
+        DtrTipUnavailable = "Pas disponible pour du RP spontané",
+        DtrTipClicks      = "Clic gauche : ouvrir Eorzea Events · Clic droit : me déclarer disponible ou non",
+        CfgDtrHint        = "Une entrée « EorzeaEvents » dans la barre de statut du serveur : clic gauche pour ouvrir, clic droit pour la disponibilité. Elle porte, au choix :",
+        CfgDtrRpAvail     = "Le statut de disponibilité RP (rond, horloge ou croix)",
         PlayersOnline     = "{0} joueur(s) en ligne",
 
         RpAvailableDesc         = "Signale aux autres rôlistes que tu es disponible pour du RP spontané. Un titre coloré apparaît sous ton nom sur les nameplates des joueurs avec le plugin : « Dispo RP - Timide » si tu préfères qu'on vienne vers toi, « Dispo RP - Avenant·e » si tu peux faire le premier pas.",
@@ -896,8 +1050,8 @@ internal sealed class Loc
         RpProfileTitle          = "Mon profil RP",
         RpProfileNoCharacter    = "Connectez-vous en jeu pour voir la fiche de votre personnage.",
         RpProfileEditOnline     = "Modifier sur le site",
-        RpProfileWebNoticeTitle = "La fiche complète se remplit sur le site",
-        RpProfileWebNoticeBody  = "En jeu se règle ce qui change souvent en jouant : disponibilité, accroches, traits physiques, appartenances, préférences et visibilité.\n\nLe portrait, la bannière, la couleur d'accent, l'identité (race, âge, pronoms, origine, métier), les thèmes recherchés et évités, les relations, l'apparence, la personnalité, l'histoire et les limites ne se modifient que sur le site. Ils s'affichent ici en lecture seule.",
+        RpProfileWebNoticeTitle = "Presque tout se règle ici",
+        RpProfileWebNoticeBody  = "Votre fiche se rédige en jeu : identité, traits physiques, appartenances, thèmes, préférences, accroches, relations, visibilité, et les textes longs par le bouton « Rédiger ». Vos fiches se créent, se publient et se suppriment ici aussi.\n\nSeules les images restent sur le site : le portrait, la bannière et la galerie, où le choix du fichier et le recadrage sont bien plus commodes. La couleur d'accent et l'habillage réservé aux membres s'y règlent également.",
         RpAvailableEnableHint   = "Les autres rôlistes vous voient dans la liste des joueurs disponibles.",
         RpProfileHooks          = "Accroches",
         RpProfileHooksHint      = "Ce qui donne envie de venir vous parler.",
@@ -941,6 +1095,34 @@ internal sealed class Loc
         RpProfilePreferences    = "Préférences",
         RpProfileThemes         = "Thèmes recherchés",
         RpProfileAvoidThemes    = "Thèmes évités",
+        RpProfileThemesSection  = "Thèmes de jeu",
+        RpProfileUnset          = "Non précisé",
+
+        MdEditorHint    = "Écrivez à gauche, l'aperçu de droite montre ce que les autres liront. Les boutons ajoutent leur exemple à la fin du texte.",
+        MdEditorEmpty   = "L'aperçu apparaîtra ici.",
+        MdEditorApply   = "Valider",
+        MdEditorCancel  = "Annuler",
+        MdEditorUnsaved = "Modifications non validées",
+        MdEditorBold    = "Gras",
+        MdEditorItalic  = "Italique",
+        MdEditorHeading = "Titre",
+        MdEditorList    = "Liste",
+        MdEditorQuote   = "Citation",
+        MdEditorHelp    = "Aide à la mise en forme",
+        MdEditorHelpBody = "**gras**  ·  *italique*  ·  ## Titre  ·  - liste  ·  > citation  ·  [texte](adresse)\nLe retour à la ligne n'est pas automatique : utilisez Entrée. Une ligne vide sépare deux paragraphes.",
+        MdSampleBold    = "texte en gras",
+        MdSampleItalic  = "texte en italique",
+        MdSampleHeading = "Titre",
+        MdSampleItem1   = "premier point",
+        MdSampleItem2   = "second point",
+        MdSampleQuote   = "une citation",
+        RpProfileWrite  = "Rédiger",
+        RpProfileEmptyText = "Rien pour l'instant.",
+        RpProfileRelationsEmpty = "Aucune relation pour l'instant.",
+        RpProfileRelationAdd    = "Ajouter une relation",
+        RpProfileRelationSlot   = "Relation {0}",
+        RpProfileRelationName   = "Nom du personnage",
+        RpProfileRelationNote   = "Ce qui vous lie, en une phrase",
         RpProfileIdentity       = "Identité",
         RpProfileRace           = "Race",
         RpProfileRaceOther      = "Autre",
@@ -976,6 +1158,33 @@ internal sealed class Loc
             ["miqote"] = "Miqo'te", ["roegadyn"] = "Roegadyn", ["aura"] = "Au Ra",
             ["hrothgar"] = "Hrothgar", ["viera"] = "Viéra", ["other"] = "Autre",
         },
+        RpFrameLabels = new()
+        {
+            ["glow"] = "Halo", ["shimmer"] = "Miroitement", ["orbit"] = "Orbite",
+            ["gilded"] = "Dorure", ["corners"] = "Équerres", ["ripple"] = "Onde",
+            ["duo"] = "Duo",
+        },
+        RpTitleAnimLabels = new()
+        {
+            ["sweep"] = "Balayage", ["pulse"] = "Pulsation", ["rainbow"] = "Arc-en-ciel",
+            ["sheen"] = "Lustre", ["halo"] = "Halo", ["duotone"] = "Bichromie",
+            ["wave"] = "Vague", ["neon"] = "Néon",
+        },
+        RpProfileNickname        = "Surnom",
+        RpProfileLinksSection    = "Liens",
+        RpProfileThemeSongHint   = "Un morceau qui va avec votre personnage. Le lien s'ouvre dans votre navigateur.",
+        RpProfileExternalUrl     = "Page personnelle",
+        RpProfileExternalUrlHint = "Une adresse de votre choix : carnet, galerie, serveur Discord.",
+        RpProfileStyling         = "Habillage de la fiche",
+        RpProfileStylingLocked   = "L'habillage est réservé aux membres. Vos réglages restent enregistrés et reviendront si vous adhérez de nouveau.",
+        RpProfileStylingNone     = "Aucun",
+        RpProfileAccent          = "Couleur d'accent",
+        RpProfileAccent2         = "Seconde couleur, pour un dégradé",
+        RpProfileFrame           = "Cadre du portrait",
+        RpProfileRpTitle         = "Titre RP",
+        RpProfileRpTitleHint     = "Une ligne sous votre nom, sur votre fiche et sur les plaques. Ni lien, ni mention d'un statut d'équipe.",
+        RpProfileTitleAnim       = "Animation du titre",
+        RpProfileTitleBlocked    = "Le titre RP est indisponible sur ce compte à la suite d'une modération.",
         RpProfileOpenLink       = "Ouvrir",
         RpProfileLimits         = "Limites",
         RpProfileTraits         = "Traits physiques",
@@ -1199,13 +1408,101 @@ internal sealed class Loc
 
         TabAround         = "Autour de moi",
         AroundCount       = "{0} joueur(s) disponible(s)",
-        AroundRpTaggedCount = "{0} joueur(s) en jeu de rôle",
         AroundRpTaggedHint  = "Ces joueurs ont le tag Jeu de rôle actif et une fiche visible. Ils ne se sont pas déclarés disponibles : à aborder avec le tact qu'on aurait en jeu.",
         AroundRpTaggedChip  = "Tag JDR",
         AroundEmpty       = "Personne de disponible pour le moment",
         AroundNoMatch     = "Aucun joueur ne correspond",
         AroundSearchHint  = "Rechercher un personnage",
         AroundMyWorldOnly = "Mon monde uniquement",
+
+        CfgEncounters     = "Mémoriser les rencontres",
+        CfgEncountersHint = "Garde en local les personnages à fiche visible croisés en jeu, pour retrouver leur fiche plus tard et leur attacher une note privée. Rien ne quitte ce PC. Coupé, ce qui est déjà mémorisé reste jusqu'à « Tout effacer ».",
+        TabEncounters         = "Rencontres",
+        EncountersNoticeBody  = "Mémoire locale de ce PC : les personnages à fiche visible croisés en jeu, et ceux dont vous avez ouvert la fiche. Rien n'est envoyé au site.",
+        EncountersEmpty       = "Personne de croisé pour le moment",
+        EncountersCount       = "{0} personnage(s) croisé(s)",
+        EncountersSearchHint  = "Rechercher un nom, un nom RP ou une note",
+        EncountersClearAll    = "Tout effacer",
+        EncountersClearAllArm = "Confirmer l'effacement",
+        EncounterSeen         = "Vu {0} · {1}",
+        EncounterSeenNoZone   = "Vu {0}",
+        EncounterOpened       = "Fiche consultée {0}",
+        EncounterMet          = "Rencontré {0}",
+        EncounterVisits       = "{0} rencontres",
+        EncounterOnline       = "En ligne",
+        EncounterForget       = "Oublier",
+        EncounterForgetArm    = "Confirmer",
+        TimeJustNow           = "à l'instant",
+        TimeMinutesAgo        = "il y a {0} min",
+        TimeHoursAgo          = "il y a {0} h",
+        TimeYesterday         = "hier",
+        TimeDaysAgo           = "il y a {0} j",
+
+        CfgRpTooltipContent        = "Contenu de l'infobulle",
+        CfgRpTooltipNickname       = "Surnom",
+        CfgRpTooltipPronouns       = "Pronoms",
+        CfgRpTooltipRaceOccupation = "Race et occupation",
+        CfgRpTooltipThemes         = "Thèmes recherchés",
+        CfgRpTooltipNote           = "Ma note privée",
+        CfgRpTooltipNoteHint       = "La note attachée à ce personnage dans « Rencontres ». Elle n'est visible que de vous.",
+        CfgRpTooltipFriend         = "Pastille « Ami RP »",
+
+        CfgRpNameplateColor      = "Nom RP dans la couleur de la fiche",
+        CfgRpNameplateColorHint  = "La couleur d'accent choisie sur le site teinte le nom RP au-dessus de la tête, ramenée à la palette du jeu comme dans le chat.",
+        CfgRpNameplateTitles     = "Titre RP au-dessus de la tête",
+        CfgRpNameplateTitlesHint = "Le titre d'adhérent de la fiche remplace le titre du jeu chez les joueurs qui ne se sont pas déclarés disponibles. « Dispo RP » garde la priorité.",
+        CfgRpNameplateFriend     = "Marqueur devant mes amis RP",
+        CfgRpNameplateFriendHint = "Un petit symbole devant le nom des personnages à qui votre fiche est ouverte.",
+
+        RpProfileSlots            = "Mes fiches",
+        RpProfileUnsaved  = "Modifications non enregistrées",
+        SaveFailedNoToken = "Aucun personnage lié. Liez-en un depuis les paramètres avant d'enregistrer.",
+        SaveFailedToken   = "Le site a refusé votre jeton. Reliez votre personnage depuis les paramètres.",
+        RpProfileSlotsUnavailable = "Impossible de lire vos fiches pour le moment. Vérifiez que le plugin joint bien le site, dans Paramètres, puis rouvrez cette page.",
+        RpProfileSlotsHint        = "Un personnage peut tenir plusieurs fiches et n'en publie qu'une. Celle qui est en évidence est celle que les autres voient ; cliquez-en une autre pour la publier à sa place. Les fiches gardées en réserve ne sont visibles de personne.",
+        RpProfileSlotUnnamed      = "Fiche {0}",
+        RpProfileSlotNew          = "Nouvelle fiche",
+        RpProfileSlotActivate     = "Appliquer cette fiche",
+
+        RpWizardTitle          = "Nouvelle fiche RP",
+        RpWizardStep           = "Étape {0} sur {1}",
+        RpWizardIdentityHint   = "Qui est ce personnage ? Rien n'est obligatoire, tout se change ensuite.",
+        RpWizardNameHint       = "Le nom sous lequel il se présente en RP. Vide, votre nom de personnage est utilisé.",
+        RpWizardPlayHint       = "Comment vous jouez, et ce que les autres doivent savoir avant de vous aborder.",
+        RpWizardThemesHint     = "Ce que vous aimez jouer, et ce que vous préférez éviter. Six de chaque au plus.",
+        RpWizardVisibilityHint = "Qui voit cette fiche, et à partir de quand.",
+        RpWizardVisibleHint    = "Éteint, la fiche reste privée : vous la remplissez tranquillement et l'ouvrez quand elle vous plaît.",
+        RpWizardNsfwHint       = "À cocher si votre personnage joue des scènes adultes. Les autres joueurs sont prévenus avant d'ouvrir la fiche.",
+        RpWizardRest           = "Le reste, apparence, histoire, relations et images, se remplit ensuite, en jeu ou sur le site.",
+        RpWizardBack           = "Retour",
+        RpWizardNext           = "Suivant",
+        RpWizardCreate         = "Créer la fiche",
+        RpWizardCancel         = "Annuler",
+        RpProfileSlotDirty        = "Enregistrez vos modifications avant de changer de fiche.",
+        RpProfileSlotDuplicate    = "Dupliquer",
+        RpProfileSlotDelete       = "Supprimer",
+        RpProfileSlotDeleteConfirm = "Confirmer la suppression",
+        RpProfileSlotErr          = "Action impossible pour le moment.",
+        RpProfileSlotErrQuota     = "Ce personnage tient déjà toutes les fiches auxquelles il a droit.",
+        RpProfileSlotErrLast      = "La dernière fiche d'un personnage ne se supprime pas.",
+        RpProfileRpName           = "Nom RP",
+        RpProfileRpNameHint       = "Le nom sous lequel votre personnage se présente en RP. Il nomme aussi cette fiche ci-dessous. Vide, votre nom de personnage est utilisé.",
+
+        AroundVisibleCount   = "{0} visible(s)",
+        AroundHereCount      = "{0} dans la région",
+        AroundElsewhereCount = "{0} ailleurs dans le monde",
+
+        CfgNotifyRpArrival     = "Rôliste disponible qui arrive dans ma zone",
+        CfgNotifyRpArrivalHint = "Une bulle quand un joueur déclaré disponible entre dans votre zone après vous. Jamais à votre propre arrivée, et une seule fois par joueur tant que vous restez dans la zone.",
+        NotifRpArrivalTitle    = "Rôliste à proximité",
+        NotifRpArrivalOne      = "{0} est disponible pour du RP dans {1}",
+        NotifRpArrivalMany     = "{0} rôlistes disponibles viennent d'arriver dans {1}",
+
+        CfgRpSharePosition     = "Partager ma position quand je suis disponible",
+        CfgRpSharePositionHint = "Les joueurs équipés du plugin et connectés à leur compte peuvent poser un drapeau de carte sur vous tant que vous êtes déclaré disponible. Position arrondie, servie au seul plugin, jamais affichée sur le site.",
+        RpPositionHint         = "Astuce : dans les réglages, « Partager ma position » permet aux rôlistes de vous trouver sur la carte tant que vous êtes disponible.",
+        AroundFindOnMap = "Trouver sur la carte",
+        AroundInstance  = "instance {0}",
     };
 
     public static readonly Loc En = new()
@@ -1430,8 +1727,8 @@ internal sealed class Loc
         CfgLangFr           = "Francais",
         CfgLangEn           = "English",
         CfgDtrHeader        = "Server info bar",
-        CfgDtrRp            = "Show RP session counter (RP: N)",
-        CfgDtrEvents        = "Show event counter (Events: N)",
+        CfgDtrRp            = "The open RP session counter (R)",
+        CfgDtrEvents        = "The ongoing event counter (E)",
         CfgTest             = "Test",
 
         TokenInvalidLine1 = "API token invalid or expired.",
@@ -1449,14 +1746,14 @@ internal sealed class Loc
         NotifNewRpChat    = "New open RP: {0} — {1} ({2})",
         NotifEventStartScreen = "Event is live!\n{0} — {1}",
         NotifEventStartChat  = "Event is live: {0}",
-        DtrRpTooltip      = "Active open RP sessions\nClick to open",
-        DtrEventsTooltip  = "Ongoing events\nClick to open",
-        DtrRpAvailTooltip = "Availability for spontaneous RP\nIt is only published while the game's \"Role-playing\" tag is on (/roleplaying command)\nClick to mark yourself available or not",
-        DtrRpAvailLabel   = "RP avail.",
-        DtrRpAvailPausedLabel = "RP avail. (tag off)",
-        DtrRpLabel        = "RP",
-        DtrEventsLabel    = "Events",
-        CfgDtrRpAvail     = "Show RP availability status",
+        DtrTipSessions    = "{0} open RP session(s)",
+        DtrTipEvents      = "{0} ongoing event(s)",
+        DtrTipAvailable   = "Available for spontaneous RP",
+        DtrTipAvailablePaused = "Available for spontaneous RP, but the game's \"Role-playing\" tag is off (/roleplaying command): nothing is published",
+        DtrTipUnavailable = "Not available for spontaneous RP",
+        DtrTipClicks      = "Left click: open Eorzea Events · Right click: mark myself available or not",
+        CfgDtrHint        = "One \"EorzeaEvents\" entry in the server info bar: left click to open, right click for availability. It shows, as you like:",
+        CfgDtrRpAvail     = "The RP availability status (circle, clock or cross)",
         PlayersOnline     = "{0} player(s) online",
 
         RpAvailableDesc         = "Signal to other roleplayers that you're available for spontaneous RP. A colored title appears below your name on nameplates for players with the plugin: \"RP Avail - Shy\" if you'd rather others come to you, \"RP Avail - Friendly\" if you can make the first move.",
@@ -1479,8 +1776,8 @@ internal sealed class Loc
         RpProfileTitle          = "My RP profile",
         RpProfileNoCharacter    = "Log in to the game to see your character's profile.",
         RpProfileEditOnline     = "Edit on the website",
-        RpProfileWebNoticeTitle = "The full profile is filled in on the website",
-        RpProfileWebNoticeBody  = "In game you set what changes often while playing: availability, hooks, physical traits, allegiances, preferences and visibility.\n\nThe portrait, banner, accent colour, identity (race, age, pronouns, origin, occupation), sought and avoided themes, relationships, appearance, personality, background and limits can only be edited on the website. They are shown here read-only.",
+        RpProfileWebNoticeTitle = "Almost everything is set here",
+        RpProfileWebNoticeBody  = "Your profile is written in game: identity, physical traits, allegiances, themes, preferences, hooks, relationships, visibility, and the long texts through the \"Write\" button. Your profiles are also created, published and deleted here.\n\nOnly images stay on the website: the portrait, the banner and the gallery, where picking a file and cropping it are far easier. The accent colour and the member styling are set there too.",
         RpAvailableEnableHint   = "Other roleplayers will see you in the available players list.",
         RpProfileHooks          = "Hooks",
         RpProfileHooksHint      = "What makes people want to come and talk to you.",
@@ -1524,6 +1821,34 @@ internal sealed class Loc
         RpProfilePreferences    = "Preferences",
         RpProfileThemes         = "Themes sought",
         RpProfileAvoidThemes    = "Themes avoided",
+        RpProfileThemesSection  = "Play themes",
+        RpProfileUnset          = "Not specified",
+
+        MdEditorHint    = "Write on the left, the preview on the right shows what others will read. The buttons add their example at the end of the text.",
+        MdEditorEmpty   = "The preview will appear here.",
+        MdEditorApply   = "Apply",
+        MdEditorCancel  = "Cancel",
+        MdEditorUnsaved = "Unapplied changes",
+        MdEditorBold    = "Bold",
+        MdEditorItalic  = "Italic",
+        MdEditorHeading = "Heading",
+        MdEditorList    = "List",
+        MdEditorQuote   = "Quote",
+        MdEditorHelp    = "Formatting help",
+        MdEditorHelpBody = "**bold**  ·  *italic*  ·  ## Heading  ·  - list  ·  > quote  ·  [text](address)\nLines do not wrap on their own: press Enter. An empty line separates two paragraphs.",
+        MdSampleBold    = "bold text",
+        MdSampleItalic  = "italic text",
+        MdSampleHeading = "Heading",
+        MdSampleItem1   = "first point",
+        MdSampleItem2   = "second point",
+        MdSampleQuote   = "a quotation",
+        RpProfileWrite  = "Write",
+        RpProfileEmptyText = "Nothing yet.",
+        RpProfileRelationsEmpty = "No relationships yet.",
+        RpProfileRelationAdd    = "Add a relationship",
+        RpProfileRelationSlot   = "Relationship {0}",
+        RpProfileRelationName   = "Character name",
+        RpProfileRelationNote   = "What ties you, in one sentence",
         RpProfileIdentity       = "Identity",
         RpProfileRace           = "Race",
         RpProfileRaceOther      = "Other",
@@ -1559,6 +1884,33 @@ internal sealed class Loc
             ["miqote"] = "Miqo'te", ["roegadyn"] = "Roegadyn", ["aura"] = "Au Ra",
             ["hrothgar"] = "Hrothgar", ["viera"] = "Viera", ["other"] = "Other",
         },
+        RpFrameLabels = new()
+        {
+            ["glow"] = "Glow", ["shimmer"] = "Shimmer", ["orbit"] = "Orbit",
+            ["gilded"] = "Gilded", ["corners"] = "Corners", ["ripple"] = "Ripple",
+            ["duo"] = "Duo",
+        },
+        RpTitleAnimLabels = new()
+        {
+            ["sweep"] = "Sweep", ["pulse"] = "Pulse", ["rainbow"] = "Rainbow",
+            ["sheen"] = "Sheen", ["halo"] = "Halo", ["duotone"] = "Duotone",
+            ["wave"] = "Wave", ["neon"] = "Neon",
+        },
+        RpProfileNickname        = "Nickname",
+        RpProfileLinksSection    = "Links",
+        RpProfileThemeSongHint   = "A track that fits your character. The link opens in your browser.",
+        RpProfileExternalUrl     = "Personal page",
+        RpProfileExternalUrlHint = "Any address you like: a journal, a gallery, a Discord server.",
+        RpProfileStyling         = "Profile styling",
+        RpProfileStylingLocked   = "Styling is for members. Your settings stay saved and come back if you join again.",
+        RpProfileStylingNone     = "None",
+        RpProfileAccent          = "Accent colour",
+        RpProfileAccent2         = "Second colour, for a gradient",
+        RpProfileFrame           = "Portrait frame",
+        RpProfileRpTitle         = "RP title",
+        RpProfileRpTitleHint     = "A line under your name, on your profile and on nameplates. No links, no claim to a staff role.",
+        RpProfileTitleAnim       = "Title animation",
+        RpProfileTitleBlocked    = "The RP title is unavailable on this account following moderation.",
         RpProfileOpenLink       = "Open",
         RpProfileLimits         = "Limits",
         RpProfileTraits         = "Physical traits",
@@ -1784,12 +2136,100 @@ internal sealed class Loc
 
         TabAround         = "Around me",
         AroundCount       = "{0} player(s) available",
-        AroundRpTaggedCount = "{0} player(s) in character",
         AroundRpTaggedHint  = "These players have the Role-playing tag on and a visible profile. They have not declared themselves available: approach them with the tact you would use in game.",
         AroundRpTaggedChip  = "RP tag",
         AroundEmpty       = "Nobody available right now",
         AroundNoMatch     = "No player matches",
         AroundSearchHint  = "Search for a character",
         AroundMyWorldOnly = "My world only",
+
+        CfgEncounters     = "Remember encounters",
+        CfgEncountersHint = "Keeps a local record of the characters with a visible profile you met in game, so you can find their profile again later and attach a private note. Nothing leaves this PC. When off, what is already recorded stays until \"Clear all\".",
+        TabEncounters         = "Encounters",
+        EncountersNoticeBody  = "Local memory of this PC: characters with a visible profile met in game, and those whose profile you opened. Nothing is sent to the website.",
+        EncountersEmpty       = "Nobody met yet",
+        EncountersCount       = "{0} character(s) met",
+        EncountersSearchHint  = "Search a name, an RP name or a note",
+        EncountersClearAll    = "Clear all",
+        EncountersClearAllArm = "Confirm clearing",
+        EncounterSeen         = "Seen {0} · {1}",
+        EncounterSeenNoZone   = "Seen {0}",
+        EncounterOpened       = "Profile opened {0}",
+        EncounterMet          = "Met {0}",
+        EncounterVisits       = "{0} encounters",
+        EncounterOnline       = "Online",
+        EncounterForget       = "Forget",
+        EncounterForgetArm    = "Confirm",
+        TimeJustNow           = "just now",
+        TimeMinutesAgo        = "{0} min ago",
+        TimeHoursAgo          = "{0} h ago",
+        TimeYesterday         = "yesterday",
+        TimeDaysAgo           = "{0} d ago",
+
+        CfgRpTooltipContent        = "Tooltip content",
+        CfgRpTooltipNickname       = "Nickname",
+        CfgRpTooltipPronouns       = "Pronouns",
+        CfgRpTooltipRaceOccupation = "Race and occupation",
+        CfgRpTooltipThemes         = "Sought themes",
+        CfgRpTooltipNote           = "My private note",
+        CfgRpTooltipNoteHint       = "The note attached to this character in \"Encounters\". Only you can see it.",
+        CfgRpTooltipFriend         = "\"RP friend\" chip",
+
+        CfgRpNameplateColor      = "RP name in the profile colour",
+        CfgRpNameplateColorHint  = "The accent colour picked on the website tints the RP name above the head, matched to the game palette as in chat.",
+        CfgRpNameplateTitles     = "RP title above the head",
+        CfgRpNameplateTitlesHint = "The member title from the profile replaces the game title on players not flagged as available. \"RP Avail\" keeps priority.",
+        CfgRpNameplateFriend     = "Marker before my RP friends",
+        CfgRpNameplateFriendHint = "A small symbol before the name of the characters your profile is open to.",
+
+        RpProfileSlots            = "My profiles",
+        RpProfileUnsaved  = "Unsaved changes",
+        SaveFailedNoToken = "No character linked. Link one from the settings before saving.",
+        SaveFailedToken   = "The website refused your token. Link your character again from the settings.",
+        RpProfileSlotsUnavailable = "Your profiles cannot be read right now. Check that the plugin reaches the website, in Settings, then reopen this page.",
+        RpProfileSlotsHint        = "A character can hold several profiles and publishes only one. The highlighted one is what others see; click another one to publish it instead. Profiles kept in reserve are visible to nobody.",
+        RpProfileSlotUnnamed      = "Profile {0}",
+        RpProfileSlotNew          = "New profile",
+        RpProfileSlotActivate     = "Apply this profile",
+
+        RpWizardTitle          = "New RP profile",
+        RpWizardStep           = "Step {0} of {1}",
+        RpWizardIdentityHint   = "Who is this character? Nothing is required, everything can be changed later.",
+        RpWizardNameHint       = "The name they go by in RP. Left empty, your character name is used.",
+        RpWizardPlayHint       = "How you play, and what others should know before approaching you.",
+        RpWizardThemesHint     = "What you enjoy playing, and what you would rather avoid. Six of each at most.",
+        RpWizardVisibilityHint = "Who sees this profile, and from when.",
+        RpWizardVisibleHint    = "Off, the profile stays private: fill it in at your own pace and open it when you like it.",
+        RpWizardNsfwHint       = "Tick this if your character plays adult scenes. Others are warned before opening the profile.",
+        RpWizardRest           = "The rest, appearance, background, relationships and images, is filled in later, in game or on the website.",
+        RpWizardBack           = "Back",
+        RpWizardNext           = "Next",
+        RpWizardCreate         = "Create the profile",
+        RpWizardCancel         = "Cancel",
+        RpProfileSlotDirty        = "Save your changes before switching profiles.",
+        RpProfileSlotDuplicate    = "Duplicate",
+        RpProfileSlotDelete       = "Delete",
+        RpProfileSlotDeleteConfirm = "Confirm deletion",
+        RpProfileSlotErr          = "That action failed for now.",
+        RpProfileSlotErrQuota     = "This character already holds as many profiles as allowed.",
+        RpProfileSlotErrLast      = "The last profile of a character cannot be deleted.",
+        RpProfileRpName           = "RP name",
+        RpProfileRpNameHint       = "The name your character goes by in RP. It also names this profile below. Left empty, your character name is used.",
+
+        AroundVisibleCount   = "{0} in sight",
+        AroundHereCount      = "{0} in this region",
+        AroundElsewhereCount = "{0} elsewhere in the world",
+
+        CfgNotifyRpArrival     = "Available roleplayer entering my zone",
+        CfgNotifyRpArrivalHint = "A bubble when a player flagged as available enters your zone after you. Never on your own arrival, and once per player for as long as you stay in the zone.",
+        NotifRpArrivalTitle    = "Roleplayer nearby",
+        NotifRpArrivalOne      = "{0} is available for RP in {1}",
+        NotifRpArrivalMany     = "{0} available roleplayers just arrived in {1}",
+
+        CfgRpSharePosition     = "Share my position while I am available",
+        CfgRpSharePositionHint = "Players with the plugin who are signed in to their account can drop a map flag on you while you are flagged as available. Rounded position, served to the plugin only, never shown on the website.",
+        RpPositionHint         = "Tip: in the settings, \"Share my position\" lets roleplayers find you on the map while you are available.",
+        AroundFindOnMap = "Find on the map",
+        AroundInstance  = "instance {0}",
     };
 }

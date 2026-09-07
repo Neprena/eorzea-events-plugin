@@ -1,4 +1,5 @@
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface;
 using Dalamud.Interface.Utility.Raii;
 using EorzeaEventsPlugin.Api;
 using EorzeaEventsPlugin.Ui.Components;
@@ -168,6 +169,59 @@ internal sealed class RpProfilePage(Configuration config)
     private string _freeCompany = string.Empty;
     private string _allegiance  = string.Empty;
     private string _quote       = string.Empty;
+
+    /// <summary>
+    /// Nom RP, seul champ d'identité modifiable en jeu.
+    ///
+    /// Il nomme la fiche dans le sélecteur : une fiche créée depuis le jeu
+    /// s'appellerait « Fiche 2 » jusqu'à ce que son auteur ouvre le site, ce qui
+    /// vide de son sens un cycle de vie conçu pour se passer du navigateur. Le
+    /// reste de l'identité s'écrit toujours sur le site.
+    /// </summary>
+    private string _rpName      = string.Empty;
+
+    // Identité, désormais éditable en jeu comme sur le site. Elle était en
+    // lecture seule au motif qu'elle se rédige une fois pour toutes, ce qui
+    // laissait sans recours un joueur qui n'ouvre jamais le navigateur.
+    private int    _raceIndex;
+    private string _nickname   = string.Empty;
+    private string _age        = string.Empty;
+    private string _pronouns   = string.Empty;
+    private string _origin     = string.Empty;
+    private string _occupation = string.Empty;
+
+    // Thèmes recherchés et évités, six au plus de chaque côté.
+    private readonly List<string> _themes      = [];
+    private readonly List<string> _avoidThemes = [];
+
+    // Relations, huit au plus. Trois tableaux parallèles plutôt qu'une liste
+    // d'objets, comme les coups d'œil : ImGui édite des champs par référence,
+    // et un tableau de chaînes s'y prête là où une liste de records ne s'y prête
+    // pas.
+    private readonly string[] _relationNames = new string[MaxRelations];
+    private readonly int[]    _relationKinds = new int[MaxRelations];
+    private readonly string[] _relationNotes = new string[MaxRelations];
+    private int _relationCount;
+    private int _relationArmed = -1;
+
+    // Liens de la fiche, hors syncshells.
+    private string _themeSongUrl = string.Empty;
+    private string _externalUrl  = string.Empty;
+
+    // Habillage réservé aux membres. Le serveur dit si le compte y a droit ; le
+    // plugin ne le devine pas, et l'écriture est revérifiée de toute façon.
+    private Vector3 _accent1;
+    private Vector3 _accent2;
+    private bool    _accent2On;
+    private int     _frameIndex;
+    private int     _titleAnimIndex;
+    private string  _rpTitle = string.Empty;
+
+    // Textes longs, rédigés dans une fenêtre à part faute de place ici.
+    private string _appearance  = string.Empty;
+    private string _personality = string.Empty;
+    private string _background  = string.Empty;
+    private string _limits      = string.Empty;
     private int    _deityIndex;
 
     // Visibilité : deux consentements, plus une audience par section. Le premier
@@ -274,6 +328,37 @@ internal sealed class RpProfilePage(Configuration config)
     ];
 
     /// <summary>
+    /// Races jouables, précédées d'une entrée vide : l'index 0 signifie « non
+    /// précisé », pas « Hyur ». Même ordre que RP_RACES côté site.
+    /// </summary>
+    private static readonly string[] RaceKeys =
+    [
+        "", "hyur", "elezen", "lalafell", "miqote", "roegadyn", "aura",
+        "hrothgar", "viera", "other",
+    ];
+
+    /// <summary>Thèmes de jeu, dans l'ordre de RP_THEMES côté site.</summary>
+    private static readonly string[] ThemeKeys =
+    [
+        "tavern", "adventure", "drama", "romance", "lore", "dark",
+        "mystery", "intrigue", "combat", "craft", "slice_of_life", "politics",
+    ];
+
+    /// <summary>Plafond de RP_MAX_THEMES, appliqué aussi par le serveur.</summary>
+    private const int MaxThemes = 6;
+
+    /// <summary>Types de relation, dans l'ordre de RP_RELATION_KINDS côté site.</summary>
+    private static readonly string[] RelationKindKeys =
+    [
+        "ally", "friend", "family", "lover", "mentor", "student", "rival", "enemy", "other",
+    ];
+
+    /// <summary>Plafonds de RP_MAX_RELATIONS et RP_MAX_RELATION_NOTE.</summary>
+    private const int MaxRelations    = 8;
+    private const int MaxRelationName = 80;
+    private const int MaxRelationNote = 300;
+
+    /// <summary>
     /// Couleur d'accent de la fiche en cours, déjà rendue lisible sur le thème
     /// sombre. Recalculée à chaque accès plutôt que mise en cache : _profile est
     /// remplacé au chargement, un champ figé mentirait après un changement de
@@ -292,17 +377,67 @@ internal sealed class RpProfilePage(Configuration config)
         }
 
         var key = Configuration.CharacterKey(character.Name, character.WorldId);
-        if (_loadedFor != key) Load(key);
+        // Recharger aussi quand la fiche choisie change : la clé du personnage
+        // ne suffit plus à décrire ce qui est à l'écran.
+        if (_loadedFor != key || _loadedProfile != _selectedProfileId) Load(key);
         else if (_refreshPending) AutoRefresh(key);
 
         // Avant le rendu : ce qui part maintenant s'affiche « enregistré » dès
         // cette image, et non à la suivante.
         TickAutoSave();
 
-        using var scroll = ImRaii.Child("##rpprofilescroll", new Vector2(-1f, -1f));
-        if (!scroll) return;
+        // Place réservée en bas pour la barre d'enregistrement, quand il y a
+        // quelque chose à enregistrer. Le bouton vivait au fond de la section en
+        // cours de modification : sur une fiche qui tient en plusieurs écrans,
+        // il fallait le chercher au défilement à chaque changement.
+        var pinned  = _dirty || DateTime.UtcNow < _savedUntil;
+        var reserve = pinned ? Theme.S(52f) : 0f;
 
+        using (var scroll = ImRaii.Child("##rpprofilescroll", new Vector2(-1f, -reserve - 1f)))
+        {
+            if (!scroll) return;
+            DrawScrollingBody(character, l);
+        }
+
+        if (pinned) DrawPinnedSaveBar(l);
+    }
+
+    /// <summary>
+    /// Barre d'enregistrement toujours visible, en pied de page.
+    ///
+    /// Elle porte l'état de la dernière tentative, pour que le résultat se lise
+    /// à l'endroit où l'on vient de cliquer plutôt qu'à celui où l'on a modifié
+    /// quelque chose.
+    /// </summary>
+    private void DrawPinnedSaveBar(Loc l)
+    {
+        Layout.Divider(Theme.GapXs);
+
+        if (_dirty)
+        {
+            if (Btn.Draw(_saving ? l.Processing : l.Save, BtnTone.Primary, BtnSize.Medium,
+                         Icons.Check, disabled: _saving, id: "rpprofile_save_pinned"))
+            {
+                _lastSaveWasAuto = false;
+                Save();
+            }
+
+            ImGui.SameLine(0f, Theme.S(Theme.GapM));
+            ImGui.AlignTextToFramePadding();
+
+            if (_saveFailed) Text.Small(SaveFailureText(l), Theme.Danger);
+            else             Text.Small(l.RpProfileUnsaved, Theme.Gold);
+
+            return;
+        }
+
+        Text.WithIcon(Icons.Check, l.RpProfileSaved, Theme.Online, Theme.Online);
+    }
+
+    private void DrawScrollingBody((string Name, int WorldId) character, Loc l)
+    {
         DrawHeader(character, l);
+        DrawProfileSwitcher(l);
 
         if (_loading && _profile == null)
         {
@@ -343,7 +478,10 @@ internal sealed class RpProfilePage(Configuration config)
         DrawBelonging(l);
         DrawSyncshells(l);
         DrawPreferences(l);
+        DrawThemes(l);
         DrawIdentity(l);
+        DrawStyling(l);
+        DrawProfileLinks(l);
         DrawRelations(l);
         DrawDescription(l);
         DrawLimits(l);
@@ -396,16 +534,19 @@ internal sealed class RpProfilePage(Configuration config)
                 DrawTraits(l);
                 DrawDescription(l);
                 DrawBelonging(l);
+                DrawStyling(l);
                 break;
 
             case "play":
                 DrawHooks(l);
                 DrawPreferences(l);
+                DrawThemes(l);
                 DrawLimits(l);
                 DrawRelations(l);
                 break;
 
             case "links":
+                DrawProfileLinks(l);
                 DrawSyncshells(l);
                 if (_profile is { } linked) RpProfileView.DrawLinks(linked, l, Tone);
                 break;
@@ -463,10 +604,23 @@ internal sealed class RpProfilePage(Configuration config)
         // repasser ferait clignoter la fiche déjà à l'écran, et la ferait régresser
         // vers une version partielle (le cache ne porte ni les relations, ni le
         // rôle d'équipe) le temps de la requête.
-        if (_loadedFor != key)
+        var slot = _selectedProfileId;
+
+        if (_loadedFor != key || _loadedProfile != slot)
         {
-            _loadedFor = key;
-            _profile = config.RpProfiles.TryGetValue(key, out var cached) ? ToDto(cached) : null;
+            // L'éditeur ouvert porte le texte de la fiche qu'on quitte : le
+            // laisser ouvert inviterait à valider dans le vide.
+            Plugin.CancelMarkdownEditor();
+
+            _loadedFor     = key;
+            _loadedProfile = slot;
+
+            // Le cache ne vaut que pour la fiche publiée : il est indexé par
+            // personnage et n'en connaît qu'une. Ouvrir une fiche en réserve
+            // part donc d'un écran vide, le temps de la réponse.
+            _profile = slot.Length == 0 && config.RpProfiles.TryGetValue(key, out var cached)
+                ? ToDto(cached)
+                : null;
             _profileFromNetwork = false;
             Reset();
         }
@@ -475,26 +629,342 @@ internal sealed class RpProfilePage(Configuration config)
         // rappel, la fenêtre ouverte à côté continuerait d'afficher l'état d'avant.
         Plugin.RefreshRpProfilePreview();
 
+        // La liste des fiches suit le même chargement : une fiche créée depuis
+        // le site doit apparaître dans le sélecteur sans redémarrer le jeu.
+        LoadSlots(key);
+
         _loading = true;
         _ = Task.Run(async () =>
         {
-            var fetched = await Plugin.Api.GetRpProfileAsync();
+            var fetched = await Plugin.Api.GetRpProfileAsync(slot.Length > 0 ? slot : null);
             await Plugin.Framework.RunOnFrameworkThread(() =>
             {
                 _loading = false;
                 if (fetched == null) return;
+                if (_loadedFor != key || _loadedProfile != slot) return;
 
                 _profile = fetched;
                 _profileFromNetwork = true;
                 _lastFetchedAt = DateTime.UtcNow;
-                config.RpProfiles[key] = FromDto(fetched);
-                config.Save();
+
+                // Seule la fiche publiée alimente le cache : y écrire une fiche
+                // en réserve ferait afficher celle-ci au prochain démarrage, à
+                // la place de ce que les autres voient.
+                if (slot.Length == 0)
+                {
+                    config.RpProfiles[key] = FromDto(fetched);
+                    config.Save();
+                }
 
                 // L'utilisateur a pu commencer à saisir pendant la requête : ses
                 // champs priment alors sur la réponse, que la fiche lue sert de
                 // base à l'enregistrement suivant. Le statut compte au même
                 // titre, tout court qu'il soit : il s'écrit à la main lui aussi.
                 if (!_dirty && !_statusDirty) Reset();
+            });
+        });
+    }
+
+    // Les fiches du personnage, pour le sélecteur. Vide tant que le serveur n'a
+    // pas répondu, ou s'il est antérieur aux fiches multiples : dans les deux
+    // cas la rangée ne s'affiche pas, et le plugin travaille la fiche publiée
+    // comme il l'a toujours fait.
+    private List<Api.RpProfileSummaryDto> _slots = [];
+    private int    _slotMax;
+    /// <summary>La liste a été demandée et n'est pas revenue.</summary>
+    private bool   _slotsFailed;
+    private bool   _switching;
+    private string _slotError    = string.Empty;
+    private string _confirmDelete = string.Empty;
+
+    /// <summary>Identifiant de la fiche publiée, ou vide si le serveur ne l'a pas dit.</summary>
+    private string ActiveSlotId => _slots.FirstOrDefault(s => s.IsActive)?.Id ?? string.Empty;
+
+    /// <summary>
+    /// Fiche ouverte pour édition. Vide veut dire « celle que le personnage
+    /// publie », ce qui est l'état par défaut et le seul que connaissait le
+    /// plugin avant de savoir en ouvrir une autre.
+    ///
+    /// Choisir n'est pas publier : on travaille une fiche gardée en réserve
+    /// sans que personne la voie, et un bouton distinct la met en ligne.
+    /// </summary>
+    private string _selectedProfileId = string.Empty;
+
+    /// <summary>La fiche effectivement chargée, pour savoir quand recharger.</summary>
+    private string _loadedProfile = string.Empty;
+
+    /// <summary>Identifiant de la fiche travaillée, publiée ou non.</summary>
+    private string SelectedSlotId =>
+        _selectedProfileId.Length > 0 ? _selectedProfileId : ActiveSlotId;
+
+    /// <summary>
+    /// Les fiches du personnage, et tout ce qu'on en fait.
+    ///
+    /// Affichée dès la première fiche, et non à partir de deux : c'est le seul
+    /// endroit où un joueur qui n'ouvre jamais le site apprend qu'il peut en
+    /// tenir plusieurs. La masquer tant qu'il n'y en a qu'une revenait à cacher
+    /// la fonction à ceux à qui elle s'adresse.
+    ///
+    /// Le plugin n'édite jamais que la fiche publiée : basculer publie la fiche
+    /// choisie, puis recharge tout.
+    /// </summary>
+    private void DrawProfileSwitcher(Loc l)
+    {
+        // Le plafond ne vaut zéro que si le serveur n'a pas répondu, ou s'il est
+        // antérieur aux fiches multiples. La carte reste sinon affichée même
+        // sans aucune fiche : c'est là qu'un personnage tout juste lié apprend
+        // qu'il peut en tenir plusieurs, et qu'il nomme la première.
+        //
+        // Un échec le dit, plutôt que de faire disparaître la carte en silence :
+        // sans cette ligne, une fiche servie depuis le cache local donne un
+        // écran presque normal dont il manque une section, sans rien qui
+        // explique pourquoi.
+        if (_slotsFailed && _slotMax == 0)
+        {
+            using var failed = Card.Begin("rp_slots_failed", interactive: false);
+            Layout.SectionHeader(l.RpProfileSlots, Icons.Profile, tone: Tone);
+            Text.Small(l.RpProfileSlotsUnavailable, Theme.TextMuted);
+            return;
+        }
+
+        if (_slotMax == 0) return;
+
+        using var card = Card.Begin("rp_slots", interactive: false);
+
+        Layout.SectionHeader(l.RpProfileSlots, Icons.Profile, count: _slots.Count, tone: Tone);
+        Text.Small(l.RpProfileSlotsHint, Theme.TextMuted);
+        Layout.Spacer(Theme.GapXs);
+
+        // Le nom de la fiche publiée, modifiable ici : c'est lui qui nomme le
+        // bouton juste en dessous, et une fiche sans nom ne se distingue pas des
+        // autres au moment d'en choisir une.
+        if (Inputs.Field("##rpname", l.RpProfileRpName, ref _rpName, 80,
+                         help: l.RpProfileRpNameHint))
+            MarkDirty();
+
+        Layout.Spacer(Theme.GapXs);
+
+        using (ImRaii.Disabled(_switching))
+        {
+            for (var i = 0; i < _slots.Count; i++)
+            {
+                if (i > 0) ImGui.SameLine(0f, Theme.S(Theme.GapXs));
+
+                var entry = _slots[i];
+                var label = string.IsNullOrWhiteSpace(entry.RpName)
+                    ? string.Format(l.RpProfileSlotUnnamed, i + 1)
+                    : entry.RpName!;
+
+                // L'étoile marque la fiche publiée ; la teinte pleine marque
+                // celle qu'on est en train de travailler. Les deux coïncident la
+                // plupart du temps, et se séparent quand on prépare une fiche.
+                if (entry.IsActive) label = $"{Icons.Sparkle.S()}  {label}";
+
+                if (Btn.Draw(label,
+                             entry.Id == SelectedSlotId ? BtnTone.Primary : BtnTone.Ghost,
+                             BtnSize.Small, id: $"rpslot_{entry.Id}"))
+                    Select(entry.Id);
+            }
+
+            if (_slots.Count < _slotMax)
+            {
+                ImGui.SameLine(0f, Theme.S(Theme.GapXs));
+                if (Btn.Draw(l.RpProfileSlotNew, BtnTone.Ghost, BtnSize.Small, Icons.Plus,
+                             id: "rpslot_new"))
+                    CreateSlot();
+            }
+
+            Layout.Spacer(Theme.GapXs);
+
+            // Publier la fiche travaillée, quand ce n'est pas déjà celle que le
+            // personnage montre. C'est le seul geste qui change quelque chose
+            // pour les autres joueurs, d'où son bouton à part.
+            if (SelectedSlotId.Length > 0 && SelectedSlotId != ActiveSlotId
+                && Btn.Draw(l.RpProfileSlotActivate, BtnTone.Primary, BtnSize.Small, Icons.Sparkle,
+                            id: "rpslot_pub"))
+                RunSlotAction(() => Plugin.Api.ActivateRpProfileAsync(SelectedSlotId));
+
+            // Dupliquer copie la fiche travaillée.
+            if (_slots.Count > 0 && _slots.Count < _slotMax
+                && Btn.Draw(l.RpProfileSlotDuplicate, BtnTone.Ghost, BtnSize.Small, Icons.Copy,
+                            id: "rpslot_dup"))
+                RunSlotAction(() => Plugin.Api.DuplicateRpProfileAsync(SelectedSlotId));
+
+            // Deux clics, comme partout ailleurs dans le plugin : le premier
+            // arme le bouton, le second supprime. Une fiche emporte ses images.
+            if (_slots.Count > 1)
+            {
+                ImGui.SameLine(0f, Theme.S(Theme.GapXs));
+                var armed = _confirmDelete == SelectedSlotId && SelectedSlotId.Length > 0;
+                if (Btn.Draw(armed ? l.RpProfileSlotDeleteConfirm : l.RpProfileSlotDelete,
+                             armed ? BtnTone.Danger : BtnTone.Ghost, BtnSize.Small, Icons.Trash,
+                             id: "rpslot_del"))
+                {
+                    if (armed)
+                    {
+                        var doomed = SelectedSlotId;
+                        // Revenir à la fiche publiée : celle qu'on supprime ne
+                        // sera plus là pour être rechargée.
+                        _selectedProfileId = string.Empty;
+                        RunSlotAction(() => Plugin.Api.DeleteRpProfileAsync(doomed));
+                    }
+                    else _confirmDelete = SelectedSlotId;
+                }
+                if (!ImGui.IsItemHovered() && armed) _confirmDelete = string.Empty;
+            }
+        }
+
+        if (_slotError.Length > 0)
+        {
+            Layout.Spacer(Theme.GapXs);
+            Text.Small(_slotError, Theme.Danger);
+        }
+    }
+
+    /// <summary>
+    /// Enchaîne un geste sur les fiches et le rechargement complet.
+    ///
+    /// Créer, dupliquer et supprimer changent la liste, et supprimer peut même
+    /// changer la fiche publiée : tout relire est plus sûr que de deviner l'état
+    /// résultant depuis le plugin.
+    /// </summary>
+    private void RunSlotAction(Func<Task<Api.RpSlotResult>> action)
+    {
+        _switching     = true;
+        _slotError     = string.Empty;
+        _confirmDelete = string.Empty;
+
+        var key = _loadedFor;
+
+        _ = Task.Run(async () =>
+        {
+            var result = await action();
+            await Plugin.Framework.RunOnFrameworkThread(() =>
+            {
+                _switching = false;
+                if (_loadedFor != key) return;
+
+                var l = Plugin.L;
+                switch (result)
+                {
+                    case Api.RpSlotResult.Quota:       _slotError = l.RpProfileSlotErrQuota; return;
+                    case Api.RpSlotResult.LastProfile: _slotError = l.RpProfileSlotErrLast;  return;
+                    case Api.RpSlotResult.Failed:      _slotError = l.RpProfileSlotErr;      return;
+                }
+
+                ForceReload(key);
+            });
+        });
+    }
+
+    /// <summary>
+    /// Oublie tout ce qui décrit la fiche courante, cache local compris.
+    ///
+    /// Le chargement lit le cache en premier pour éviter un écran vide : l'y
+    /// laisser ferait repartir l'enregistrement suivant du contenu d'avant, qui
+    /// écraserait la fiche fraîchement publiée. Mieux vaut un squelette le temps
+    /// de la réponse.
+    /// </summary>
+    private void ForceReload(string key)
+    {
+        // Même raison qu'au changement de personnage : la fiche derrière la clé
+        // n'est plus la même, le texte ouvert ne la décrit plus.
+        Plugin.CancelMarkdownEditor();
+
+        config.RpProfiles.Remove(key);
+        config.Save();
+
+        _loadedFor     = string.Empty;
+        _loadedProfile = string.Empty;
+        _profile       = null;
+        _dirty         = false;
+    }
+
+    /// <summary>
+    /// Publie une autre fiche, puis force le rechargement.
+    ///
+    /// Le cache local est réécrit par <see cref="Load"/> : sans ce rechargement,
+    /// la fenêtre continuerait d'afficher l'ancienne fiche, et le prochain
+    /// enregistrement l'écrirait par-dessus la nouvelle.
+    /// </summary>
+    /// <summary>
+    /// Ce que dit un échec d'enregistrement.
+    ///
+    /// « L'enregistrement a échoué » seul n'aide personne : les trois causes
+    /// possibles se règlent de trois façons différentes, et rien à l'écran ne
+    /// permettait de les distinguer. L'état du jeton est déjà tenu par le client
+    /// d'API, il suffisait de le lire.
+    /// </summary>
+    private static string SaveFailureText(Loc l) =>
+        !Plugin.Api.HasToken       ? l.SaveFailedNoToken
+        : !Plugin.Api.IsTokenValid ? l.SaveFailedToken
+        : l.SaveFailed;
+
+    /// <summary>
+    /// Ouvre une fiche pour la travailler, sans rien publier.
+    ///
+    /// Une saisie en cours serait perdue au rechargement : elle appartient à la
+    /// fiche qu'on quitte, et la porter sur la suivante l'écrirait au mauvais
+    /// endroit. Le changement est donc refusé tant que rien n'est enregistré.
+    /// </summary>
+    private void Select(string profileId)
+    {
+        if (_dirty || _statusDirty)
+        {
+            _slotError = Plugin.L.RpProfileSlotDirty;
+            return;
+        }
+
+        _slotError = string.Empty;
+        _confirmDelete = string.Empty;
+        _selectedProfileId = profileId == ActiveSlotId ? string.Empty : profileId;
+    }
+
+    /// <summary>
+    /// Crée une fiche et l'ouvre aussitôt.
+    ///
+    /// La créer pour devoir ensuite la retrouver dans la liste serait un pas de
+    /// trop, et une fiche vierge n'a d'intérêt qu'une fois remplie.
+    /// </summary>
+    private void CreateSlot()
+    {
+        _slotError     = string.Empty;
+        _confirmDelete = string.Empty;
+
+        var key = _loadedFor;
+
+        // L'assistant fait le travail : il pose les questions qui rendent une
+        // fiche utile, la crée, puis nous rend son identifiant pour l'ouvrir.
+        // Une fiche vierge de plus dans la liste ne disait pas quoi en faire.
+        Plugin.OpenRpProfileWizard(profileId =>
+        {
+            if (_loadedFor != key) return;
+            _selectedProfileId = profileId;
+            ForceReload(key);
+        });
+    }
+
+    /// <summary>
+    /// Relit la liste des fiches du personnage, en tâche de fond.
+    ///
+    /// La réponse est rattachée au personnage qui l'a demandée : sans cela, en
+    /// changeant de personnage pendant la requête, le sélecteur montrerait les
+    /// fiches du précédent, et un clic basculerait la mauvaise.
+    /// </summary>
+    private void LoadSlots(string key)
+    {
+        _ = Task.Run(async () =>
+        {
+            var list = await Plugin.Api.GetRpProfileListAsync();
+            await Plugin.Framework.RunOnFrameworkThread(() =>
+            {
+                if (_loadedFor != key) return;
+
+                _slotsFailed = list == null;
+                if (list == null) return;
+
+                _slots   = list.Profiles;
+                _slotMax = list.Max;
             });
         });
     }
@@ -556,6 +1026,12 @@ internal sealed class RpProfilePage(Configuration config)
         _langFr        = p?.Languages.Contains("fr") ?? true;
         _langEn        = p?.Languages.Contains("en") ?? false;
 
+        // Une fiche sans aucune langue existe en base mais ne peut pas être
+        // réenregistrée : le serveur en exige une. La correction vivait dans le
+        // rendu des préférences, donc seulement quand cet onglet était affiché ;
+        // ici elle s'applique quoi qu'on regarde.
+        if (!_langFr && !_langEn) _langFr = true;
+
         _height      = p?.Height      ?? string.Empty;
         _build       = p?.Build       ?? string.Empty;
         _marks       = p?.Marks       ?? string.Empty;
@@ -563,6 +1039,54 @@ internal sealed class RpProfilePage(Configuration config)
         _freeCompany = p?.FreeCompany ?? string.Empty;
         _allegiance  = p?.Allegiance  ?? string.Empty;
         _quote       = p?.Quote       ?? string.Empty;
+        _rpName      = p?.RpName      ?? string.Empty;
+        _nickname     = p?.Nickname     ?? string.Empty;
+        _age          = p?.Age          ?? string.Empty;
+        _themeSongUrl = p?.ThemeSongUrl ?? string.Empty;
+        _externalUrl  = p?.ExternalUrl  ?? string.Empty;
+
+        // Habillage : l'index 0 des deux listes vaut « aucun effet », d'où le
+        // décalage de un. Une valeur inconnue retombe donc sur « aucun ».
+        _rpTitle        = p?.RpTitle ?? string.Empty;
+        _frameIndex     = Math.Max(0, Array.IndexOf(FrameKeys, p?.FrameStyle ?? "") + 1);
+        _titleAnimIndex = Math.Max(0, Array.IndexOf(TitleAnimKeys, p?.TitleAnimation ?? "") + 1);
+
+        var accent = RpProfileView.Accent(p);
+        _accent1   = HexToRgb(p?.AccentColor, new Vector3(accent.X, accent.Y, accent.Z));
+        _accent2On = p?.AccentColor2 is { Length: > 0 };
+        _accent2   = HexToRgb(p?.AccentColor2, _accent1);
+
+        _pronouns    = p?.Pronouns    ?? string.Empty;
+        _origin      = p?.Origin      ?? string.Empty;
+        _occupation  = p?.Occupation  ?? string.Empty;
+
+        // Une valeur écrite par une version antérieure du vocabulaire retombe
+        // sur « non précisé » plutôt que d'afficher la première race au hasard.
+        _raceIndex = Math.Max(0, Array.IndexOf(RaceKeys, p?.Race ?? string.Empty));
+
+        _relationCount = Math.Min(p?.Relations.Length ?? 0, MaxRelations);
+        _relationArmed = -1;
+        for (var i = 0; i < MaxRelations; i++)
+        {
+            var relation = i < _relationCount ? p!.Relations[i] : null;
+            _relationNames[i] = relation?.TargetName ?? string.Empty;
+            _relationNotes[i] = relation?.Note       ?? string.Empty;
+            // Un type retiré du vocabulaire depuis l'enregistrement retombe sur
+            // « autre » plutôt que sur le premier de la liste, qui dirait « allié »
+            // à la place de l'auteur et serait réenregistré tel quel.
+            var kind = Array.IndexOf(RelationKindKeys, relation?.Kind ?? "");
+            _relationKinds[i] = kind >= 0 ? kind : Array.IndexOf(RelationKindKeys, "other");
+        }
+
+        _appearance  = p?.Appearance  ?? string.Empty;
+        _personality = p?.Personality ?? string.Empty;
+        _background  = p?.Background  ?? string.Empty;
+        _limits      = p?.Limits      ?? string.Empty;
+
+        _themes.Clear();
+        _themes.AddRange((p?.Themes ?? []).Where(t => ThemeKeys.Contains(t)));
+        _avoidThemes.Clear();
+        _avoidThemes.AddRange((p?.AvoidThemes ?? []).Where(t => ThemeKeys.Contains(t)));
         _deityIndex  = Math.Max(0, Array.IndexOf(DeityKeys, p?.Deity ?? string.Empty));
 
         _visInGame    = p?.IsPublic        ?? true;
@@ -797,7 +1321,7 @@ internal sealed class RpProfilePage(Configuration config)
         // saisi est encore là, il n'a simplement pas atteint le serveur.
         if (_statusFailed)
         {
-            Text.WithIcon(Icons.Warning, l.SaveFailed, Theme.Danger, Theme.Danger);
+            Text.WithIcon(Icons.Warning, SaveFailureText(l), Theme.Danger, Theme.Danger);
             Layout.Spacer(Theme.GapXs);
         }
 
@@ -1151,25 +1675,102 @@ internal sealed class RpProfilePage(Configuration config)
     /// Relations, en consultation seule : les nouer se fait sur le site, où l'on
     /// dispose du clavier et de la recherche de personnages.
     /// </summary>
+    /// <summary>
+    /// Relations du personnage, éditables en jeu.
+    ///
+    /// Le nom de la cible est saisi librement : le serveur le rapproche ensuite
+    /// d'un personnage à fiche publique s'il en trouve un, ce qui fait le lien.
+    /// Un partenaire qui n'a pas de fiche reste donc citable, ce qui est le
+    /// point : une relation raconte l'histoire de son auteur, pas celle de
+    /// l'autre.
+    /// </summary>
     private void DrawRelations(Loc l)
     {
-        if (_profile is not { Relations.Length: > 0 } p) return;
-
         using var card = Card.Begin("rp_relations", interactive: false);
-        Layout.SectionHeader(l.RpProfileRelations, Icons.Around, p.Relations.Length, tone: Tone);
+        Layout.SectionHeader(l.RpProfileRelations, Icons.Around, _relationCount, tone: Tone);
 
-        foreach (var relation in p.Relations)
+        var kindLabels = RelationKindKeys
+            .Select(k => RpProfileView.RelationLabel(k, l))
+            .ToArray();
+
+        if (_relationCount == 0) Text.Muted(l.RpProfileRelationsEmpty);
+
+        for (var i = 0; i < _relationCount; i++)
         {
-            Chip.Draw(RpProfileView.RelationLabel(relation.Kind, l), ChipTone.Accent);
-            ImGui.SameLine(0f, Theme.S(Theme.GapS));
-            ImGui.AlignTextToFramePadding();
-            Text.Body(relation.TargetName);
+            if (i > 0) Layout.Divider(Theme.GapS);
 
-            if (relation.Note is { Length: > 0 } note)
-                Text.Small(note);
+            DrawRelationRemove(i, l);
 
-            Layout.Spacer(Theme.GapXs);
+            if (Inputs.Field($"##relname{i}", string.Empty, ref _relationNames[i], MaxRelationName,
+                             placeholder: l.RpProfileRelationName))
+                MarkDirty();
+
+            // Type et note n'ont rien à dire tant que la relation n'a pas de
+            // cible : un emplacement sans nom n'est de toute façon pas envoyé.
+            if (_relationNames[i].Trim().Length == 0) continue;
+
+            if (Inputs.Select($"##relkind{i}", string.Empty, ref _relationKinds[i], kindLabels))
+                MarkDirty();
+
+            if (Inputs.Field($"##relnote{i}", string.Empty, ref _relationNotes[i], MaxRelationNote,
+                             placeholder: l.RpProfileRelationNote))
+                MarkDirty();
         }
+
+        if (_relationCount < MaxRelations)
+        {
+            Layout.Spacer(Theme.GapS);
+            if (Btn.Draw(l.RpProfileRelationAdd, BtnTone.Ghost, BtnSize.Small, Icons.Plus,
+                         id: "rel_add"))
+            {
+                _relationNames[_relationCount] = string.Empty;
+                _relationKinds[_relationCount] = 0;
+                _relationNotes[_relationCount] = string.Empty;
+                _relationCount++;
+                MarkDirty();
+            }
+        }
+
+        if (_textDirty) DrawSaveRow(l);
+    }
+
+    /// <summary>Ligne de titre d'une relation, avec sa suppression en deux clics.</summary>
+    private void DrawRelationRemove(int index, Loc l)
+    {
+        Text.Muted(string.Format(l.RpProfileRelationSlot, index + 1));
+        ImGui.SameLine();
+
+        var armed   = _relationArmed == index;
+        var caption = armed ? l.RpProfileGlanceRemoveArm : l.RpProfileGlanceRemove;
+
+        Layout.RightAlign(Btn.Measure(caption, Icons.Trash));
+
+        if (Btn.Draw(caption, armed ? BtnTone.Danger : BtnTone.Ghost, BtnSize.Medium,
+                     Icons.Trash, id: $"rel_del_{index}"))
+        {
+            if (armed) RemoveRelation(index);
+            else       _relationArmed = index;
+        }
+
+        if (armed && !ImGui.IsItemHovered()) _relationArmed = -1;
+    }
+
+    /// <summary>Retire une relation en décalant les suivantes, sans laisser de trou.</summary>
+    private void RemoveRelation(int index)
+    {
+        for (var i = index; i < _relationCount - 1; i++)
+        {
+            _relationNames[i] = _relationNames[i + 1];
+            _relationKinds[i] = _relationKinds[i + 1];
+            _relationNotes[i] = _relationNotes[i + 1];
+        }
+
+        _relationCount--;
+        _relationNames[_relationCount] = string.Empty;
+        _relationKinds[_relationCount] = 0;
+        _relationNotes[_relationCount] = string.Empty;
+        _relationArmed = -1;
+        MarkDirty();
     }
 
     private void DrawPreferences(Loc l)
@@ -1210,44 +1811,226 @@ internal sealed class RpProfilePage(Configuration config)
 
         DrawAutoSaveAt("pref_lang", l);
 
-        if (_profile is { Themes.Length: > 0 })
-        {
-            Layout.Spacer(Theme.GapS);
-            Text.Muted(l.RpProfileThemes);
-            Layout.Spacer(Theme.GapXs);
-            RpProfileView.DrawThemeChips(_profile.Themes, ChipTone.Accent, Tone);
-        }
-
-        if (_profile is { AvoidThemes.Length: > 0 })
-        {
-            Layout.Spacer(Theme.GapS);
-            Text.Muted(l.RpProfileAvoidThemes);
-            Layout.Spacer(Theme.GapXs);
-            RpProfileView.DrawThemeChips(_profile.AvoidThemes, ChipTone.Danger);
-        }
+        // Les thèmes ne s'affichent plus ici : ils ont leur propre carte, où ils
+        // s'éditent. Les montrer aux deux endroits faisait se contredire une
+        // liste éditée et une liste lue de la fiche, le temps que le serveur
+        // réponde.
 
         if (_textDirty) DrawSaveRow(l);
     }
 
+    /// <summary>
+    /// Identité du personnage, éditable en jeu.
+    ///
+    /// Elle était en lecture seule au motif qu'elle se rédige une fois pour
+    /// toutes : le raisonnement tenait tant que le site était le point d'entrée,
+    /// il laissait sans recours un joueur qui n'ouvre jamais de navigateur.
+    /// </summary>
     private void DrawIdentity(Loc l)
     {
-        var p = _profile;
-        if (p == null) return;
-
-        var hasIdentity = p.Race is { Length: > 0 } || p.Age is { Length: > 0 }
-                       || p.Origin is { Length: > 0 } || p.Occupation is { Length: > 0 }
-                       || p.Pronouns is { Length: > 0 };
-        if (!hasIdentity) return;
-
         using var card = Card.Begin("rp_identity", interactive: false);
         Layout.SectionHeader(l.RpProfileIdentity, Icons.Profile, tone: Tone);
-        RpProfileView.BeginRows();
 
-        if (p.Race is { Length: > 0 } race)            RpProfileView.Row(l.RpProfileRace, RpProfileView.RaceLabel(race, l));
-        if (p.Age is { Length: > 0 } age)              RpProfileView.Row(l.RpProfileAge, age);
-        if (p.Pronouns is { Length: > 0 } pronouns)    RpProfileView.Row(l.RpProfilePronouns, pronouns);
-        if (p.Origin is { Length: > 0 } origin)        RpProfileView.Row(l.RpProfileOrigin, origin);
-        if (p.Occupation is { Length: > 0 } occupation) RpProfileView.Row(l.RpProfileOccupation, occupation);
+        if (Inputs.Select("##race", l.RpProfileRace, ref _raceIndex,
+                          [.. RaceKeys.Select(k => k.Length == 0
+                              ? l.RpProfileUnset
+                              : RpProfileView.RaceLabel(k, l))]))
+            MarkToggleDirty("identity_race");
+
+        DrawAutoSaveAt("identity_race", l);
+
+        Layout.Spacer(Theme.GapS);
+        Layout.Spacer(Theme.GapS);
+        if (Inputs.Field("##nickname", l.RpProfileNickname, ref _nickname, 60)) MarkDirty();
+        if (Inputs.Field("##age", l.RpProfileAge, ref _age, 30))               MarkDirty();
+        if (Inputs.Field("##pronouns", l.RpProfilePronouns, ref _pronouns, 30)) MarkDirty();
+        if (Inputs.Field("##origin", l.RpProfileOrigin, ref _origin, 80))       MarkDirty();
+        if (Inputs.Field("##occupation", l.RpProfileOccupation, ref _occupation, 80)) MarkDirty();
+
+        if (_textDirty) DrawSaveRow(l);
+    }
+
+    /// <summary>
+    /// Liens de la fiche : musique de thème et page personnelle.
+    ///
+    /// Ils voisinent avec les syncshells, qui sont eux aussi une adresse qu'on
+    /// donne à ses partenaires plutôt qu'un trait du personnage.
+    /// </summary>
+    private void DrawProfileLinks(Loc l)
+    {
+        using var card = Card.Begin("rp_profilelinks", interactive: false);
+        Layout.SectionHeader(l.RpProfileLinksSection, Icons.External, tone: Tone);
+
+        if (Inputs.Field("##themesong", l.RpProfileThemeSong, ref _themeSongUrl, 300,
+                         help: l.RpProfileThemeSongHint))
+            MarkDirty();
+
+        if (Inputs.Field("##externalurl", l.RpProfileExternalUrl, ref _externalUrl, 300,
+                         help: l.RpProfileExternalUrlHint))
+            MarkDirty();
+
+        if (_textDirty) DrawSaveRow(l);
+    }
+
+    /// <summary>
+    /// Habillage de la fiche, réservé aux membres.
+    ///
+    /// Le droit vient du serveur et non d'un calcul local : une échéance
+    /// d'adhésion ne se juge pas sur l'horloge d'un poste de joueur. Sans droit,
+    /// la carte reste affichée mais verrouillée, plutôt que masquée : savoir ce
+    /// qu'on n'a pas fait partie de ce qui donne envie d'adhérer.
+    /// </summary>
+    private void DrawStyling(Loc l)
+    {
+        using var card = Card.Begin("rp_styling", interactive: false);
+        Layout.SectionHeader(l.RpProfileStyling, Icons.Sparkle, tone: Tone);
+
+        if (_profile?.CosmeticsAllowed != true)
+        {
+            Text.Small(l.RpProfileStylingLocked, Theme.TextMuted);
+            return;
+        }
+
+        if (ImGui.ColorEdit3("##accent1", ref _accent1, ImGuiColorEditFlags.NoInputs))
+            MarkDirty();
+        ImGui.SameLine(0f, Theme.S(Theme.GapS));
+        ImGui.AlignTextToFramePadding();
+        Text.Small(l.RpProfileAccent, Theme.TextMuted);
+
+        // La seconde couleur est facultative : sans elle, la fiche garde un
+        // aplat plutôt qu'un dégradé. Un interrupteur dit mieux « aucune » qu'une
+        // teinte qu'il faudrait deviner comme neutre.
+        var second = _accent2On;
+        if (Inputs.ToggleRow(l.RpProfileAccent2, ref second)) { _accent2On = second; MarkDirty(); }
+
+        if (_accent2On)
+        {
+            if (ImGui.ColorEdit3("##accent2", ref _accent2, ImGuiColorEditFlags.NoInputs))
+                MarkDirty();
+            ImGui.SameLine(0f, Theme.S(Theme.GapS));
+            ImGui.AlignTextToFramePadding();
+            Text.Small(l.RpProfileAccent2, Theme.TextMuted);
+        }
+
+        Layout.Spacer(Theme.GapS);
+
+        if (Inputs.Select("##frame", l.RpProfileFrame, ref _frameIndex, [.. FrameLabels(l)]))
+            MarkToggleDirty("styling_frame");
+
+        DrawAutoSaveAt("styling_frame", l);
+
+        // Une sanction peut interdire le titre : dans ce cas le champ disparaît
+        // plutôt que d'attendre un refus du serveur sans explication.
+        if (_profile?.TitlesBlocked == true)
+        {
+            Layout.Spacer(Theme.GapS);
+            Text.Small(l.RpProfileTitleBlocked, Theme.Danger);
+            if (_textDirty) DrawSaveRow(l);
+            return;
+        }
+
+        Layout.Spacer(Theme.GapS);
+        if (Inputs.Field("##rptitle", l.RpProfileRpTitle, ref _rpTitle, 40,
+                         help: l.RpProfileRpTitleHint))
+            MarkDirty();
+
+        if (_rpTitle.Trim().Length > 0
+            && Inputs.Select("##titleanim", l.RpProfileTitleAnim, ref _titleAnimIndex,
+                             [.. TitleAnimLabels(l)]))
+            MarkToggleDirty("styling_anim");
+
+        DrawAutoSaveAt("styling_anim", l);
+
+        if (_textDirty) DrawSaveRow(l);
+    }
+
+    private static IEnumerable<string> FrameLabels(Loc l) =>
+        new[] { l.RpProfileStylingNone }.Concat(
+            FrameKeys.Select(k => l.RpFrameLabels.TryGetValue(k, out var v) ? v : k));
+
+    private static IEnumerable<string> TitleAnimLabels(Loc l) =>
+        new[] { l.RpProfileStylingNone }.Concat(
+            TitleAnimKeys.Select(k => l.RpTitleAnimLabels.TryGetValue(k, out var v) ? v : k));
+
+    /// <summary>
+    /// Convertit une couleur « #RRGGBB » en composantes normalisées. Une valeur
+    /// absente ou illisible retombe sur la teinte donnée, jamais sur du noir :
+    /// un sélecteur qui s'ouvre en noir laisserait croire à une couleur choisie.
+    /// </summary>
+    private static Vector3 HexToRgb(string? hex, Vector3 fallback)
+    {
+        if (hex is { Length: 7 } value && value[0] == '#'
+            && int.TryParse(value[1..], System.Globalization.NumberStyles.HexNumber,
+                            null, out var rgb))
+            return new Vector3(((rgb >> 16) & 0xFF) / 255f,
+                               ((rgb >> 8) & 0xFF) / 255f,
+                               (rgb & 0xFF) / 255f);
+
+        return new Vector3(fallback.X, fallback.Y, fallback.Z);
+    }
+
+    /// <summary>Format attendu par le serveur.</summary>
+    private static string RgbToHex(Vector3 rgb) =>
+        $"#{(int)(Math.Clamp(rgb.X, 0f, 1f) * 255f):x2}"
+        + $"{(int)(Math.Clamp(rgb.Y, 0f, 1f) * 255f):x2}"
+        + $"{(int)(Math.Clamp(rgb.Z, 0f, 1f) * 255f):x2}";
+
+    /// <summary>
+    /// Thèmes recherchés et thèmes évités, six au plus de chaque côté.
+    ///
+    /// Deux listes distinctes et non une échelle : « j'aime » et « je refuse »
+    /// ne sont pas les deux bouts d'une même graduation, et un thème absent des
+    /// deux veut simplement dire qu'on n'en a rien dit.
+    /// </summary>
+    private void DrawThemes(Loc l)
+    {
+        using var card = Card.Begin("rp_themes", interactive: false);
+        Layout.SectionHeader(l.RpProfileThemesSection, Icons.Sparkle, tone: Tone);
+
+        DrawThemeRow(l.RpProfileThemes, _themes, _avoidThemes, "want", l);
+        Layout.Spacer(Theme.GapS);
+        DrawThemeRow(l.RpProfileAvoidThemes, _avoidThemes, _themes, "avoid", l);
+
+        if (_textDirty) DrawSaveRow(l);
+    }
+
+    /// <summary>
+    /// Une rangée de thèmes à bascule. Un thème choisi d'un côté est retiré de
+    /// l'autre : se dire à la fois preneur et rétif sur le même sujet ne veut
+    /// rien dire, et le serveur ne trancherait pas à notre place.
+    /// </summary>
+    private void DrawThemeRow(string title, List<string> list, List<string> other, string id, Loc l)
+    {
+        Text.Small($"{title} ({list.Count}/{MaxThemes})", Theme.TextMuted);
+        Layout.Spacer(Theme.GapXs);
+
+        var limit = ImGui.GetCursorPosX() + ImGui.GetContentRegionAvail().X;
+        var gap   = Theme.S(Theme.GapXs);
+        var first = true;
+
+        foreach (var key in ThemeKeys)
+        {
+            var label  = RpProfileView.ThemeLabel(key, l);
+            var active = list.Contains(key);
+            var width  = Btn.Measure(label);
+
+            if (!first && ImGui.GetCursorPosX() + gap + width <= limit)
+                ImGui.SameLine(0f, gap);
+            first = false;
+
+            if (!Btn.Draw(label, active ? BtnTone.Primary : BtnTone.Ghost, BtnSize.Small,
+                          id: $"theme_{id}_{key}"))
+                continue;
+
+            if (active) list.Remove(key);
+            else if (list.Count < MaxThemes)
+            {
+                list.Add(key);
+                other.Remove(key);
+            }
+
+            MarkDirty();
+        }
     }
 
     /// <summary>
@@ -1262,17 +2045,73 @@ internal sealed class RpProfilePage(Configuration config)
     /// </summary>
     private void DrawDescription(Loc l)
     {
-        var p = _profile;
-        if (p == null) return;
-
         // Mêmes icônes et même teinte que sur la fiche vue par les autres : les
         // deux écrans affichent la même fiche et doivent rendre à l'identique.
-        RpProfileView.DrawTextBlock("rp_appearance",  l.RpProfileAppearance,  p.Appearance,
-                                    Icons.Diamond, Tone);
-        RpProfileView.DrawTextBlock("rp_personality", l.RpProfilePersonality, p.Personality,
-                                    Icons.RpLive, Tone);
-        RpProfileView.DrawTextBlock("rp_background",  l.RpProfileBackground,  p.Background,
-                                    Icons.Clock, Tone);
+        DrawLongText("rp_appearance",  l.RpProfileAppearance,  _appearance,
+                     MaxAppearance, Icons.Diamond, Tone, l);
+        DrawLongText("rp_personality", l.RpProfilePersonality, _personality,
+                     MaxPersonality, Icons.RpLive, Tone, l);
+        DrawLongText("rp_background",  l.RpProfileBackground,  _background,
+                     MaxBackground, Icons.Clock, Tone, l);
+    }
+
+    // Longueurs maximales, reprises une à une du schéma du serveur. Un plafond
+    // trop haut fait refuser tout l'enregistrement, pas seulement le champ ; un
+    // plafond trop bas tronque en jeu un texte écrit sur le site.
+    private const int MaxAppearance  = 4000;
+    private const int MaxPersonality = 4000;
+    private const int MaxBackground  = 8000;
+    private const int MaxLimits      = 2000;
+
+    /// <summary>
+    /// Un texte long : son rendu, et un bouton qui ouvre l'éditeur.
+    ///
+    /// La carte reste affichée même vide, contrairement au rendu de la fiche
+    /// d'autrui : c'est ici qu'on écrit, et une section qui disparaît faute de
+    /// contenu n'offre nulle part où cliquer pour en ajouter.
+    /// </summary>
+    private void DrawLongText(string id, string title, string value, int maxLength,
+                              FontAwesomeIcon icon, Vector4 tone, Loc l)
+    {
+        using var card = Card.Begin(id, interactive: false);
+        Layout.SectionHeader(title, icon, tone: tone);
+
+        if (string.IsNullOrWhiteSpace(value)) Text.Small(l.RpProfileEmptyText, Theme.TextMuted);
+        else                                  MarkdownView.Draw(value, Theme.TextMuted);
+
+        Layout.Spacer(Theme.GapXs);
+
+        // La clé du personnage est capturée à l'ouverture : l'éditeur rend sa
+        // réponse plusieurs frames plus tard, et le joueur a pu changer de
+        // personnage ou de fiche entretemps. Sans elle, un texte validé
+        // atterrirait dans la fiche d'un autre.
+        var key = _loadedFor;
+        if (Btn.Draw(l.RpProfileWrite, BtnTone.Ghost, BtnSize.Small, Icons.Edit, id: $"{id}_edit"))
+            Plugin.OpenMarkdownEditor(title, value, maxLength, text => ApplyLongText(key, id, text));
+    }
+
+    /// <summary>
+    /// Range le texte validé dans le bon champ, puis marque la fiche à
+    /// enregistrer. Le passage par l'identifiant évite de faire voyager une
+    /// référence de champ jusque dans une fenêtre à la durée de vie propre.
+    ///
+    /// Une validation qui arrive après un changement de personnage ou de fiche
+    /// est jetée : elle décrit une fiche qui n'est plus à l'écran.
+    /// </summary>
+    private void ApplyLongText(string key, string id, string text)
+    {
+        if (_loadedFor != key) return;
+
+        switch (id)
+        {
+            case "rp_appearance":  _appearance  = text; break;
+            case "rp_personality": _personality = text; break;
+            case "rp_background":  _background  = text; break;
+            case "rp_limits":      _limits      = text; break;
+            default: return;
+        }
+
+        MarkDirty();
     }
 
     /// <summary>
@@ -1281,11 +2120,8 @@ internal sealed class RpProfilePage(Configuration config)
     /// </summary>
     private void DrawLimits(Loc l)
     {
-        var p = _profile;
-        if (p == null) return;
-
-        RpProfileView.DrawTextBlock("rp_limits", l.RpProfileLimits, p.Limits,
-                                    Icons.Warning, Theme.Danger);
+        DrawLongText("rp_limits", l.RpProfileLimits, _limits,
+                     MaxLimits, Icons.Warning, Theme.Danger, l);
     }
 
     /// <summary>
@@ -1575,7 +2411,7 @@ internal sealed class RpProfilePage(Configuration config)
         // les modifications sont encore là, elles ne sont simplement pas parties.
         if (_saveFailed)
         {
-            Text.WithIcon(Icons.Warning, l.SaveFailed, Theme.Danger, Theme.Danger);
+            Text.WithIcon(Icons.Warning, SaveFailureText(l), Theme.Danger, Theme.Danger);
             Layout.Spacer(Theme.GapXs);
         }
 
@@ -1643,6 +2479,58 @@ internal sealed class RpProfilePage(Configuration config)
         request.FreeCompany = Edited(_freeCompany);
         request.Allegiance  = Edited(_allegiance);
         request.Quote       = Edited(_quote);
+        request.RpName      = Edited(_rpName);
+
+        // Identité et thèmes, désormais rédigés en jeu comme sur le site.
+        request.Race        = RaceKeys[_raceIndex];
+        request.Age         = Edited(_age);
+        request.Pronouns    = Edited(_pronouns);
+        request.Origin      = Edited(_origin);
+        request.Occupation  = Edited(_occupation);
+        // La fiche visée, quand ce n'est pas celle que le personnage publie.
+        request.ProfileId    = _selectedProfileId.Length > 0 ? _selectedProfileId : null;
+        request.Nickname     = Edited(_nickname);
+        request.ThemeSongUrl = Edited(_themeSongUrl);
+        request.ExternalUrl  = Edited(_externalUrl);
+        request.Themes       = [.. _themes];
+        request.AvoidThemes  = [.. _avoidThemes];
+
+        // Habillage : envoyé seulement si le serveur a dit que le compte y a
+        // droit. Sans ce garde-fou, un client qui n'a pas reçu l'information
+        // renverrait les valeurs du cache et pourrait rétablir un habillage
+        // qu'une adhésion expirée avait éteint.
+        if (_profile?.CosmeticsAllowed == true)
+        {
+            request.AccentColor    = RgbToHex(_accent1);
+            request.AccentColor2   = _accent2On ? RgbToHex(_accent2) : string.Empty;
+            request.FrameStyle     = _frameIndex     > 0 ? FrameKeys[_frameIndex - 1]         : string.Empty;
+            request.TitleAnimation = _titleAnimIndex > 0 ? TitleAnimKeys[_titleAnimIndex - 1] : string.Empty;
+            if (_profile?.TitlesBlocked != true) request.RpTitle = Edited(_rpTitle);
+        }
+        request.Appearance  = Edited(_appearance);
+        request.Personality = Edited(_personality);
+        request.Background  = Edited(_background);
+        request.Limits      = Edited(_limits);
+
+        // Relations : envoyées seulement si elles ont été lues du serveur. Le
+        // cache local ne les porte pas, et le serveur remplace la liste entière
+        // à chaque envoi : partir du cache effacerait des relations nouées
+        // depuis le site. Laissée nulle, la clé est omise et le serveur garde
+        // les siennes, comme pour la confidentialité plus bas.
+        //
+        // Un emplacement sans nom n'existe pas : il n'est pas envoyé, et ne
+        // consomme donc pas l'un des huit que le serveur accepte.
+        if (_profileFromNetwork) request.Relations =
+        [
+            .. Enumerable.Range(0, _relationCount)
+                .Where(i => _relationNames[i].Trim().Length > 0)
+                .Select(i => new RpRelationDto
+                {
+                    TargetName = _relationNames[i].Trim(),
+                    Kind       = RelationKindKeys[_relationKinds[i]],
+                    Note       = Edited(_relationNotes[i]),
+                }),
+        ];
 
         // L'index 0 vaut « non précisé », que le serveur attend en null : une
         // chaîne vide serait refusée par l'énumération.

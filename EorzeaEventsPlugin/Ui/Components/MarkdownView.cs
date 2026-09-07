@@ -43,10 +43,15 @@ internal static class MarkdownView
                 return;
 
             case BlockKind.Heading:
-                Layout.Spacer(Theme.GapS);
+                Layout.Spacer(Theme.GapM);
                 using (block.Level <= 2 ? Fonts.PushH2() : Fonts.PushBodyStrong())
                     DrawSpans(block.Spans, block.Level <= 2 ? Theme.Accent : Theme.Text);
-                Layout.Spacer(Theme.GapXs);
+
+                // Un filet sous les titres de premier rang : la taille et la
+                // couleur seules ne les détachaient pas assez du corps, et un
+                // titre qui ne se voit pas ne sert à rien dans un texte long.
+                if (block.Level <= 2) Layout.Divider(Theme.GapXs);
+                else                  Layout.Spacer(Theme.GapXs);
                 return;
 
             case BlockKind.Bullet:
@@ -64,8 +69,12 @@ internal static class MarkdownView
                 return;
 
             default:
+                // L'air se met avant un paragraphe, et seulement quand une ligne
+                // vide l'annonce. Posé après chaque ligne, il transformait un
+                // texte écrit au fil des retours à la ligne en une suite de
+                // paragraphes espacés.
+                if (block.BlankBefore) Layout.Spacer(Theme.GapXs);
                 DrawSpans(block.Spans, baseColor);
-                Layout.Spacer(Theme.GapXs);
                 return;
         }
     }
@@ -179,10 +188,18 @@ internal static class MarkdownView
     {
         var blocks = new List<Block>();
 
+        // Retenue d'une ligne vide à la suivante : c'est elle qui fait un
+        // paragraphe, là où un simple retour à la ligne n'en fait pas.
+        var blank = false;
+
         foreach (var raw in text.Split('\n'))
         {
             var line = raw.TrimEnd();
-            if (line.Trim().Length == 0) continue;
+            if (line.Trim().Length == 0)
+            {
+                blank = true;
+                continue;
+            }
 
             var indent  = CountIndent(line);
             var trimmed = line.TrimStart();
@@ -231,7 +248,8 @@ internal static class MarkdownView
                 continue;
             }
 
-            blocks.Add(new Block(BlockKind.Paragraph, ParseSpans(trimmed), 0, indent, 0));
+            blocks.Add(new Block(BlockKind.Paragraph, ParseSpans(trimmed), 0, indent, 0, blank));
+            blank = false;
         }
 
         return blocks;
@@ -310,7 +328,16 @@ internal static class MarkdownView
     [Flags]
     private enum SpanStyle { None = 0, Bold = 1, Italic = 2, Code = 4 }
 
-    private sealed record Block(BlockKind Kind, List<Span> Spans, int Level, int Indent, int Number);
+    /// <param name="BlankBefore">
+    /// Une ligne vide précédait ce bloc dans le texte source.
+    ///
+    /// C'est ce qui sépare un retour à la ligne d'un changement de paragraphe.
+    /// Sans cette distinction, chaque appui sur Entrée valait un paragraphe, et
+    /// un texte écrit au fil des lignes s'affichait aéré comme autant de
+    /// paragraphes.
+    /// </param>
+    private sealed record Block(BlockKind Kind, List<Span> Spans, int Level, int Indent, int Number,
+                                bool BlankBefore = false);
 
     private readonly record struct Span(string Text, SpanStyle Style, string? Url);
 }

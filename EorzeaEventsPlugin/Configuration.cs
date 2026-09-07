@@ -131,6 +131,38 @@ public class RpProfileCache
     public DateTime FetchedAt { get; set; } = DateTime.MinValue;
 }
 
+/// <summary>
+/// Personnage croisé en jeu, mémoire locale du plugin.
+///
+/// Une entrée n'existe que pour un personnage dont la fiche était visible au
+/// moment de la rencontre : on ne retient rien qu'on ne voyait déjà. Rien de
+/// tout ceci ne quitte la machine.
+/// </summary>
+[Serializable]
+public class RpEncounter
+{
+    public string    CharacterId   { get; set; } = string.Empty;
+    public string    Name          { get; set; } = string.Empty;
+    public string    World         { get; set; } = string.Empty;
+    public string?   RpName        { get; set; }
+    public string?   PortraitUrl   { get; set; }
+    public string?   AccentColor   { get; set; }
+    public DateTime  FirstMetAt    { get; set; }
+
+    /// <summary>Dernier aperçu à portée de vue : la plaque de nom dans la table d'objets.</summary>
+    public DateTime? LastSeenAt    { get; set; }
+
+    /// <summary>Dernière ouverture de la fiche, depuis n'importe quel écran.</summary>
+    public DateTime? LastOpenedAt  { get; set; }
+
+    /// <summary>Ma zone lors du dernier aperçu : on était au même endroit.</summary>
+    public string?   LastZone      { get; set; }
+
+    public int       Visits        { get; set; }
+    public string?   Note          { get; set; }
+    public DateTime? NoteUpdatedAt { get; set; }
+}
+
 [Serializable]
 public class Configuration : IPluginConfiguration
 {
@@ -237,19 +269,30 @@ public class Configuration : IPluginConfiguration
     /// <summary>Notifier (toast) quand une nouvelle session RP démarre dans la zone courante du joueur.</summary>
     public bool NotifyNearbyZone { get; set; } = true;
 
+    /// <summary>
+    /// Prévenir quand un joueur déclaré disponible entre dans ma zone après moi.
+    /// Jamais à ma propre arrivée : le compteur du menu suffit à dire qui est
+    /// déjà là.
+    /// </summary>
+    public bool NotifyRpArrival { get; set; } = true;
+
     /// <summary>Notifier quand un événement communautaire démarre via notification Dalamud.</summary>
     public bool NotifyEventStartDalamud { get; set; } = true;
 
     /// <summary>Notifier quand un événement communautaire démarre via message chat.</summary>
     public bool NotifyEventStartChat { get; set; } = true;
 
-    /// <summary>Afficher l'entrée "RP" dans la barre de statut du serveur.</summary>
+    // Les trois morceaux de l'entrée « EorzeaEvents » de la barre de statut du
+    // serveur. Les noms datent du temps où chacun était une entrée à part ; ils
+    // restent tels quels pour ne pas perdre le réglage des joueurs.
+
+    /// <summary>Le compteur de sessions RP ouvertes (lettre R).</summary>
     public bool ShowDtrRp { get; set; } = true;
 
-    /// <summary>Afficher l'entrée "Events" dans la barre de statut du serveur.</summary>
+    /// <summary>Le compteur d'événements en cours (lettre E).</summary>
     public bool ShowDtrEvents { get; set; } = true;
 
-    /// <summary>Afficher l'entrée de disponibilité RP (♦) dans la barre de statut du serveur.</summary>
+    /// <summary>Le glyphe de disponibilité RP (rond, horloge ou croix) devant le nom.</summary>
     public bool ShowDtrRpAvail { get; set; } = true;
 
     /// <summary>Langue de l'interface du plugin (Auto = détection depuis le client FFXIV).</summary>
@@ -305,6 +348,23 @@ public class Configuration : IPluginConfiguration
     /// </summary>
     public bool NameplateRpNames { get; set; } = true;
 
+    /// <summary>
+    /// Colorer le nom RP substitué avec la couleur d'accent de la fiche,
+    /// ramenée à la palette du jeu comme dans le chat. Un nom réel garde la
+    /// couleur du jeu : la teinte dit à elle seule « nom de personnage ».
+    /// </summary>
+    public bool NameplateRpNameColor { get; set; } = true;
+
+    /// <summary>
+    /// Afficher le titre RP d'adhérent au-dessus de la tête des joueurs qui ne
+    /// se sont pas déclarés disponibles. « Dispo RP » garde la priorité : c'est
+    /// l'information qui décide d'un abord.
+    /// </summary>
+    public bool NameplateRpTitles { get; set; } = true;
+
+    /// <summary>Un glyphe devant le nom des personnages de ma liste d'amis RP.</summary>
+    public bool NameplateFriendMarker { get; set; } = true;
+
     // ─── Infobulle de ciblage ────────────────────────────────────────────────
     //
     // Trois de ces réglages ont suffi d'une valeur par défaut : une configuration
@@ -335,6 +395,18 @@ public class Configuration : IPluginConfiguration
     /// de la fiche de le lui imposer au détour d'un survol.
     /// </summary>
     public bool ShowNsfwProfiles { get; set; } = false;
+
+    // Contenu de l'infobulle. Les champs courts et identitaires sont allumés
+    // d'emblée ; ce qui allonge la bulle sans aider à aborder quelqu'un est
+    // laissé au choix. Citation, accroches et quête en cours ne sont pas
+    // proposés : le relevé allégé, fenêtre fermée, ne les transporte pas, et
+    // l'infobulle vit surtout fenêtre fermée.
+    public bool RpTooltipShowNickname       { get; set; } = true;
+    public bool RpTooltipShowPronouns       { get; set; } = true;
+    public bool RpTooltipShowRaceOccupation { get; set; } = false;
+    public bool RpTooltipShowThemes         { get; set; } = false;
+    public bool RpTooltipShowNote           { get; set; } = true;
+    public bool RpTooltipShowFriend         { get; set; } = true;
 
     // ─── Facilités de discussion ──────────────────────────────────────────────
     //
@@ -503,6 +575,29 @@ public class Configuration : IPluginConfiguration
     public bool RpAskOnLogin { get; set; } = false;
 
     /// <summary>
+    /// Partager sa position tant qu'on est déclaré disponible.
+    ///
+    /// Éteint par défaut, et c'est le seul réglage de ce module à l'être : une
+    /// localisation ne se partage pas par défaut, même arrondie. Se déclarer
+    /// disponible dit « venez me parler », pas « voici où je suis ».
+    /// </summary>
+    public bool SharePositionWhenAvailable { get; set; } = false;
+
+    /// <summary>L'astuce « vous pouvez partager votre position » a été dite une fois.</summary>
+    public bool PositionHintShown { get; set; } = false;
+
+    // ─── Rencontres ──────────────────────────────────────────────────────────
+
+    /// <summary>Personnages croisés, par identifiant de personnage. Voir <see cref="EncounterRegistry"/>.</summary>
+    public Dictionary<string, RpEncounter> Encounters { get; set; } = [];
+
+    /// <summary>
+    /// Mémoriser les rencontres. Coupé, plus rien n'est écrit ; ce qui existe
+    /// reste jusqu'à « Tout effacer ».
+    /// </summary>
+    public bool EncountersEnabled { get; set; } = true;
+
+    /// <summary>
     /// Reporte l'ancien état commun au compte sur chaque personnage lié.
     ///
     /// Sans cela, un joueur qui met le plugin à jour verrait sa fiche et sa
@@ -621,5 +716,15 @@ public class Configuration : IPluginConfiguration
         Save();
     }
 
-    public void Save() => Plugin.PluginInterface.SavePluginConfig(this);
+    /// <summary>
+    /// Écrit la configuration depuis le thread de jeu, toujours.
+    ///
+    /// Plusieurs appels arrivent après un <c>await</c>, donc depuis un thread
+    /// de pool, alors que le registre des rencontres modifie ses dictionnaires
+    /// sur le thread de jeu à chaque minute : une sérialisation qui enjambe un
+    /// ajout échoue. Passer par le framework sérialise tout au même endroit ;
+    /// déjà sur le thread de jeu, l'appel est immédiat.
+    /// </summary>
+    public void Save() =>
+        Plugin.Framework.RunOnFrameworkThread(() => Plugin.PluginInterface.SavePluginConfig(this));
 }

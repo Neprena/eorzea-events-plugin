@@ -51,6 +51,40 @@ internal static class ReleaseNotes
     public static readonly ReleaseNote[] All =
     [
         new(
+            Version: "2.10.0",
+            TitleFr: "Votre fiche se tient en jeu",
+            TitleEn: "Your profile lives in game",
+            BodyFr: """
+                    **Ajouté**
+                    - Un personnage peut tenir jusqu'à trois fiches RP et choisir celle que les autres voient ; un assistant guide la création de la suivante.
+                    - La fiche se remplit entièrement en jeu, textes longs compris, avec un aperçu de la mise en forme à côté de la saisie.
+                    - Un onglet « Rencontres » garde une note privée sur chaque rôliste croisé, visible ensuite sur sa carte.
+                    - Partagez votre position quand vous êtes déclaré disponible : les autres vous rejoignent d'un clic sur la carte.
+
+                    **Modifié**
+                    - Les plaques de nom portent le nom RP en couleur, le titre RP et un repère sur vos amis RP.
+                    - « Autour de moi » se lit en trois sections : à portée de vue, dans la région, ailleurs dans le monde.
+                    - Une seule entrée « EorzeaEvents » dans la barre de statut : clic gauche pour ouvrir, clic droit pour la disponibilité.
+
+                    **Corrigé**
+                    - « Prolonger (+1h) » ajoute une heure au temps restant d'une session, au lieu de remplacer ce qui restait.
+                    """,
+            BodyEn: """
+                    **Added**
+                    - A character can hold up to three RP profiles and choose which one others see; a wizard walks you through creating the next one.
+                    - The profile is filled in entirely in game, long texts included, with a live preview beside the text you type.
+                    - An "Encounters" tab keeps a private note on every roleplayer you meet, shown later on their card.
+                    - Share your position while you are flagged as available: others reach you with one click on the map.
+
+                    **Changed**
+                    - Nameplates carry the RP name in colour, the RP title and a marker on your RP friends.
+                    - "Around me" now reads in three sections: in sight, in this region, elsewhere in the world.
+                    - A single "EorzeaEvents" entry in the server info bar: left click to open, right click for availability.
+
+                    **Fixed**
+                    - "Extend (+1h)" adds an hour to the time left on a session, instead of replacing what was left.
+                    """),
+        new(
             Version: "2.9.0",
             TitleFr: "Chacun sous son nom RP",
             TitleEn: "Everyone under their RP name",

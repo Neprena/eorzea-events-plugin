@@ -3,8 +3,8 @@
     "Author": "Neprena",
     "Name": "Eorzea Events",
     "InternalName": "EorzeaEventsPlugin",
-    "AssemblyVersion": "2.10.0.0",
-    "TestingAssemblyVersion": "2.10.0.0",
+    "AssemblyVersion": "2.10.1.0",
+    "TestingAssemblyVersion": "2.10.1.0",
     "Description": "Gérez vos sessions RP Eorzea Events directement depuis le jeu.",
     "Punchline": "Sessions RP Eorzea Events en un clic.",
     "ApplicableVersion": "any",
@@ -15,10 +15,10 @@
     "DalamudApiLevel": 15,
     "IconUrl": "https://raw.githubusercontent.com/Neprena/eorzea-events-plugin/main/Plugin_Logo.png",
     "RepoUrl": "https://github.com/Neprena/eorzea-events-plugin",
-    "DownloadLinkInstall": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.10.0/EorzeaEventsPlugin.zip",
-    "DownloadLinkTesting": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.10.0/EorzeaEventsPlugin.zip",
-    "DownloadLinkUpdate": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.10.0/EorzeaEventsPlugin.zip",
-    "Changelog": "Un personnage peut désormais tenir jusqu'à trois fiches RP et choisir celle que les autres voient, un assistant guidant la création de la suivante. La fiche se remplit entièrement en jeu, textes longs compris, et un onglet « Rencontres » garde une note privée sur chaque rôliste croisé. Vous pouvez aussi partager votre position quand vous êtes déclaré disponible. L'historique complet des nouveautés est dans le plugin.",
-    "LastUpdate": 1788811568
+    "DownloadLinkInstall": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.10.1/EorzeaEventsPlugin.zip",
+    "DownloadLinkTesting": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.10.1/EorzeaEventsPlugin.zip",
+    "DownloadLinkUpdate": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.10.1/EorzeaEventsPlugin.zip",
+    "Changelog": "Des corrections mineures et des optimisations ont été apportées au plugin. L'historique complet est dans le plugin.",
+    "LastUpdate": 1789042127
   }
 ]

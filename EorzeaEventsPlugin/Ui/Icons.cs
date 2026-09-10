@@ -75,6 +75,19 @@ internal static class Icons
     /// <summary>Statut d'équipe : modération ou administration.</summary>
     public const FontAwesomeIcon Shield  = FontAwesomeIcon.ShieldAlt;
 
+    // ─── Notes de version ─────────────────────────────────────────────────────
+    //
+    // Une icône par étiquette de puce, reconnue par MarkdownView. Le vocabulaire
+    // est fermé : cinq étiquettes, cinq glyphes, cinq couleurs. C'est ce que
+    // fait Umbra Sync, dont les notes servent de modèle : une icône FontAwesome
+    // teintée en guise de puce, jamais un emoji, que les polices du jeu n'ont
+    // pas.
+    public const FontAwesomeIcon ChangeNew      = FontAwesomeIcon.Star;
+    public const FontAwesomeIcon ChangeImproved = FontAwesomeIcon.ArrowUp;
+    public const FontAwesomeIcon ChangeFixed    = FontAwesomeIcon.Bug;
+    public const FontAwesomeIcon ChangeSecurity = FontAwesomeIcon.ShieldAlt;
+    public const FontAwesomeIcon ChangeThanks   = FontAwesomeIcon.Heart;
+
     // ─── Amis RP ──────────────────────────────────────────────────────────────
     public const FontAwesomeIcon Friend    = FontAwesomeIcon.UserFriends;
     public const FontAwesomeIcon FriendAdd = FontAwesomeIcon.UserPlus;
@@ -159,6 +172,7 @@ internal static class Icons
         Warning, Info, Check, Blocked, Sparkle, Diamond, Chevron, Shield,
         Friend, FriendAdd,
         Bold, Italic, Heading, BulletList, Quote,
+        ChangeNew, ChangeImproved, ChangeFixed, ChangeSecurity, ChangeThanks,
 
         // Les 24 glyphes du coup d'œil : le joueur choisit librement parmi eux,
         // n'importe lequel peut donc apparaître sur n'importe quelle fiche.

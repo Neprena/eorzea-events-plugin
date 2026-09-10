@@ -1,4 +1,5 @@
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface;
 using System.Numerics;
 using System.Text;
 
@@ -55,6 +56,16 @@ internal static class MarkdownView
                 return;
 
             case BlockKind.Bullet:
+                // Puce des notes de version : l'étiquette de la ligne remplace
+                // le point par son icône, et se teinte de la même couleur.
+                if (block.Tag != NoteTag.None)
+                {
+                    var (icon, tint) = TagStyle(block.Tag);
+                    DrawMarker(icon.S(), block.Indent, tint);
+                    DrawSpans(block.Spans, baseColor, BulletIndent(block.Indent), tint);
+                    return;
+                }
+
                 DrawMarker("•", block.Indent);
                 DrawSpans(block.Spans, baseColor, BulletIndent(block.Indent));
                 return;
@@ -81,12 +92,22 @@ internal static class MarkdownView
 
     private static float BulletIndent(int level) => Theme.S(16f + level * 14f);
 
-    private static void DrawMarker(string marker, int level)
+    private static void DrawMarker(string marker, int level, Vector4? color = null)
     {
         ImGui.SetCursorPosX(ImGui.GetCursorPosX() + Theme.S(4f + level * 14f));
-        ImGui.TextColored(Theme.TextFaint, marker);
+        ImGui.TextColored(color ?? Theme.TextFaint, marker);
         ImGui.SameLine(0f, Theme.S(Theme.GapS));
     }
+
+    /// <summary>Icône et teinte d'une étiquette de note de version.</summary>
+    private static (FontAwesomeIcon Icon, Vector4 Color) TagStyle(NoteTag tag) => tag switch
+    {
+        NoteTag.New      => (Icons.ChangeNew,      Theme.Online),
+        NoteTag.Improved => (Icons.ChangeImproved, Theme.Link),
+        NoteTag.Fixed    => (Icons.ChangeFixed,    Theme.Idle),
+        NoteTag.Security => (Icons.ChangeSecurity, Theme.Gold),
+        _                => (Icons.ChangeThanks,   Theme.Danger),
+    };
 
     private static void DrawQuote(Block block)
     {
@@ -110,7 +131,13 @@ internal static class MarkdownView
     /// la ligne est calculé mot à mot : la police variant d'un segment à
     /// l'autre, le repli automatique d'ImGui ne peut pas s'appliquer.
     /// </summary>
-    private static void DrawSpans(List<Span> spans, Vector4 color, float indent = 0f)
+    /// <param name="leadColor">
+    /// Teinte du premier segment, quand il porte l'étiquette d'une note de
+    /// version (« Nouveauté : », « Correction : »…). Le reste de la ligne garde
+    /// la couleur du corps.
+    /// </param>
+    private static void DrawSpans(List<Span> spans, Vector4 color, float indent = 0f,
+                                  Vector4? leadColor = null)
     {
         var left     = ImGui.GetCursorPosX();
         var maxWidth = ImGui.GetContentRegionAvail().X - Card.RightInset - indent;
@@ -120,15 +147,18 @@ internal static class MarkdownView
         // début de ligne suivante, et la comparaison serait toujours vraie.
         var used = 0f;
 
-        foreach (var span in spans)
+        for (var index = 0; index < spans.Count; index++)
         {
+            var span = spans[index];
+
             using var font = span.Style.HasFlag(SpanStyle.Bold)
                 ? Fonts.PushBodyStrong()
                 : Fonts.PushBody();
 
-            var tint = span.Url != null                     ? Theme.Link
-                     : span.Style.HasFlag(SpanStyle.Code)   ? Theme.Gold
-                     : span.Style.HasFlag(SpanStyle.Italic) ? Theme.TextMuted
+            var tint = span.Url != null                        ? Theme.Link
+                     : index == 0 && leadColor is { } lead     ? lead
+                     : span.Style.HasFlag(SpanStyle.Code)      ? Theme.Gold
+                     : span.Style.HasFlag(SpanStyle.Italic)    ? Theme.TextMuted
                      : color;
 
             var spacing = ImGui.CalcTextSize(" ").X;
@@ -234,7 +264,9 @@ internal static class MarkdownView
             // Liste à puces.
             if (trimmed.Length > 1 && trimmed[0] is '-' or '*' or '+' && trimmed[1] == ' ')
             {
-                blocks.Add(new Block(BlockKind.Bullet, ParseSpans(trimmed[2..]), 0, indent, 0));
+                var item = trimmed[2..];
+                blocks.Add(new Block(BlockKind.Bullet, ParseSpans(item), 0, indent, 0,
+                                     Tag: DetectTag(item)));
                 continue;
             }
 
@@ -260,6 +292,35 @@ internal static class MarkdownView
         var spaces = 0;
         while (spaces < line.Length && line[spaces] == ' ') spaces++;
         return Math.Min(spaces / 2, 3);
+    }
+
+    /// <summary>
+    /// Étiquette portée par une puce de note de version, ou
+    /// <see cref="NoteTag.None"/> pour toute autre ligne.
+    ///
+    /// Le vocabulaire est fermé et la recherche bornée aux premiers caractères :
+    /// une phrase ordinaire qui contiendrait « : » plus loin ne peut pas être
+    /// prise pour une étiquette.
+    /// </summary>
+    private static NoteTag DetectTag(string item)
+    {
+        var text  = item.TrimStart('*', ' ');
+        var colon = text.IndexOf(':');
+        if (colon is <= 0 or > 16) return NoteTag.None;
+
+        // L'espace avant le deux-points est une convention typographique
+        // française, et peut être fine ou insécable selon qui a saisi la ligne.
+        var label = text[..colon].TrimEnd('*', ' ', '\u00A0', '\u202F');
+
+        return label.ToLowerInvariant() switch
+        {
+            "nouveauté"   or "new"         => NoteTag.New,
+            "amélioration" or "improvement" => NoteTag.Improved,
+            "correction"  or "fix"         => NoteTag.Fixed,
+            "sécurité"    or "security"    => NoteTag.Security,
+            "merci"       or "thanks"      => NoteTag.Thanks,
+            _                              => NoteTag.None,
+        };
     }
 
     /// <summary>Découpe une ligne en segments stylés.</summary>
@@ -325,6 +386,12 @@ internal static class MarkdownView
 
     private enum BlockKind { Paragraph, Heading, Bullet, Numbered, Quote, Rule }
 
+    /// <summary>
+    /// Étiquette d'une puce de note de version. Voir <see cref="ReleaseNotes"/>,
+    /// dont chaque ligne commence par l'une d'elles.
+    /// </summary>
+    private enum NoteTag { None, New, Improved, Fixed, Security, Thanks }
+
     [Flags]
     private enum SpanStyle { None = 0, Bold = 1, Italic = 2, Code = 4 }
 
@@ -337,7 +404,7 @@ internal static class MarkdownView
     /// paragraphes.
     /// </param>
     private sealed record Block(BlockKind Kind, List<Span> Spans, int Level, int Indent, int Number,
-                                bool BlankBefore = false);
+                                bool BlankBefore = false, NoteTag Tag = NoteTag.None);
 
     private readonly record struct Span(string Text, SpanStyle Style, string? Url);
 }

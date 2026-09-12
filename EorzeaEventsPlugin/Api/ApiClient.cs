@@ -231,6 +231,19 @@ public class RpProfileDto
 
     [JsonPropertyName("rpName")]       public string?  RpName       { get; set; }
     [JsonPropertyName("nickname")]     public string?  Nickname     { get; set; }
+
+    /// <summary>
+    /// Forme du nom à porter sur la plaque : « rp_name », « nickname » ou
+    /// « rp_name_nickname ». Null ou inconnue valent « rp_name », la seule
+    /// forme ayant existé jusqu'ici.
+    ///
+    /// Réglage du PORTEUR, à ne pas confondre avec
+    /// <see cref="Configuration.NameplateRpNames"/> et ses voisins, qui sont
+    /// ceux du spectateur : celui qui a coupé l'affichage des noms RP chez lui
+    /// ne voit rien, quelle que soit la forme demandée en face.
+    /// </summary>
+    [JsonPropertyName("nameplateName")] public string? NameplateName { get; set; }
+
     [JsonPropertyName("pronouns")]     public string?  Pronouns     { get; set; }
     [JsonPropertyName("race")]         public string?  Race         { get; set; }
     [JsonPropertyName("age")]          public string?  Age          { get; set; }
@@ -613,6 +626,7 @@ public class SaveRpProfileRequest
 
     [JsonPropertyName("rpName")]       public string?  RpName       { get; set; }
     [JsonPropertyName("nickname")]     public string?  Nickname     { get; set; }
+    [JsonPropertyName("nameplateName")] public string? NameplateName { get; set; }
     [JsonPropertyName("pronouns")]     public string?  Pronouns     { get; set; }
     [JsonPropertyName("race")]         public string?  Race         { get; set; }
     [JsonPropertyName("age")]          public string?  Age          { get; set; }
@@ -739,7 +753,8 @@ public class SaveRpProfileRequest
     {
         RpLevel = p.RpLevel, ApproachMode = p.ApproachMode, Languages = p.Languages,
         ContactMode = p.ContactMode, SessionLength = p.SessionLength, Themes = p.Themes,
-        RpName = p.RpName, Nickname = p.Nickname, Pronouns = p.Pronouns, Race = p.Race,
+        RpName = p.RpName, Nickname = p.Nickname, NameplateName = p.NameplateName,
+        Pronouns = p.Pronouns, Race = p.Race,
         Age = p.Age, Origin = p.Origin, Occupation = p.Occupation,
         Appearance = p.Appearance, Personality = p.Personality, Background = p.Background,
         Hooks = p.Hooks, CurrentQuest = p.CurrentQuest, AvoidThemes = p.AvoidThemes,

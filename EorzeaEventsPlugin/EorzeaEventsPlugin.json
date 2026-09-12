@@ -3,7 +3,7 @@
   "Author": "Neprena",
   "Description": "Gérez vos sessions RP Eorzea Events directement depuis le jeu.",
   "Punchline": "Sessions RP Eorzea Events en un clic.",
-  "Changelog": "Des corrections mineures et des optimisations ont été apportées au plugin. L'historique complet est dans le plugin.",
+  "Changelog": "Vous choisissez le nom que porte votre plaque de personnage : votre nom RP, votre surnom, ou les deux. Le réglage est dans la section Identité de votre fiche. L'historique complet des nouveautés est dans le plugin.",
   "InternalName": "EorzeaEventsPlugin",
   "RepoUrl": "https://github.com/Neprena/eorzea-events-plugin",
   "Tags": [

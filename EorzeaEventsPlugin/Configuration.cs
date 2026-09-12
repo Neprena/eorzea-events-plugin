@@ -60,6 +60,14 @@ public class RpProfileCache
 
     public string? RpName       { get; set; }
     public string? Nickname     { get; set; }
+
+    /// <summary>
+    /// Forme du nom sur la plaque. Mise en cache comme le reste : sans elle, un
+    /// enregistrement depuis le jeu repartirait du défaut et effacerait le
+    /// choix fait sur le site.
+    /// </summary>
+    public string? NameplateName { get; set; }
+
     public string? Pronouns     { get; set; }
     public string? Race         { get; set; }
     public string? Age          { get; set; }

@@ -184,6 +184,7 @@ internal sealed class RpProfilePage(Configuration config)
     // lecture seule au motif qu'elle se rédige une fois pour toutes, ce qui
     // laissait sans recours un joueur qui n'ouvre jamais le navigateur.
     private int    _raceIndex;
+    private int    _nameplateIndex;
     private string _nickname   = string.Empty;
     private string _age        = string.Empty;
     private string _pronouns   = string.Empty;
@@ -255,6 +256,15 @@ internal sealed class RpProfilePage(Configuration config)
 
     private static readonly string[] TitleAnimKeys =
         ["sweep", "pulse", "rainbow", "sheen", "halo", "duotone", "wave", "neon"];
+
+    /// <summary>
+    /// Formes du nom sur la plaque, dans l'ordre de RP_NAMEPLATE_NAMES côté
+    /// site. Pas d'entrée vide en tête, contrairement aux races : « rp_name »
+    /// EST le défaut, et une fiche dont la colonne est restée nulle doit
+    /// trouver une option en regard plutôt qu'un sélecteur sans réponse.
+    /// </summary>
+    private static readonly string[] NameplateKeys =
+        ["rp_name", "nickname", "rp_name_nickname"];
 
     // « glance » vient juste après « hooks », comme côté serveur : les défauts
     // ci-dessous sont lus par position, tout décalage réglerait une section sur
@@ -1041,6 +1051,7 @@ internal sealed class RpProfilePage(Configuration config)
         _quote       = p?.Quote       ?? string.Empty;
         _rpName      = p?.RpName      ?? string.Empty;
         _nickname     = p?.Nickname     ?? string.Empty;
+        _nameplateIndex = Math.Max(0, Array.IndexOf(NameplateKeys, p?.NameplateName ?? string.Empty));
         _age          = p?.Age          ?? string.Empty;
         _themeSongUrl = p?.ThemeSongUrl ?? string.Empty;
         _externalUrl  = p?.ExternalUrl  ?? string.Empty;
@@ -1842,6 +1853,29 @@ internal sealed class RpProfilePage(Configuration config)
         Layout.Spacer(Theme.GapS);
         Layout.Spacer(Theme.GapS);
         if (Inputs.Field("##nickname", l.RpProfileNickname, ref _nickname, 60)) MarkDirty();
+
+        // Placé juste sous le surnom, et non parmi les réglages : il ne se
+        // comprend qu'en voyant les deux champs qu'il combine. Le nom RP, lui,
+        // vit plus haut, là où il nomme la fiche.
+        if (Inputs.Select("##nameplate", l.RpProfileNameplate, ref _nameplateIndex,
+                          [l.RpProfileNameplateRpName,
+                           l.RpProfileNameplateNickname,
+                           l.RpProfileNameplateBoth]))
+            MarkDirty();
+
+        // Montrer le résultat plutôt que le décrire : c'est le seul moyen de
+        // rendre lisibles les replis quand un des deux champs est vide.
+        var nameplatePreview = Plugin.ComposeNameplateName(
+            NameplateKeys[_nameplateIndex], _rpName, _nickname,
+            Plugin.CurrentCharacter?.Name ?? string.Empty);
+
+        Text.Small(nameplatePreview is { Length: > 0 } shown
+                       ? string.Format(l.RpProfileNameplatePreview, shown)
+                       : l.RpProfileNameplatePreviewNone,
+                   Theme.TextMuted);
+        Text.Small(l.RpProfileNameplateHint, Theme.TextMuted);
+        Layout.Spacer(Theme.GapXs);
+
         if (Inputs.Field("##age", l.RpProfileAge, ref _age, 30))               MarkDirty();
         if (Inputs.Field("##pronouns", l.RpProfilePronouns, ref _pronouns, 30)) MarkDirty();
         if (Inputs.Field("##origin", l.RpProfileOrigin, ref _origin, 80))       MarkDirty();
@@ -2490,6 +2524,7 @@ internal sealed class RpProfilePage(Configuration config)
         // La fiche visée, quand ce n'est pas celle que le personnage publie.
         request.ProfileId    = _selectedProfileId.Length > 0 ? _selectedProfileId : null;
         request.Nickname     = Edited(_nickname);
+        request.NameplateName = NameplateKeys[_nameplateIndex];
         request.ThemeSongUrl = Edited(_themeSongUrl);
         request.ExternalUrl  = Edited(_externalUrl);
         request.Themes       = [.. _themes];
@@ -2635,6 +2670,7 @@ internal sealed class RpProfilePage(Configuration config)
         Hooks        = Join(p.Hooks),
         Glances      = System.Text.Json.JsonSerializer.Serialize(p.Glances),
         RpName       = p.RpName,        Nickname     = p.Nickname,
+        NameplateName = p.NameplateName,
         Pronouns     = p.Pronouns,      Race         = p.Race,
         Age          = p.Age,           Origin       = p.Origin,
         Occupation   = p.Occupation,    Appearance   = p.Appearance,
@@ -2669,6 +2705,7 @@ internal sealed class RpProfilePage(Configuration config)
         Hooks        = Split(c.Hooks),
         Glances      = SplitGlances(c.Glances),
         RpName       = c.RpName,        Nickname     = c.Nickname,
+        NameplateName = c.NameplateName,
         Pronouns     = c.Pronouns,      Race         = c.Race,
         Age          = c.Age,           Origin       = c.Origin,
         Occupation   = c.Occupation,    Appearance   = c.Appearance,

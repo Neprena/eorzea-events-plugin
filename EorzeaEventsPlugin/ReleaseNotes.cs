@@ -63,6 +63,16 @@ internal static class ReleaseNotes
     public static readonly ReleaseNote[] All =
     [
         new(
+            Version: "2.11.0",
+            TitleFr: "Le nom sur votre plaque",
+            TitleEn: "The name on your nameplate",
+            BodyFr: """
+                    - **Nouveauté :** Vous choisissez le nom que porte votre plaque de personnage : votre nom RP, votre surnom, ou votre nom RP suivi de votre surnom entre guillemets. Le réglage est dans la section Identité de votre fiche, sous le champ Surnom.
+                    """,
+            BodyEn: """
+                    - **New:** You choose the name your character's nameplate carries: your RP name, your nickname, or your RP name followed by your nickname in quotation marks. The setting is in your profile's Identity section, under the Nickname field.
+                    """),
+        new(
             Version: "2.10.1",
             TitleFr: "Corrections mineures",
             TitleEn: "Minor fixes",

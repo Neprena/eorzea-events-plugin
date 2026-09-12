@@ -106,6 +106,45 @@ public sealed class Plugin : IDalamudPlugin
     private readonly record struct NameplateStyle(string? RpName, string? RpTitle, ushort? Color);
 
     /// <summary>
+    /// Nom à porter sur la plaque, ou null quand rien ne remplace celui du jeu.
+    ///
+    /// Reproduit à l'identique <c>composeNameplateName</c> de
+    /// src/lib/rp-vocabulary.ts, qui alimente l'aperçu du formulaire sur le
+    /// site : les deux doivent bouger ensemble, sans quoi l'aperçu promettrait
+    /// une plaque que le jeu n'affiche pas.
+    ///
+    /// Les replis valent pour toutes les formes. Ce qui manque ne laisse jamais
+    /// une plaque vide : elle retombe sur ce qui reste, puis sur le nom du jeu.
+    /// Une forme inconnue, écrite par une version du site postérieure à
+    /// celle-ci, est traitée comme « rp_name » plutôt que rejetée.
+    /// </summary>
+    internal static string? ComposeNameplateName(
+        string? form, string? rpName, string? nickname, string characterName)
+    {
+        var rp   = rpName?.Trim()   ?? string.Empty;
+        var nick = nickname?.Trim() ?? string.Empty;
+
+        var composed = form switch
+        {
+            "nickname"         => nick.Length > 0 ? nick : rp,
+            "rp_name_nickname" => rp.Length > 0 && nick.Length > 0
+                ? $"{rp} « {nick} »"
+                : (rp.Length > 0 ? rp : nick),
+            _                  => rp,
+        };
+
+        // Rien à substituer, ou une substitution qui n'aurait rien changé : la
+        // plaque garde le nom du jeu. La comparaison porte sur le nom COMPOSÉ et
+        // non sur le seul nom RP, sans quoi un nom RP identique au nom de
+        // personnage ferait aussi disparaître le surnom qu'on voulait lui
+        // accoler.
+        if (composed.Length == 0 || string.Equals(composed, characterName, StringComparison.Ordinal))
+            return null;
+
+        return composed;
+    }
+
+    /// <summary>
     /// Styles de plaque par nom + monde (monde en minuscules), pour tous les
     /// joueurs du relevé qui portent un nom RP différent du nom de personnage
     /// ou un titre RP. Table distincte de <see cref="_availablePlayers"/>, et
@@ -2323,22 +2362,22 @@ public sealed class Plugin : IDalamudPlugin
                     g => g.Key,
                     g => (g.First().Profile?.RpLevel, g.First().Profile?.ApproachMode));
 
-            // Nom RP, titre RP et couleur, pour la liste entière : allumer le tag
-            // dit « je joue mon personnage », et c'est précisément le moment où le
-            // nom sous lequel on le joue a lieu d'être lu.
+            // Nom de plaque, titre RP et couleur, pour la liste entière : allumer
+            // le tag dit « je joue mon personnage », et c'est précisément le
+            // moment où le nom sous lequel on le joue a lieu d'être lu.
             //
-            // Un nom RP identique au nom de personnage ne compte pas : le rendu
-            // n'aurait rien à substituer. Une fiche sans nom RP ni titre n'entre
-            // pas dans la table, sa plaque reste celle du jeu.
+            // La forme du nom est celle que le porteur a choisie sur sa fiche,
+            // composée par ComposeNameplateName. Un nom composé vide, ou
+            // identique au nom de personnage, ne compte pas : le rendu n'aurait
+            // rien à substituer. Une fiche qui n'en produit aucun et n'a pas de
+            // titre n'entre pas dans la table, sa plaque reste celle du jeu.
             _nameplateStyles = entries
                 .Where(e => e.Profile != null)
                 .Select(e =>
                 {
                     var p      = e.Profile!;
-                    var rpName = p.RpName?.Trim();
-                    if (string.IsNullOrEmpty(rpName)
-                        || string.Equals(rpName, e.CharacterName, StringComparison.Ordinal))
-                        rpName = null;
+                    var rpName = ComposeNameplateName(
+                        p.NameplateName, p.RpName, p.Nickname, e.CharacterName);
 
                     var title = p.RpTitle?.Trim();
                     if (string.IsNullOrEmpty(title)) title = null;

@@ -407,6 +407,16 @@ internal sealed class Loc
     public required Dictionary<string, string> RpFrameLabels     { get; init; }
     public required Dictionary<string, string> RpTitleAnimLabels { get; init; }
     public required string RpProfileNickname        { get; init; }
+
+    // Forme du nom porté sur la plaque en jeu. Réglage du porteur, distinct des
+    // interrupteurs du spectateur qui vivent dans les paramètres (CfgNameplate*).
+    public required string RpProfileNameplate             { get; init; }
+    public required string RpProfileNameplateHint         { get; init; }
+    public required string RpProfileNameplateRpName       { get; init; }
+    public required string RpProfileNameplateNickname     { get; init; }
+    public required string RpProfileNameplateBoth         { get; init; }
+    public required string RpProfileNameplatePreview      { get; init; }
+    public required string RpProfileNameplatePreviewNone  { get; init; }
     public required string RpProfileLinksSection    { get; init; }
     public required string RpProfileThemeSongHint   { get; init; }
     public required string RpProfileExternalUrl     { get; init; }
@@ -1171,6 +1181,13 @@ internal sealed class Loc
             ["wave"] = "Vague", ["neon"] = "Néon",
         },
         RpProfileNickname        = "Surnom",
+        RpProfileNameplate            = "Nom sur la plaque",
+        RpProfileNameplateHint        = "Ce que les autres lisent au-dessus de votre tête. Chacun reste libre de couper l'affichage des noms RP dans son propre plugin.",
+        RpProfileNameplateRpName      = "Nom RP seul",
+        RpProfileNameplateNickname    = "Surnom seul",
+        RpProfileNameplateBoth        = "Nom RP, puis surnom",
+        RpProfileNameplatePreview     = "Au-dessus de votre tête : {0}",
+        RpProfileNameplatePreviewNone = "La plaque garde le nom du personnage : il n'y a rien à y substituer.",
         RpProfileLinksSection    = "Liens",
         RpProfileThemeSongHint   = "Un morceau qui va avec votre personnage. Le lien s'ouvre dans votre navigateur.",
         RpProfileExternalUrl     = "Page personnelle",
@@ -1897,6 +1914,13 @@ internal sealed class Loc
             ["wave"] = "Wave", ["neon"] = "Neon",
         },
         RpProfileNickname        = "Nickname",
+        RpProfileNameplate            = "Nameplate name",
+        RpProfileNameplateHint        = "What others read above your head. Everyone remains free to turn RP names off in their own plugin.",
+        RpProfileNameplateRpName      = "RP name only",
+        RpProfileNameplateNickname    = "Nickname only",
+        RpProfileNameplateBoth        = "RP name, then nickname",
+        RpProfileNameplatePreview     = "Above your head: {0}",
+        RpProfileNameplatePreviewNone = "Your nameplate keeps your character name: there is nothing to replace it with.",
         RpProfileLinksSection    = "Links",
         RpProfileThemeSongHint   = "A track that fits your character. The link opens in your browser.",
         RpProfileExternalUrl     = "Personal page",

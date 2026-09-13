@@ -437,12 +437,107 @@ public class RpGlanceDto
 /// <summary>Lien vers un autre personnage ou un PNJ.</summary>
 public class RpRelationDto
 {
+    /// <summary>
+    /// Identifiant de la ligne, servi à son auteur seul. Vide sur une fiche
+    /// consultée : on ne modifie que les siennes.
+    /// </summary>
+    [JsonPropertyName("id")] public string? Id { get; set; }
+
     [JsonPropertyName("targetName")] public string  TargetName { get; set; } = string.Empty;
     [JsonPropertyName("kind")]       public string  Kind       { get; set; } = string.Empty;
     [JsonPropertyName("note")]       public string? Note       { get; set; }
 
     /// <summary>Renseigné par le serveur quand la cible a une fiche publique.</summary>
     [JsonPropertyName("targetCharacterId")] public string? TargetCharacterId { get; set; }
+
+    /// <summary>
+    /// La ligne vient d'une demande acceptée : son nom est figé, et la retirer
+    /// retire aussi celle d'en face.
+    /// </summary>
+    [JsonPropertyName("linked")] public bool Linked { get; set; }
+}
+
+/// <summary>Personnage désigné par une demande de relation.</summary>
+public class RpRelationPartyDto
+{
+    [JsonPropertyName("id")]        public string Id        { get; set; } = string.Empty;
+    [JsonPropertyName("name")]      public string Name      { get; set; } = string.Empty;
+    [JsonPropertyName("worldName")] public string WorldName { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Demande de relation, reçue ou envoyée.
+///
+/// <c>Status</c> n'est renseigné que sur une demande envoyée, et ne vaut jamais
+/// que « pending » ou « accepted » : le serveur présente un refus comme une
+/// absence de réponse, et le plugin n'a pas à deviner davantage.
+/// </summary>
+public class RpRelationRequestDto
+{
+    [JsonPropertyName("id")]        public string  Id        { get; set; } = string.Empty;
+    [JsonPropertyName("kind")]      public string  Kind      { get; set; } = string.Empty;
+    [JsonPropertyName("note")]      public string? Note      { get; set; }
+    [JsonPropertyName("createdAt")] public string  CreatedAt { get; set; } = string.Empty;
+    [JsonPropertyName("status")]    public string? Status    { get; set; }
+
+    /// <summary>L'autre : le demandeur si la demande est reçue, la cible sinon.</summary>
+    [JsonPropertyName("character")] public RpRelationPartyDto Character { get; set; } = new();
+}
+
+public class RpRelationRequestsDto
+{
+    [JsonPropertyName("received")] public RpRelationRequestDto[] Received { get; set; } = [];
+    [JsonPropertyName("sent")]     public RpRelationRequestDto[] Sent     { get; set; } = [];
+}
+
+/// <summary>
+/// Désignation de la personne à qui l'on propose un lien : son identifiant
+/// serveur quand on l'a déjà lu, sinon le haché de son ContentId, lu sur un
+/// joueur qu'on a sous les yeux.
+/// </summary>
+public class CreateRelationRequestBody
+{
+    [JsonPropertyName("characterId")]   public string? CharacterId   { get; set; }
+    [JsonPropertyName("contentIdHash")] public string? ContentIdHash { get; set; }
+    [JsonPropertyName("kind")]          public string  Kind          { get; set; } = "friend";
+    [JsonPropertyName("note")]          public string? Note          { get; set; }
+}
+
+public class RespondRelationRequestBody
+{
+    /// <summary>« accept » ou « decline ».</summary>
+    [JsonPropertyName("action")] public string  Action { get; set; } = "accept";
+
+    /// <summary>Le type choisi par qui accepte, pour sa propre ligne.</summary>
+    [JsonPropertyName("kind")]   public string? Kind   { get; set; }
+    [JsonPropertyName("note")]   public string? Note   { get; set; }
+}
+
+/// <summary>Relation en texte libre : la cible n'a pas de fiche ici.</summary>
+public class FreeRelationBody
+{
+    [JsonPropertyName("targetName")] public string  TargetName { get; set; } = string.Empty;
+    [JsonPropertyName("kind")]       public string  Kind       { get; set; } = "friend";
+    [JsonPropertyName("note")]       public string? Note       { get; set; }
+}
+
+/// <summary>
+/// Modification d'une de ses lignes. Une note vide efface la note : les valeurs
+/// nulles étant omises à la sérialisation, la chaîne vide est le seul moyen de
+/// le dire.
+/// </summary>
+public class UpdateRelationBody
+{
+    [JsonPropertyName("kind")] public string? Kind { get; set; }
+    [JsonPropertyName("note")] public string? Note { get; set; }
+}
+
+/// <summary>Corps commun des réponses de relation : un statut, ou un refus nommé.</summary>
+public class RelationStatusDto
+{
+    [JsonPropertyName("status")] public string? Status { get; set; }
+    [JsonPropertyName("error")]  public string? Error  { get; set; }
+    [JsonPropertyName("id")]     public string? Id     { get; set; }
 }
 
 /// <summary>Relevé agrégé servi par <c>api/plugin/sync</c>.</summary>
@@ -1693,6 +1788,205 @@ public class ApiClient : IDisposable
             return res.IsSuccessStatusCode;
         }
         catch { return false; }
+    }
+
+    // ─── Relations consenties ────────────────────────────────────────────────
+
+    /// <summary>Issue d'une demande de relation, motif de refus compris.</summary>
+    public enum RelationRequestResult
+    {
+        /// <summary>La demande attend une réponse.</summary>
+        Pending,
+        /// <summary>Personnage du même compte : la relation est écrite des deux côtés.</summary>
+        AcceptedNow,
+        /// <summary>Aucune fiche visible en jeu derrière cette personne.</summary>
+        NoTarget,
+        AlreadyRequested,
+        AlreadyLinked,
+        ProfileFull,
+        Self,
+        /// <summary>Ce personnage n'est pas lié, ou n'a pas de fiche RP.</summary>
+        NoProfile,
+        RateLimited,
+        Failed,
+    }
+
+    public enum RelationRespondResult
+    {
+        Accepted, Declined, NotFound, AlreadyAnswered, AlreadyLinked, ProfileFull, Failed,
+    }
+
+    public enum FreeRelationResult { Added, ProfileFull, NoProfile, RateLimited, Failed }
+
+    /// <summary>Demandes reçues et envoyées du personnage courant.</summary>
+    public async Task<RpRelationRequestsDto?> GetRelationRequestsAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var res = await _http.GetAsync("api/rp-relations/requests", ct);
+            HandleAuthResponse(res);
+            if (!res.IsSuccessStatusCode) return null;
+            return await res.Content.ReadFromJsonAsync<RpRelationRequestsDto>(JsonOptions, ct);
+        }
+        catch { return null; }
+    }
+
+    /// <summary>
+    /// Propose un lien à un personnage.
+    ///
+    /// Le refus est nommé par le serveur : trois motifs différents partagent le
+    /// 409, et un message unique les rendrait tous incompréhensibles.
+    /// </summary>
+    public async Task<RelationRequestResult> CreateRelationRequestAsync(
+        CreateRelationRequestBody body, CancellationToken ct = default)
+    {
+        try
+        {
+            var res = await _http.PostAsJsonAsync("api/rp-relations/requests", body, JsonOptions, ct);
+            HandleAuthResponse(res);
+
+            if (res.IsSuccessStatusCode)
+            {
+                var status = await ReadRelationStatusAsync(res, ct);
+                return status == "accepted"
+                    ? RelationRequestResult.AcceptedNow
+                    : RelationRequestResult.Pending;
+            }
+
+            if (res.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                return RelationRequestResult.RateLimited;
+
+            return await ReadRelationErrorAsync(res, ct) switch
+            {
+                "already_requested"        => RelationRequestResult.AlreadyRequested,
+                "already_linked"           => RelationRequestResult.AlreadyLinked,
+                "profile_full"             => RelationRequestResult.ProfileFull,
+                "self"                     => RelationRequestResult.Self,
+                "no_profile"               => RelationRequestResult.NoProfile,
+                "character_token_required" => RelationRequestResult.NoProfile,
+                "not_found"                => RelationRequestResult.NoTarget,
+                _                          => RelationRequestResult.Failed,
+            };
+        }
+        catch { return RelationRequestResult.Failed; }
+    }
+
+    /// <summary>Accepte ou refuse une demande reçue.</summary>
+    public async Task<RelationRespondResult> RespondRelationRequestAsync(
+        string requestId, RespondRelationRequestBody body, CancellationToken ct = default)
+    {
+        try
+        {
+            var url = $"api/rp-relations/requests/{Uri.EscapeDataString(requestId)}/respond";
+            var res = await _http.PostAsJsonAsync(url, body, JsonOptions, ct);
+            HandleAuthResponse(res);
+
+            if (res.IsSuccessStatusCode)
+                return body.Action == "decline"
+                    ? RelationRespondResult.Declined
+                    : RelationRespondResult.Accepted;
+
+            return await ReadRelationErrorAsync(res, ct) switch
+            {
+                "already_answered" => RelationRespondResult.AlreadyAnswered,
+                "already_linked"   => RelationRespondResult.AlreadyLinked,
+                "profile_full"     => RelationRespondResult.ProfileFull,
+                "not_found"        => RelationRespondResult.NotFound,
+                _                  => RelationRespondResult.Failed,
+            };
+        }
+        catch { return RelationRespondResult.Failed; }
+    }
+
+    /// <summary>Retire une demande qu'on a envoyée et qui attend encore.</summary>
+    public async Task<bool> CancelRelationRequestAsync(string requestId, CancellationToken ct = default)
+    {
+        try
+        {
+            var url = $"api/rp-relations/requests/{Uri.EscapeDataString(requestId)}";
+            var res = await _http.DeleteAsync(url, ct);
+            HandleAuthResponse(res);
+            return res.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
+
+    /// <summary>Inscrit une relation en texte libre sur sa propre fiche.</summary>
+    public async Task<FreeRelationResult> AddFreeRelationAsync(
+        FreeRelationBody body, CancellationToken ct = default)
+    {
+        try
+        {
+            var res = await _http.PostAsJsonAsync("api/rp-relations", body, JsonOptions, ct);
+            HandleAuthResponse(res);
+
+            if (res.IsSuccessStatusCode) return FreeRelationResult.Added;
+            if (res.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                return FreeRelationResult.RateLimited;
+
+            return await ReadRelationErrorAsync(res, ct) switch
+            {
+                "profile_full"             => FreeRelationResult.ProfileFull,
+                "no_profile"               => FreeRelationResult.NoProfile,
+                "character_token_required" => FreeRelationResult.NoProfile,
+                _                          => FreeRelationResult.Failed,
+            };
+        }
+        catch { return FreeRelationResult.Failed; }
+    }
+
+    /// <summary>Change le type ou la note d'une de ses lignes.</summary>
+    public async Task<bool> UpdateRelationAsync(
+        string relationId, UpdateRelationBody body, CancellationToken ct = default)
+    {
+        try
+        {
+            var url = $"api/rp-relations/{Uri.EscapeDataString(relationId)}";
+            var res = await _http.PatchAsJsonAsync(url, body, JsonOptions, ct);
+            HandleAuthResponse(res);
+            return res.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
+
+    /// <summary>
+    /// Retire une de ses lignes. Sur une ligne liée, le lien se rompt des deux
+    /// côtés : c'est la règle du serveur, et l'appelant doit l'avoir dite avant.
+    /// </summary>
+    public async Task<bool> RemoveRelationAsync(string relationId, CancellationToken ct = default)
+    {
+        try
+        {
+            var url = $"api/rp-relations/{Uri.EscapeDataString(relationId)}";
+            var res = await _http.DeleteAsync(url, ct);
+            HandleAuthResponse(res);
+            return res.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
+
+    /// <summary>Le champ « status » d'une réponse de relation, ou null.</summary>
+    private static async Task<string?> ReadRelationStatusAsync(
+        HttpResponseMessage res, CancellationToken ct)
+    {
+        try
+        {
+            var body = await res.Content.ReadFromJsonAsync<RelationStatusDto>(JsonOptions, ct);
+            return body?.Status;
+        }
+        catch { return null; }
+    }
+
+    /// <summary>Le refus nommé par le serveur, chaîne vide si le corps est illisible.</summary>
+    private static async Task<string> ReadRelationErrorAsync(
+        HttpResponseMessage res, CancellationToken ct)
+    {
+        try
+        {
+            var body = await res.Content.ReadFromJsonAsync<RelationStatusDto>(JsonOptions, ct);
+            return body?.Error ?? string.Empty;
+        }
+        catch { return string.Empty; }
     }
 
     // ─── RP Availability ─────────────────────────────────────────────────────

@@ -202,8 +202,21 @@ internal sealed class RpProfilePage(Configuration config)
     private readonly string[] _relationNames = new string[MaxRelations];
     private readonly int[]    _relationKinds = new int[MaxRelations];
     private readonly string[] _relationNotes = new string[MaxRelations];
+
+    /// <summary>Identifiant serveur de chaque ligne, pour la modifier à l'unité.</summary>
+    private readonly string?[] _relationIds = new string?[MaxRelations];
+
+    /// <summary>
+    /// Personnage visé par chaque ligne. Renseigné, il dit que la ligne vient
+    /// d'une demande acceptée : son nom est alors figé, et son retrait rompt le
+    /// lien des deux côtés.
+    /// </summary>
+    private readonly string?[] _relationTargetIds = new string?[MaxRelations];
     private int _relationCount;
     private int _relationArmed = -1;
+
+    /// <summary>Demande dont le geste destructeur est armé, par identifiant.</summary>
+    private string? _requestArmed;
 
     // Liens de la fiche, hors syncshells.
     private string _themeSongUrl = string.Empty;
@@ -357,12 +370,6 @@ internal sealed class RpProfilePage(Configuration config)
     /// <summary>Plafond de RP_MAX_THEMES, appliqué aussi par le serveur.</summary>
     private const int MaxThemes = 6;
 
-    /// <summary>Types de relation, dans l'ordre de RP_RELATION_KINDS côté site.</summary>
-    private static readonly string[] RelationKindKeys =
-    [
-        "ally", "friend", "family", "lover", "mentor", "student", "rival", "enemy", "other",
-    ];
-
     /// <summary>Plafonds de RP_MAX_RELATIONS et RP_MAX_RELATION_NOTE.</summary>
     private const int MaxRelations    = 8;
     private const int MaxRelationName = 80;
@@ -492,6 +499,7 @@ internal sealed class RpProfilePage(Configuration config)
         DrawIdentity(l);
         DrawStyling(l);
         DrawProfileLinks(l);
+        DrawRelationRequests(l);
         DrawRelations(l);
         DrawDescription(l);
         DrawLimits(l);
@@ -552,6 +560,7 @@ internal sealed class RpProfilePage(Configuration config)
                 DrawPreferences(l);
                 DrawThemes(l);
                 DrawLimits(l);
+                DrawRelationRequests(l);
                 DrawRelations(l);
                 break;
 
@@ -655,6 +664,10 @@ internal sealed class RpProfilePage(Configuration config)
 
                 _profile = fetched;
                 _profileFromNetwork = true;
+
+                // Le clic droit s'en sert pour savoir si un lien existe déjà avec
+                // la personne visée.
+                Plugin.RememberOwnRelations(fetched.Relations);
                 _lastFetchedAt = DateTime.UtcNow;
 
                 // Seule la fiche publiée alimente le cache : y écrire une fiche
@@ -1082,11 +1095,13 @@ internal sealed class RpProfilePage(Configuration config)
             var relation = i < _relationCount ? p!.Relations[i] : null;
             _relationNames[i] = relation?.TargetName ?? string.Empty;
             _relationNotes[i] = relation?.Note       ?? string.Empty;
+            _relationIds[i]       = relation?.Id;
+            _relationTargetIds[i] = relation?.TargetCharacterId;
             // Un type retiré du vocabulaire depuis l'enregistrement retombe sur
             // « autre » plutôt que sur le premier de la liste, qui dirait « allié »
             // à la place de l'auteur et serait réenregistré tel quel.
-            var kind = Array.IndexOf(RelationKindKeys, relation?.Kind ?? "");
-            _relationKinds[i] = kind >= 0 ? kind : Array.IndexOf(RelationKindKeys, "other");
+            var kind = Array.IndexOf(RpVocab.RelationKinds, relation?.Kind ?? "");
+            _relationKinds[i] = kind >= 0 ? kind : Array.IndexOf(RpVocab.RelationKinds, "other");
         }
 
         _appearance  = p?.Appearance  ?? string.Empty;
@@ -1683,24 +1698,176 @@ internal sealed class RpProfilePage(Configuration config)
     }
 
     /// <summary>
-    /// Relations, en consultation seule : les nouer se fait sur le site, où l'on
-    /// dispose du clavier et de la recherche de personnages.
-    /// </summary>
-    /// <summary>
-    /// Relations du personnage, éditables en jeu.
+    /// Demandes de relation, au-dessus des relations : c'est ce qui attend un
+    /// geste, et une ligne liée ne peut naître que d'ici.
     ///
-    /// Le nom de la cible est saisi librement : le serveur le rapproche ensuite
-    /// d'un personnage à fiche publique s'il en trouve un, ce qui fait le lien.
-    /// Un partenaire qui n'a pas de fiche reste donc citable, ce qui est le
-    /// point : une relation raconte l'histoire de son auteur, pas celle de
-    /// l'autre.
+    /// La carte disparaît quand il n'y a rien à montrer. Sur une page qui compte
+    /// déjà douze sections, une carte vide ne dit rien que l'absence ne dise
+    /// mieux.
+    /// </summary>
+    private void DrawRelationRequests(Loc l)
+    {
+        var received = Plugin.RelationRequestsReceived;
+        var sent     = Plugin.RelationRequestsSent;
+        if (received.Count == 0 && sent.Count == 0) return;
+
+        using var card = Card.Begin("rp_relation_requests", interactive: false);
+        Layout.SectionHeader(l.RpRelationRequests, Icons.Friend, received.Count, tone: Tone);
+
+        for (var i = 0; i < received.Count; i++)
+        {
+            if (i > 0) Layout.Divider(Theme.GapS);
+            DrawReceivedRequest(received[i], l);
+        }
+
+        if (sent.Count == 0) return;
+
+        Layout.Spacer(Theme.GapS);
+        Text.Muted(l.RpRelationSentTitle);
+
+        foreach (var request in sent)
+            DrawSentRequest(request, l);
+    }
+
+    /// <summary>
+    /// Une demande reçue : qui la fait, quel lien elle propose, et de quoi
+    /// répondre. Accepter ouvre la fenêtre de relation, où se choisit le type de
+    /// sa propre ligne ; refuser se fait ici, en deux clics.
+    /// </summary>
+    private void DrawReceivedRequest(Api.RpRelationRequestDto request, Loc l)
+    {
+        Chip.Draw(RpProfileView.RelationLabel(request.Kind, l), ChipTone.Accent);
+        ImGui.SameLine(0f, Theme.S(Theme.GapS));
+        ImGui.AlignTextToFramePadding();
+        Text.Body($"{request.Character.Name} ({request.Character.WorldName})");
+
+        if (request.Note is { Length: > 0 } note) Text.Small(note);
+
+        Layout.Spacer(Theme.GapXs);
+
+        if (Btn.Draw(l.RpRelationAccept, BtnTone.Primary, BtnSize.Small, Icons.Check,
+                     id: $"relreq_ok_{request.Id}"))
+        {
+            Plugin.OpenRelationResponse(request.Id, request.Character.Name,
+                                        request.Character.WorldName, request.Kind,
+                                        onAnswered: ReloadAfterRelationChange);
+        }
+
+        ImGui.SameLine(0f, Theme.S(Theme.GapS));
+
+        var armed = _requestArmed == request.Id;
+        if (Btn.Draw(armed ? l.RpRelationDeclineArm : l.RpRelationDecline,
+                     armed ? BtnTone.Danger : BtnTone.Ghost, BtnSize.Small,
+                     id: $"relreq_no_{request.Id}"))
+        {
+            if (armed)
+            {
+                Decline(request.Id);
+                _requestArmed = null;
+            }
+            else
+            {
+                _requestArmed = request.Id;
+            }
+        }
+
+        if (armed && !ImGui.IsItemHovered()) _requestArmed = null;
+    }
+
+    /// <summary>
+    /// Une demande qu'on a envoyée. Le serveur n'en dit que deux choses :
+    /// acceptée, ou sans réponse. Un refus se présente comme une attente, et rien
+    /// ici ne doit laisser deviner la différence.
+    /// </summary>
+    private void DrawSentRequest(Api.RpRelationRequestDto request, Loc l)
+    {
+        var accepted = request.Status == "accepted";
+
+        Chip.Draw(accepted ? l.RpRelationSentAccepted : l.RpRelationSentPending,
+                  accepted ? ChipTone.Success : ChipTone.Neutral);
+        ImGui.SameLine(0f, Theme.S(Theme.GapS));
+        ImGui.AlignTextToFramePadding();
+        Text.Small($"{request.Character.Name} ({request.Character.WorldName})");
+
+        if (accepted) return;
+
+        ImGui.SameLine(0f, Theme.S(Theme.GapS));
+
+        var armed = _requestArmed == request.Id;
+        if (Btn.Draw(armed ? l.RpRelationCancelArm : l.RpRelationCancel,
+                     armed ? BtnTone.Danger : BtnTone.Ghost, BtnSize.Small,
+                     id: $"relreq_cancel_{request.Id}"))
+        {
+            if (armed)
+            {
+                CancelRequest(request.Id);
+                _requestArmed = null;
+            }
+            else
+            {
+                _requestArmed = request.Id;
+            }
+        }
+
+        if (armed && !ImGui.IsItemHovered()) _requestArmed = null;
+    }
+
+    /// <summary>
+    /// Refuse une demande sans quitter la page. Le demandeur ne verra pas de
+    /// refus : le serveur continue de lui présenter sa demande comme sans
+    /// réponse, et une relance restera impossible trente jours durant.
+    /// </summary>
+    private static void Decline(string requestId)
+    {
+        Task.Run(async () =>
+        {
+            await Plugin.Api.RespondRelationRequestAsync(
+                requestId, new Api.RespondRelationRequestBody { Action = "decline" });
+            await Plugin.Framework.RunOnFrameworkThread(Plugin.RequestRelationRequestsRefresh);
+        });
+    }
+
+    /// <summary>Retire une demande qu'on a envoyée, ce qui rouvre la possibilité d'en refaire une.</summary>
+    private static void CancelRequest(string requestId)
+    {
+        Task.Run(async () =>
+        {
+            await Plugin.Api.CancelRelationRequestAsync(requestId);
+            await Plugin.Framework.RunOnFrameworkThread(Plugin.RequestRelationRequestsRefresh);
+        });
+    }
+
+    /// <summary>
+    /// Une relation vient de naître ou de disparaître : la fiche à l'écran est
+    /// périmée. Le rechargement passe par le chemin ordinaire, qui respecte une
+    /// saisie en cours ; seul le délai d'attente est levé, pour que le changement
+    /// se voie tout de suite.
+    /// </summary>
+    private void ReloadAfterRelationChange()
+    {
+        _lastFetchedAt  = DateTime.MinValue;
+        _refreshPending = true;
+    }
+
+    /// <summary>
+    /// Relations du personnage.
+    ///
+    /// Une ligne en texte libre s'écrit ici comme avant : elle couvre les PNJ et
+    /// les rôlistes qui n'ont pas de fiche ici, et ne raconte que l'histoire de
+    /// son auteur.
+    ///
+    /// Une ligne liée, elle, vient d'une demande acceptée. Son nom ne s'édite
+    /// pas : le serveur la reconnaît par son identifiant ou, à défaut, par ce
+    /// nom, et une ligne liée qu'il ne retrouve pas est supprimée de part et
+    /// d'autre. Son type et sa note se changent par la fenêtre de relation, qui
+    /// écrit la ligne seule au lieu de renvoyer les huit.
     /// </summary>
     private void DrawRelations(Loc l)
     {
         using var card = Card.Begin("rp_relations", interactive: false);
         Layout.SectionHeader(l.RpProfileRelations, Icons.Around, _relationCount, tone: Tone);
 
-        var kindLabels = RelationKindKeys
+        var kindLabels = RpVocab.RelationKinds
             .Select(k => RpProfileView.RelationLabel(k, l))
             .ToArray();
 
@@ -1709,6 +1876,9 @@ internal sealed class RpProfilePage(Configuration config)
         for (var i = 0; i < _relationCount; i++)
         {
             if (i > 0) Layout.Divider(Theme.GapS);
+
+            // Une ligne liée se lit ici et se change ailleurs.
+            if (DrawLinkedRelation(i, l)) continue;
 
             DrawRelationRemove(i, l);
 
@@ -1734,15 +1904,56 @@ internal sealed class RpProfilePage(Configuration config)
             if (Btn.Draw(l.RpProfileRelationAdd, BtnTone.Ghost, BtnSize.Small, Icons.Plus,
                          id: "rel_add"))
             {
-                _relationNames[_relationCount] = string.Empty;
-                _relationKinds[_relationCount] = 0;
-                _relationNotes[_relationCount] = string.Empty;
+                _relationNames[_relationCount]     = string.Empty;
+                _relationKinds[_relationCount]     = 0;
+                _relationNotes[_relationCount]     = string.Empty;
+                _relationIds[_relationCount]       = null;
+                _relationTargetIds[_relationCount] = null;
                 _relationCount++;
                 MarkDirty();
             }
         }
 
         if (_textDirty) DrawSaveRow(l);
+    }
+
+    /// <summary>
+    /// Dessine une ligne liée, en lecture, et renvoie vrai quand c'est fait.
+    ///
+    /// Le nom n'est pas un champ : il vient du personnage tel qu'il s'appelait à
+    /// l'acceptation, et le modifier ferait disparaître la ligne des deux fiches.
+    /// Le bouton attend que la page soit enregistrée, sans quoi l'enregistrement
+    /// suivant renverrait l'ancien type par-dessus le nouveau.
+    /// </summary>
+    private bool DrawLinkedRelation(int index, Loc l)
+    {
+        if (_relationTargetIds[index] is not { Length: > 0 }) return false;
+
+        ImGui.AlignTextToFramePadding();
+        Text.Body(_relationNames[index]);
+        ImGui.SameLine(0f, Theme.S(Theme.GapS));
+        Chip.Draw(l.RpProfileRelationLinked, ChipTone.Success, alignToFrame: true);
+
+        Layout.Spacer(Theme.GapXs);
+        Chip.Draw(RpProfileView.RelationLabel(RpVocab.RelationKinds[_relationKinds[index]], l),
+                  ChipTone.Accent);
+        ImGui.SameLine(0f, Theme.S(Theme.GapS));
+
+        if (Btn.Draw(l.RpRelationEdit, BtnTone.Ghost, BtnSize.Small, Icons.Edit,
+                     disabled: _dirty, tooltip: _dirty ? l.RpRelationSaveFirst : null,
+                     id: $"rel_edit_{index}"))
+        {
+            Plugin.OpenRelationEdit(_relationIds[index] ?? string.Empty,
+                                    _relationNames[index],
+                                    RpVocab.RelationKinds[_relationKinds[index]],
+                                    _relationNotes[index],
+                                    linked: true,
+                                    onChanged: ReloadAfterRelationChange);
+        }
+
+        if (_relationNotes[index].Trim().Length > 0) Text.Small(_relationNotes[index]);
+
+        return true;
     }
 
     /// <summary>Ligne de titre d'une relation, avec sa suppression en deux clics.</summary>
@@ -1771,15 +1982,19 @@ internal sealed class RpProfilePage(Configuration config)
     {
         for (var i = index; i < _relationCount - 1; i++)
         {
-            _relationNames[i] = _relationNames[i + 1];
-            _relationKinds[i] = _relationKinds[i + 1];
-            _relationNotes[i] = _relationNotes[i + 1];
+            _relationNames[i]     = _relationNames[i + 1];
+            _relationKinds[i]     = _relationKinds[i + 1];
+            _relationNotes[i]     = _relationNotes[i + 1];
+            _relationIds[i]       = _relationIds[i + 1];
+            _relationTargetIds[i] = _relationTargetIds[i + 1];
         }
 
         _relationCount--;
-        _relationNames[_relationCount] = string.Empty;
-        _relationKinds[_relationCount] = 0;
-        _relationNotes[_relationCount] = string.Empty;
+        _relationNames[_relationCount]     = string.Empty;
+        _relationKinds[_relationCount]     = 0;
+        _relationNotes[_relationCount]     = string.Empty;
+        _relationIds[_relationCount]       = null;
+        _relationTargetIds[_relationCount] = null;
         _relationArmed = -1;
         MarkDirty();
     }
@@ -2038,19 +2253,14 @@ internal sealed class RpProfilePage(Configuration config)
         Text.Small($"{title} ({list.Count}/{MaxThemes})", Theme.TextMuted);
         Layout.Spacer(Theme.GapXs);
 
-        var limit = ImGui.GetCursorPosX() + ImGui.GetContentRegionAvail().X;
-        var gap   = Theme.S(Theme.GapXs);
-        var first = true;
+        var flow = FlowRow.Fill(Theme.S(Theme.GapXs));
 
         foreach (var key in ThemeKeys)
         {
             var label  = RpProfileView.ThemeLabel(key, l);
             var active = list.Contains(key);
-            var width  = Btn.Measure(label);
 
-            if (!first && ImGui.GetCursorPosX() + gap + width <= limit)
-                ImGui.SameLine(0f, gap);
-            first = false;
+            flow.Next(Btn.Measure(label, BtnSize.Small));
 
             if (!Btn.Draw(label, active ? BtnTone.Primary : BtnTone.Ghost, BtnSize.Small,
                           id: $"theme_{id}_{key}"))
@@ -2562,8 +2772,13 @@ internal sealed class RpProfilePage(Configuration config)
                 .Select(i => new RpRelationDto
                 {
                     TargetName = _relationNames[i].Trim(),
-                    Kind       = RelationKindKeys[_relationKinds[i]],
+                    Kind       = RpVocab.RelationKinds[_relationKinds[i]],
                     Note       = Edited(_relationNotes[i]),
+                    // L'identifiant rattache la ligne à celle que le serveur
+                    // détient : sans lui, le rapprochement retombe sur le nom, et
+                    // une ligne liée qu'il ne retrouve pas est supprimée, sur
+                    // cette fiche comme sur celle d'en face.
+                    TargetCharacterId = _relationTargetIds[i],
                 }),
         ];
 

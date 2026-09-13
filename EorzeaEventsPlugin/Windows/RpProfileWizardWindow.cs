@@ -208,18 +208,14 @@ public sealed class RpProfileWizardWindow : ThemedWindow
         Text.Small($"{title} ({list.Count}/{RpVocab.MaxThemes})", Theme.TextMuted);
         Layout.Spacer(Theme.GapXs);
 
-        var limit = ImGui.GetCursorPosX() + ImGui.GetContentRegionAvail().X;
-        var gap   = Theme.S(Theme.GapXs);
-        var first = true;
+        var flow = FlowRow.Fill(Theme.S(Theme.GapXs));
 
         foreach (var key in RpVocab.Themes)
         {
             var label  = RpProfileView.ThemeLabel(key, l);
             var active = list.Contains(key);
 
-            if (!first && ImGui.GetCursorPosX() + gap + Btn.Measure(label) <= limit)
-                ImGui.SameLine(0f, gap);
-            first = false;
+            flow.Next(Btn.Measure(label, BtnSize.Small));
 
             if (!Btn.Draw(label, active ? BtnTone.Primary : BtnTone.Ghost, BtnSize.Small,
                           id: $"theme_{id}_{key}"))

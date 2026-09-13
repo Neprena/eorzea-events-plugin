@@ -192,10 +192,6 @@ public sealed class RpTooltipWindow : ThemedWindow
         var wrapAt = ImGui.GetCursorPosX() + Theme.S(ContentWidth);
         ImGui.PushTextWrapPos(wrapAt);
 
-        // Même limite, en coordonnées écran : c'est dans ce repère que se lit
-        // le bord droit du dernier item dessiné.
-        var limitScreen = ImGui.GetCursorScreenPos().X + Theme.S(ContentWidth);
-
         // Impose la largeur avant tout contenu, sinon l'infobulle se rétrécit sur
         // un nom court puis s'élargit sur le suivant.
         ImGui.Dummy(new Vector2(Theme.S(ContentWidth), 0f));
@@ -242,12 +238,12 @@ public sealed class RpTooltipWindow : ThemedWindow
             Chip.Draw(l.RpFriendChip, ChipTone.Accent, Icons.Friend);
         }
 
-        DrawChips(profile, accent, l, wrapAt);
+        DrawChips(profile, accent, l);
 
         if (!masked && config.RpTooltipShowThemes && profile.Themes.Length > 0)
         {
             Layout.Spacer(Theme.GapXs);
-            DrawThemeRow(profile, l, limitScreen);
+            DrawThemeRow(profile, l);
         }
 
         // Ma note, en dernier et à part : elle n'appartient pas à la fiche, et
@@ -310,49 +306,43 @@ public sealed class RpTooltipWindow : ThemedWindow
     /// décide comment aborder quelqu'un, et les seuls que l'infobulle promet.
     /// Chacun ne reste sur la ligne que s'il y tient, la largeur étant contrainte.
     /// </summary>
-    private static void DrawChips(RpProfileDto profile, Vector4 accent, Loc l, float limit)
+    private static void DrawChips(RpProfileDto profile, Vector4 accent, Loc l)
     {
         Layout.Spacer(Theme.GapS);
 
-        var gap = Theme.S(Theme.GapXs);
-
-        void SameLineIfRoom(float width)
-        {
-            if (ImGui.GetCursorPosX() + gap + width <= limit) ImGui.SameLine(0f, gap);
-        }
+        var flow = new FlowRow(Theme.S(Theme.GapXs), Theme.S(ContentWidth));
 
         // Teintée par la fiche, comme sur l'entête : c'est le seul rappel de
         // l'habillage de son auteur dans un aperçu sans portrait ni bannière.
-        Chip.Colored(RpProfileView.LevelLabel(profile.RpLevel, l), accent);
+        var level = RpProfileView.LevelLabel(profile.RpLevel, l);
+        flow.Next(Chip.Measure(level));
+        Chip.Colored(level, accent);
 
         var approach = RpProfileView.ApproachLabel(profile.ApproachMode, l);
-        SameLineIfRoom(Chip.Measure(approach));
+        flow.Next(Chip.Measure(approach));
         Chip.Draw(approach, ChipTone.Accent);
 
         if (profile.Languages.Length == 0) return;
 
         var languages = string.Join(" / ", profile.Languages.Select(RpProfileView.LanguageLabel));
-        SameLineIfRoom(Chip.Measure(languages));
+        flow.Next(Chip.Measure(languages));
         Chip.Draw(languages, ChipTone.Neutral);
     }
 
     /// <summary>
     /// Thèmes recherchés sur la largeur contrainte. Chaque pastille ne reste
-    /// sur la ligne que si elle y tient, mesurée depuis le bord droit de la
-    /// précédente : après un item, le curseur ImGui est déjà revenu en début
-    /// de ligne, et c'est le rectangle de l'item qui dit où l'on en est.
-    /// DrawThemeChips de la fiche enchaîne les SameLine sans mesurer, et
-    /// ferait déborder une infobulle à largeur fixe.
+    /// sur la ligne que si elle y tient : DrawThemeChips de la fiche enchaîne
+    /// les SameLine sans mesurer, et ferait déborder une infobulle à largeur
+    /// fixe.
     /// </summary>
-    private static void DrawThemeRow(RpProfileDto profile, Loc l, float limitScreen)
+    private static void DrawThemeRow(RpProfileDto profile, Loc l)
     {
-        var gap = Theme.S(Theme.GapXs);
+        var flow = new FlowRow(Theme.S(Theme.GapXs), Theme.S(ContentWidth));
 
-        for (var i = 0; i < profile.Themes.Length; i++)
+        foreach (var theme in profile.Themes)
         {
-            var label = RpProfileView.ThemeLabel(profile.Themes[i], l);
-            if (i > 0 && ImGui.GetItemRectMax().X + gap + Chip.Measure(label) <= limitScreen)
-                ImGui.SameLine(0f, gap);
+            var label = RpProfileView.ThemeLabel(theme, l);
+            flow.Next(Chip.Measure(label));
             Chip.Draw(label, ChipTone.Neutral);
         }
     }

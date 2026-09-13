@@ -63,6 +63,26 @@ internal static class ReleaseNotes
     public static readonly ReleaseNote[] All =
     [
         new(
+            Version: "2.12.0",
+            TitleFr: "Les relations se demandent",
+            TitleEn: "Relationships are asked for",
+            BodyFr: """
+                    - **Nouveauté :** Un clic droit sur un rôliste propose « Proposer une relation ». Vous choisissez le lien parmi les neuf types de la fiche, vous y joignez une phrase si vous le souhaitez, et la personne visée reçoit une demande. La relation n'apparaît sur vos deux fiches qu'une fois qu'elle a accepté.
+                    - **Nouveauté :** Les demandes que vous recevez s'affichent au-dessus de vos relations, dans votre fiche RP. Accepter ouvre le choix de votre propre type de lien, pré-rempli par l'inverse de celui qu'on vous propose : à qui se dit votre mentor, le plugin propose « élève ». Vous restez libre d'en choisir un autre, chacun nomme son côté du lien.
+                    - **Nouveauté :** Une pastille sur l'entrée « Fiche RP » de la barre latérale compte les demandes qui attendent une réponse. Elle se met à jour chaque minute, et sans attendre après votre réponse.
+                    - **Nouveauté :** Le bouton « Proposer une relation » figure aussi sur la fiche RP que vous consultez en jeu, là où se prend la décision d'y nouer un lien.
+                    - **Amélioration :** Une relation qui pointe la fiche de quelqu'un porte désormais la mention « Liée ». Son type et sa note se changent par le bouton « Modifier », et la retirer demande une confirmation : le retrait efface aussi la ligne qui vous désigne sur la fiche d'en face.
+                    - **Correction :** Renommer une relation liée dans l'éditeur en jeu la faisait disparaître des deux fiches. Le nom d'une relation liée est maintenant figé : il vient du personnage tel qu'il s'appelait quand la demande a été acceptée.
+                    """,
+            BodyEn: """
+                    - **New:** Right-clicking a roleplayer offers "Propose a relationship". You pick the tie among the nine kinds of the profile, add a sentence if you want to, and the character you picked receives a request. The relationship appears on both profiles only once they accept.
+                    - **New:** Requests you receive are listed above your relationships, in your RP profile. Accepting opens the choice of your own kind of tie, prefilled with the reverse of the one proposed to you: to someone calling themselves your mentor, the plugin suggests "student". You may pick another one, each side names its own.
+                    - **New:** A badge on the "RP profile" sidebar entry counts the requests waiting for an answer. It refreshes every minute, and right after you answer.
+                    - **New:** The "Propose a relationship" button also sits on the RP profile you are reading in game, where the decision to tie yourselves is made.
+                    - **Improvement:** A relationship pointing at someone's profile now carries a "Linked" mark. Its kind and note are changed through the "Edit" button, and removing it asks for a confirmation: the removal also erases the line naming you on the other profile.
+                    - **Fix:** Renaming a linked relationship in the in-game editor made it vanish from both profiles. The name of a linked relationship is now fixed: it comes from the character as they were named when the request was accepted.
+                    """),
+        new(
             Version: "2.11.0",
             TitleFr: "Le nom sur votre plaque",
             TitleEn: "The name on your nameplate",

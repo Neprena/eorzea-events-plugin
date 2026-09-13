@@ -104,17 +104,12 @@ internal static class Chip
     /// </summary>
     public static void Row(params (string Text, ChipTone Tone)[] chips)
     {
-        var limit   = ImGui.GetCursorPosX() + ImGui.GetContentRegionAvail().X;
-        var spacing = Theme.S(Theme.GapXs);
-        var first   = true;
+        var flow = FlowRow.Fill(Theme.S(Theme.GapXs));
 
         foreach (var (text, tone) in chips)
         {
-            if (!first && ImGui.GetCursorPosX() + spacing + Measure(text) <= limit)
-                ImGui.SameLine(0f, spacing);
-
+            flow.Next(Measure(text));
             Draw(text, tone);
-            first = false;
         }
     }
 

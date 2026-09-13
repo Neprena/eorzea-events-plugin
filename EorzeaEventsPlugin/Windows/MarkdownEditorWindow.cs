@@ -141,7 +141,7 @@ public sealed class MarkdownEditorWindow : ThemedWindow
         var input   = body * 0.64f;
         var preview = body - input - ImGui.GetTextLineHeightWithSpacing();
 
-        ImGui.InputTextMultiline("##mdinput", ref _text, _max, new Vector2(-1f, input));
+        TextArea.Draw("##mdinput", ref _text, _max, new Vector2(-1f, input));
         Text.Small($"{_text.Length} / {_max}",
                    _text.Length >= _max ? Theme.Danger : Theme.TextMuted);
 

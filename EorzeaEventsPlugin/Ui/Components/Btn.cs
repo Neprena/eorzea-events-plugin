@@ -104,6 +104,18 @@ internal static class Btn
     public static float Measure(string label, FontAwesomeIcon? icon = null) =>
         Width(Compose(label, icon));
 
+    /// <summary>
+    /// Largeur qu'occuperait le bouton à cette taille, plancher compris : la
+    /// petite taille en impose un, et le mesurer sans lui fait croire qu'une
+    /// rangée tient sur une ligne alors qu'elle en déborde.
+    /// </summary>
+    public static float Measure(string label, BtnSize size, FontAwesomeIcon? icon = null)
+    {
+        var caption = Compose(label, icon);
+        var width   = Dimensions(size, caption).X;
+        return width > 0f ? width : Width(caption);
+    }
+
     private static string Compose(string label, FontAwesomeIcon? icon) =>
         icon is { } value ? $"{value.S()}  {label}" : label;
 

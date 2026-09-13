@@ -110,6 +110,10 @@ public class MainWindow : ThemedWindow, IDisposable
                 Icon  = Icons.Profile,
                 Label = () => Plugin.L.RpProfileTitle,
                 Draw  = _rpProfile.Draw,
+                // Les demandes reçues attendent une réponse : c'est la seule
+                // chose de la fiche qui appelle un geste, et le compteur ne suit
+                // rien d'autre.
+                Badge = () => Plugin.RelationRequestsReceived.Count,
             },
             new ShellPage
             {

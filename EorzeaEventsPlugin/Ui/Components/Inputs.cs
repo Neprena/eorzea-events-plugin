@@ -144,7 +144,7 @@ internal static class Inputs
         // ne s'unifient pas dans une expression conditionnelle.
         bool changed;
         if (multiline)
-            changed = ImGui.InputTextMultiline(id, ref text, maxLength, new Vector2(Card.FullWidth, Theme.S(height)));
+            changed = TextArea.Draw(id, ref text, maxLength, new Vector2(Card.FullWidth, Theme.S(height)));
         else
             changed = ImGui.InputText(id, ref text, maxLength);
 

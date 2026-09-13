@@ -95,6 +95,7 @@ public sealed class Plugin : IDalamudPlugin
     private static   RpTooltipWindow?      _rpTooltipWindow;
     private static   MarkdownEditorWindow?  _markdownEditor;
     private static   RpProfileWizardWindow? _rpWizard;
+    private static   RpRelationWindow?      _relationWindow;
 
     /// <summary>Voyage assisté vers une parcelle, si Lifestream est présent.</summary>
     internal static Ipc.LifestreamIpc Lifestream { get; private set; } = null!;
@@ -606,6 +607,16 @@ public sealed class Plugin : IDalamudPlugin
     private DateTime _lastPresenceHeartbeat = DateTime.MinValue;
     private const int PresenceHeartbeatIntervalSeconds = 60;
 
+    /// <summary>Dernier relevé des demandes de relation.</summary>
+    private DateTime _lastRelationRequests = DateTime.MinValue;
+    private const int RelationRequestsIntervalSeconds = 60;
+
+    /// <summary>Un relevé est réclamé au prochain tour, sans attendre la minute.</summary>
+    private static bool _relationRequestsDue;
+
+    /// <summary>Personnage pour lequel les demandes en mémoire ont été relevées.</summary>
+    private static string? _relationRequestsFor;
+
     // Surveillance tag RP
     private uint       _lastRpStatus    = 0;
     private const uint RpOnlineStatusId = 22; // "Role-playing" dans FFXIV
@@ -687,6 +698,7 @@ public sealed class Plugin : IDalamudPlugin
         _rpTooltipWindow    = new RpTooltipWindow();
         _markdownEditor     = new MarkdownEditorWindow();
         _rpWizard           = new RpProfileWizardWindow();
+        _relationWindow     = new RpRelationWindow();
         _windowSystem.AddWindow(_mainWindow);
         _windowSystem.AddWindow(_sessionWindow);
         _windowSystem.AddWindow(_setupWindow);
@@ -698,6 +710,7 @@ public sealed class Plugin : IDalamudPlugin
         _windowSystem.AddWindow(_rpTooltipWindow);
         _windowSystem.AddWindow(_markdownEditor);
         _windowSystem.AddWindow(_rpWizard);
+        _windowSystem.AddWindow(_relationWindow);
 
         CommandManager.AddHandler(CommandMain, new CommandInfo(OnCommand)
         {
@@ -896,6 +909,66 @@ public sealed class Plugin : IDalamudPlugin
         }
 
         _rpProfileWindow?.OpenViewer(characterId, characterName, server);
+    }
+
+    /// <summary>
+    /// Ouvre la proposition de relation sur un joueur qu'on a sous les yeux.
+    ///
+    /// Le ContentId part haché : l'identifiant brut d'un tiers ne quitte jamais
+    /// la machine, et son haché suffit au serveur pour retrouver un personnage
+    /// dont la fiche est visible en jeu.
+    /// </summary>
+    internal static void OpenRelationProposal(string? characterId, ulong contentId,
+                                              string name, string? world)
+    {
+        if (IsBlocked)
+        {
+            OpenMain();
+            return;
+        }
+
+        // Un lien existe déjà avec cette personne : c'est cette ligne qu'on vient
+        // corriger, pas une seconde à créer. Faute d'identifiant, on ne peut pas
+        // le savoir d'ici, et c'est le serveur qui le dira.
+        if (characterId is { Length: > 0 })
+        {
+            var existing = _ownRelations.FirstOrDefault(r => r.TargetCharacterId == characterId);
+            if (existing?.Id is { Length: > 0 } relationId)
+            {
+                _relationWindow?.OpenEdit(relationId, existing.TargetName, existing.Kind,
+                                          existing.Note, linked: true);
+                return;
+            }
+        }
+
+        var hash = contentId != 0 ? HashContentId(contentId) : null;
+        _relationWindow?.OpenPropose(characterId, hash, name, world);
+    }
+
+    /// <summary>Ouvre la réponse à une demande reçue.</summary>
+    internal static void OpenRelationResponse(string requestId, string name, string? world,
+                                              string proposedKind, System.Action? onAnswered = null)
+    {
+        if (IsBlocked)
+        {
+            OpenMain();
+            return;
+        }
+
+        _relationWindow?.OpenRespond(requestId, name, world, proposedKind, onAnswered);
+    }
+
+    /// <summary>Ouvre la correction d'une de ses lignes.</summary>
+    internal static void OpenRelationEdit(string relationId, string name, string kind,
+                                          string? note, bool linked, System.Action? onChanged = null)
+    {
+        if (IsBlocked)
+        {
+            OpenMain();
+            return;
+        }
+
+        _relationWindow?.OpenEdit(relationId, name, kind, note, linked, onChanged);
     }
 
     /// <summary>
@@ -1316,6 +1389,29 @@ public sealed class Plugin : IDalamudPlugin
     /// </summary>
     internal static IReadOnlyList<Api.RpFriendDto> Friends { get; private set; } = [];
 
+    /// <summary>
+    /// Relations de sa propre fiche, telles que la page les a lues.
+    ///
+    /// Écho du dernier chargement et rien de plus : la source reste le serveur.
+    /// Sert au clic droit, pour ouvrir la ligne existante au lieu de proposer un
+    /// lien à qui en a déjà un.
+    /// </summary>
+    private static IReadOnlyList<Api.RpRelationDto> _ownRelations = [];
+
+    /// <summary>Confie au plugin les relations que la page vient de lire.</summary>
+    internal static void RememberOwnRelations(IReadOnlyList<Api.RpRelationDto> relations)
+        => _ownRelations = relations;
+
+    /// <summary>Demandes de relation reçues, en attente de réponse.</summary>
+    internal static IReadOnlyList<Api.RpRelationRequestDto> RelationRequestsReceived { get; private set; } = [];
+
+    /// <summary>
+    /// Demandes envoyées, telles que le serveur les présente : « en attente » ou
+    /// « acceptée ». Un refus s'y lit comme une attente, et le plugin n'a rien à
+    /// y ajouter.
+    /// </summary>
+    internal static IReadOnlyList<Api.RpRelationRequestDto> RelationRequestsSent { get; private set; } = [];
+
     private static HashSet<string> _friendIds     = [];
     private static HashSet<string> _friendHashes  = [];
     private static string?         _friendsLoadedFor;
@@ -1341,6 +1437,47 @@ public sealed class Plugin : IDalamudPlugin
         var bytes = System.Security.Cryptography.SHA256.HashData(
             System.Text.Encoding.UTF8.GetBytes(contentId.ToString()));
         return Convert.ToHexString(bytes).ToLowerInvariant();
+    }
+
+    /// <summary>Réclame un relevé des demandes de relation au prochain tour.</summary>
+    internal static void RequestRelationRequestsRefresh() => _relationRequestsDue = true;
+
+    /// <summary>
+    /// Relève les demandes de relation du personnage courant.
+    ///
+    /// Un échec réseau garde ce qui est affiché : une pastille qui disparaît pour
+    /// une coupure d'une seconde ferait croire qu'une demande a été traitée
+    /// ailleurs.
+    /// </summary>
+    private static void RefreshRelationRequests()
+    {
+        if (CurrentCharacter is not { } character) return;
+
+        var key = Configuration.CharacterKey(character.Name, character.WorldId);
+        if (key != _relationRequestsFor)
+        {
+            // Changement de personnage : ce qui est en mémoire concerne quelqu'un
+            // d'autre et ne doit pas rester à l'écran une image de plus.
+            _relationRequestsFor     = key;
+            RelationRequestsReceived = [];
+            RelationRequestsSent     = [];
+        }
+
+        Task.Run(async () =>
+        {
+            var requests = await Api.GetRelationRequestsAsync();
+            if (requests == null) return; // échec réseau : on garde ce qu'on a
+
+            await Framework.RunOnFrameworkThread(() =>
+            {
+                // Le personnage a pu changer pendant l'appel.
+                if (CurrentCharacter is not { } current) return;
+                if (Configuration.CharacterKey(current.Name, current.WorldId) != key) return;
+
+                RelationRequestsReceived = requests.Received;
+                RelationRequestsSent     = requests.Sent;
+            });
+        });
     }
 
     /// <summary>Recharge la liste depuis le serveur, en gardant l'ancienne si l'appel échoue.</summary>
@@ -1789,6 +1926,18 @@ public sealed class Plugin : IDalamudPlugin
             {
                 if (await Api.GetMySessionIdsAsync() is { } ids) MySessionIds = ids;
             });
+        }
+
+        // Demandes de relation (60 s). Même minute que le battement, plus un
+        // relevé immédiat après chaque envoi ou réponse : la seule attente qui se
+        // remarquerait est celle qui suit son propre geste.
+        if (hasAnyToken
+            && (_relationRequestsDue
+                || (now - _lastRelationRequests).TotalSeconds >= RelationRequestsIntervalSeconds))
+        {
+            _lastRelationRequests = now;
+            _relationRequestsDue  = false;
+            RefreshRelationRequests();
         }
 
         // Présence en venue (60 s) — toujours actif si joueur connecté (pas de token requis)
@@ -2674,14 +2823,35 @@ public sealed class Plugin : IDalamudPlugin
         // un personnage dont la fiche est visible en jeu ; les autres cas
         // reçoivent le même refus, sans dire s'ils ont un compte.
         var contentId = target.TargetContentId;
-        var already   = IsFriendByContentId(contentId)
-                     || IsFriend(entry?.Profile?.CharacterId);
-
-        if (contentId == 0 || already) return;
         if (CurrentCharacter is not { } self) return;
         if (string.Equals(target.TargetName, self.Name, StringComparison.Ordinal)) return;
 
         var label = target.TargetName;
+        var world = target.TargetHomeWorld.Value.Name.ToString();
+
+        // Proposer une relation s'offre sur tout le monde : le menu ne doit pas
+        // laisser deviner qui a une fiche ici. C'est le serveur qui répondra, et
+        // sa réponse n'ira qu'à celui qui a demandé.
+        if (contentId != 0 || entry?.Profile?.CharacterId != null)
+        {
+            args.AddMenuItem(new MenuItem
+            {
+                Name        = L.RpRelationPropose,
+                PrefixChar  = 'E',
+                PrefixColor = 52,
+                OnClicked   = _ => OpenRelationProposal(entry?.Profile?.CharacterId, contentId,
+                                                        label, world),
+            });
+        }
+
+        // Les gardes suivantes ne valent que pour l'ajout en ami : elles
+        // emportaient l'entrée de relation avec elles quand elles coupaient la
+        // méthode.
+        var already = IsFriendByContentId(contentId)
+                   || IsFriend(entry?.Profile?.CharacterId);
+
+        if (contentId == 0 || already) return;
+
         args.AddMenuItem(new MenuItem
         {
             Name        = L.RpFriendAdd,
@@ -2973,6 +3143,9 @@ public sealed class Plugin : IDalamudPlugin
         // laissée en place, un rechargement du plugin repartirait avec la fenêtre
         // de l'instance précédente, que plus aucun WindowSystem ne dessine.
         _rpTooltipWindow = null;
+        // Même raison : sa référence est statique, et un rechargement du plugin
+        // repartirait avec la fenêtre de l'instance précédente.
+        _relationWindow = null;
         _mainWindow?.Dispose();
         _estabDetailWindow?.Dispose();
         Ui.Fonts.Dispose();

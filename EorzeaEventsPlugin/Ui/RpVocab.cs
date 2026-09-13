@@ -17,6 +17,32 @@ internal static class RpVocab
     public static readonly string[] Levels     = ["beginner", "casual", "confirmed"];
     public static readonly string[] Approaches = ["come_to_me", "i_approach", "either"];
 
+    /// <summary>
+    /// Types de relation, dans l'ordre de RP_RELATION_KINDS.
+    ///
+    /// L'ordre compte : l'index choisi dans une liste sert de clé, et une liste
+    /// qui diverge de celle du site enverrait « allié » là où l'utilisateur a lu
+    /// « famille ».
+    /// </summary>
+    public static readonly string[] RelationKinds =
+    [
+        "ally", "friend", "family", "lover", "mentor", "student", "rival", "enemy", "other",
+    ];
+
+    /// <summary>
+    /// Le type que porte la ligne d'en face, proposé par défaut à qui accepte.
+    ///
+    /// Recopie RP_RELATION_INVERSE : seuls mentor et élève se répondent, les
+    /// autres se reflètent à l'identique. Ce n'est qu'une valeur de départ,
+    /// modifiable avant d'accepter.
+    /// </summary>
+    public static string InverseRelationKind(string kind) => kind switch
+    {
+        "mentor"  => "student",
+        "student" => "mentor",
+        _         => Array.IndexOf(RelationKinds, kind) >= 0 ? kind : "other",
+    };
+
     /// <summary>Précédées d'une entrée vide : l'index 0 vaut « non précisé ».</summary>
     public static readonly string[] Races =
     [

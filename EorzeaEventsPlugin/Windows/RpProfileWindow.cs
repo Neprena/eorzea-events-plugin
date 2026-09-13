@@ -215,6 +215,18 @@ public class RpProfileWindow : ThemedWindow
                 Plugin.AddFriend(friendId, 0, entry.CharacterName);
             }
         }
+
+        // Nouer un lien se décide en lisant une fiche : le bouton est là où la
+        // décision se prend, et pas seulement dans le menu de clic droit. En
+        // aperçu, il n'y a personne à qui proposer : c'est sa propre fiche.
+        if (!_isPreview && _viewCharacterId is { Length: > 0 } relationTarget)
+        {
+            ImGui.SameLine(0f, Theme.S(Theme.GapS));
+
+            if (Btn.Draw(l.RpRelationPropose, BtnTone.Ghost, BtnSize.Medium, Icons.Friend,
+                         id: "rpview_relation"))
+                Plugin.OpenRelationProposal(relationTarget, 0, entry.CharacterName, entry.Server);
+        }
     }
 
     /// <summary>

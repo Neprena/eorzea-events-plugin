@@ -787,6 +787,53 @@ internal sealed class Loc
     public required string AroundFindOnMap { get; init; }
     public required string AroundInstance  { get; init; }   // {0} = numéro d'instance
 
+    // ── Relations consenties ──────────────────────────────────────────────────
+    public required string RpRelationPropose       { get; init; }
+    public required string RpRelationWith          { get; init; }   // {0} = nom, {1} = monde
+    public required string RpRelationWithPlain     { get; init; }   // {0} = nom
+    public required string RpRelationKindQuestion  { get; init; }
+    public required string RpRelationNoteHint      { get; init; }
+    public required string RpRelationSend          { get; init; }
+    public required string RpRelationSent          { get; init; }
+    public required string RpRelationSelfAccepted  { get; init; }
+    public required string RpRelationAlreadySent   { get; init; }
+    public required string RpRelationAlreadyLinked { get; init; }
+    public required string RpRelationFull          { get; init; }
+    public required string RpRelationSelf          { get; init; }
+    public required string RpRelationNeedProfile   { get; init; }
+    public required string RpRelationNoTarget      { get; init; }
+    public required string RpRelationFreeOffer     { get; init; }
+    public required string RpRelationFreeAdd       { get; init; }
+    public required string RpRelationFreeAdded     { get; init; }
+    public required string RpRelationTooMany       { get; init; }
+    public required string RpRelationFailed        { get; init; }
+    public required string RpRelationRespondTitle  { get; init; }   // {0} = nom
+    public required string RpRelationTheirKind     { get; init; }   // {0} = nom, {1} = type
+    public required string RpRelationYourKind      { get; init; }
+    public required string RpRelationAccept        { get; init; }
+    public required string RpRelationDecline       { get; init; }
+    public required string RpRelationDeclineArm    { get; init; }
+    public required string RpRelationAccepted      { get; init; }
+    public required string RpRelationDeclined      { get; init; }
+    public required string RpRelationGone          { get; init; }
+    public required string RpRelationAnswered      { get; init; }
+    public required string RpRelationEditTitle     { get; init; }   // {0} = nom
+    public required string RpRelationSave          { get; init; }
+    public required string RpRelationSaved         { get; init; }
+    public required string RpRelationRemove        { get; init; }
+    public required string RpRelationRemoveArm     { get; init; }
+    public required string RpRelationRemoved       { get; init; }
+    public required string RpRelationBreakWarning  { get; init; }
+    public required string RpRelationRequests      { get; init; }
+    public required string RpRelationSentTitle     { get; init; }
+    public required string RpRelationSentPending   { get; init; }
+    public required string RpRelationSentAccepted  { get; init; }
+    public required string RpRelationCancel        { get; init; }
+    public required string RpRelationCancelArm     { get; init; }
+    public required string RpProfileRelationLinked { get; init; }
+    public required string RpRelationEdit          { get; init; }
+    public required string RpRelationSaveFirst     { get; init; }
+
     // ── Static instances ──────────────────────────────────────────────────────
 
     public static readonly Loc Fr = new()
@@ -1518,6 +1565,52 @@ internal sealed class Loc
         CfgRpSharePosition     = "Partager ma position quand je suis disponible",
         CfgRpSharePositionHint = "Les joueurs équipés du plugin et connectés à leur compte peuvent poser un drapeau de carte sur vous tant que vous êtes déclaré disponible. Position arrondie, servie au seul plugin, jamais affichée sur le site.",
         RpPositionHint         = "Astuce : dans les réglages, « Partager ma position » permet aux rôlistes de vous trouver sur la carte tant que vous êtes disponible.",
+
+        RpRelationPropose       = "Proposer une relation",
+        RpRelationWith          = "Relation avec {0} ({1})",
+        RpRelationWithPlain     = "Relation avec {0}",
+        RpRelationKindQuestion  = "Quel lien proposez-vous ?",
+        RpRelationNoteHint      = "Ce qui vous lie, en une phrase (facultatif)",
+        RpRelationSend          = "Envoyer la demande",
+        RpRelationSent          = "Demande envoyée. La relation apparaîtra sur vos deux fiches si elle est acceptée.",
+        RpRelationSelfAccepted  = "Relation ajoutée : ce personnage est l'un des vôtres, son accord allait de soi.",
+        RpRelationAlreadySent   = "Une demande est déjà en cours avec ce personnage.",
+        RpRelationAlreadyLinked = "Une relation vous lie déjà à ce personnage.",
+        RpRelationFull          = "Huit relations au plus par fiche : l'une des deux est pleine.",
+        RpRelationSelf          = "On ne se lie pas à soi-même.",
+        RpRelationNeedProfile   = "Créez votre fiche RP et liez ce personnage pour proposer une relation.",
+        RpRelationNoTarget      = "Aucune fiche visible en jeu derrière ce nom.",
+        RpRelationFreeOffer     = "Vous pouvez l'inscrire sur votre fiche en texte libre : la ligne reste de votre côté, sans lien vers une fiche.",
+        RpRelationFreeAdd       = "Ajouter en texte libre",
+        RpRelationFreeAdded     = "Relation ajoutée à votre fiche.",
+        RpRelationTooMany       = "Trop de demandes envoyées d'affilée. Réessayez dans quelques minutes.",
+        RpRelationFailed        = "L'envoi a échoué. Réessayez plus tard.",
+        RpRelationRespondTitle  = "Répondre à {0}",
+        RpRelationTheirKind     = "{0} vous propose : {1}",
+        RpRelationYourKind      = "Le lien tel que vous le voyez",
+        RpRelationAccept        = "Accepter",
+        RpRelationDecline       = "Ignorer",
+        RpRelationDeclineArm    = "Confirmer",
+        RpRelationAccepted      = "Relation acceptée : elle figure désormais sur vos deux fiches.",
+        RpRelationDeclined      = "Demande ignorée.",
+        RpRelationGone          = "Cette demande n'existe plus.",
+        RpRelationAnswered      = "Cette demande a déjà reçu une réponse.",
+        RpRelationEditTitle     = "Relation avec {0}",
+        RpRelationSave          = "Enregistrer",
+        RpRelationSaved         = "Relation mise à jour.",
+        RpRelationRemove        = "Retirer",
+        RpRelationRemoveArm     = "Confirmer le retrait",
+        RpRelationRemoved       = "Relation retirée.",
+        RpRelationBreakWarning  = "Cette relation vient d'une demande acceptée : la retirer l'efface aussi de la fiche d'en face.",
+        RpRelationRequests      = "Demandes de relation",
+        RpRelationSentTitle     = "Demandes envoyées",
+        RpRelationSentPending   = "Sans réponse",
+        RpRelationSentAccepted  = "Acceptée",
+        RpRelationCancel        = "Retirer ma demande",
+        RpRelationCancelArm     = "Confirmer le retrait",
+        RpProfileRelationLinked = "Liée",
+        RpRelationEdit          = "Modifier",
+        RpRelationSaveFirst     = "Enregistrez vos modifications avant de toucher à une relation liée.",
         AroundFindOnMap = "Trouver sur la carte",
         AroundInstance  = "instance {0}",
     };
@@ -2253,6 +2346,52 @@ internal sealed class Loc
         CfgRpSharePosition     = "Share my position while I am available",
         CfgRpSharePositionHint = "Players with the plugin who are signed in to their account can drop a map flag on you while you are flagged as available. Rounded position, served to the plugin only, never shown on the website.",
         RpPositionHint         = "Tip: in the settings, \"Share my position\" lets roleplayers find you on the map while you are available.",
+
+        RpRelationPropose       = "Propose a relationship",
+        RpRelationWith          = "Relationship with {0} ({1})",
+        RpRelationWithPlain     = "Relationship with {0}",
+        RpRelationKindQuestion  = "What tie are you proposing?",
+        RpRelationNoteHint      = "What ties you, in one sentence (optional)",
+        RpRelationSend          = "Send the request",
+        RpRelationSent          = "Request sent. The relationship appears on both profiles if it is accepted.",
+        RpRelationSelfAccepted  = "Relationship added: this character is one of yours, no consent needed.",
+        RpRelationAlreadySent   = "A request is already pending with this character.",
+        RpRelationAlreadyLinked = "A relationship already links you to this character.",
+        RpRelationFull          = "Eight relationships per profile at most: one of the two is full.",
+        RpRelationSelf          = "You cannot tie yourself to yourself.",
+        RpRelationNeedProfile   = "Create your RP profile and link this character to propose a relationship.",
+        RpRelationNoTarget      = "No profile visible in game behind that name.",
+        RpRelationFreeOffer     = "You can still write them on your profile as free text: the line stays on your side, with no link to a profile.",
+        RpRelationFreeAdd       = "Add as free text",
+        RpRelationFreeAdded     = "Relationship added to your profile.",
+        RpRelationTooMany       = "Too many requests in a row. Try again in a few minutes.",
+        RpRelationFailed        = "Sending failed. Try again later.",
+        RpRelationRespondTitle  = "Reply to {0}",
+        RpRelationTheirKind     = "{0} proposes: {1}",
+        RpRelationYourKind      = "The tie as you see it",
+        RpRelationAccept        = "Accept",
+        RpRelationDecline       = "Ignore",
+        RpRelationDeclineArm    = "Confirm",
+        RpRelationAccepted      = "Relationship accepted: it now appears on both profiles.",
+        RpRelationDeclined      = "Request ignored.",
+        RpRelationGone          = "That request no longer exists.",
+        RpRelationAnswered      = "That request has already been answered.",
+        RpRelationEditTitle     = "Relationship with {0}",
+        RpRelationSave          = "Save",
+        RpRelationSaved         = "Relationship updated.",
+        RpRelationRemove        = "Remove",
+        RpRelationRemoveArm     = "Confirm removal",
+        RpRelationRemoved       = "Relationship removed.",
+        RpRelationBreakWarning  = "This relationship comes from an accepted request: removing it also removes it from the other profile.",
+        RpRelationRequests      = "Relationship requests",
+        RpRelationSentTitle     = "Requests you sent",
+        RpRelationSentPending   = "No answer yet",
+        RpRelationSentAccepted  = "Accepted",
+        RpRelationCancel        = "Withdraw my request",
+        RpRelationCancelArm     = "Confirm withdrawal",
+        RpProfileRelationLinked = "Linked",
+        RpRelationEdit          = "Edit",
+        RpRelationSaveFirst     = "Save your changes before editing a linked relationship.",
         AroundFindOnMap = "Find on the map",
         AroundInstance  = "instance {0}",
     };

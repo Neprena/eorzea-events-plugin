@@ -267,38 +267,31 @@ internal sealed class AroundPage
             // bord droit de la carte, où elle se faisait rogner. Chacune ne reste
             // donc sur la ligne que si elle y tient. Chip.Row fait la même chose,
             // mais il impose un ton unique et pas d'icône : inutilisable ici.
-            var limit = ImGui.GetCursorPosX() + ImGui.GetContentRegionAvail().X;
-            var gap   = Theme.S(Theme.GapXs);
-
-            void SameLineIfRoom(float width)
-            {
-                if (ImGui.GetCursorPosX() + gap + width <= limit) ImGui.SameLine(0f, gap);
-            }
+            var flow = FlowRow.Fill(Theme.S(Theme.GapXs));
 
             // Extrait servi par la route publique des disponibilités : le
             // consentement y est déjà appliqué, `staffBadgeVisible` n'y figure pas.
-            var hasBadge = RpProfileView.StaffBadge(profile, l, requireConsent: false);
+            if (RpProfileView.StaffBadge(profile, l, requireConsent: false)) flow.Started();
 
             // Sur la carte aussi, pas seulement en tête de section : une liste se
             // parcourt, et la mise en garde doit tenir sur la ligne qu'on lit.
             if (!declared)
             {
-                if (hasBadge) SameLineIfRoom(Chip.Measure(l.AroundRpTaggedChip, Icons.RpLive));
+                flow.Next(Chip.Measure(l.AroundRpTaggedChip, Icons.RpLive));
                 Chip.Draw(l.AroundRpTaggedChip, ChipTone.Warning, Icons.RpLive);
-                hasBadge = true;
             }
 
             var level = RpProfileView.LevelLabel(profile.RpLevel, l);
-            if (hasBadge) SameLineIfRoom(Chip.Measure(level));
+            flow.Next(Chip.Measure(level));
             Chip.Draw(level, ChipTone.Neutral);
 
             var approach = RpProfileView.ApproachLabel(profile.ApproachMode, l);
-            SameLineIfRoom(Chip.Measure(approach));
+            flow.Next(Chip.Measure(approach));
             Chip.Draw(approach, ChipTone.Accent);
 
             if (profile.Nsfw)
             {
-                SameLineIfRoom(Chip.Measure(l.RpProfileNsfw, Icons.Warning));
+                flow.Next(Chip.Measure(l.RpProfileNsfw, Icons.Warning));
                 Chip.Draw(l.RpProfileNsfw, ChipTone.Danger, Icons.Warning);
             }
         }

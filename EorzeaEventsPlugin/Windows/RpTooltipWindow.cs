@@ -198,7 +198,7 @@ public sealed class RpTooltipWindow : ThemedWindow
 
         // Le nom RP prime sur le nom de personnage : c'est celui sous lequel on
         // s'adressera à lui. Le second reste dessous, il sert à le retrouver.
-        var displayName = profile.RpName is { Length: > 0 } rpName ? rpName : entry.CharacterName;
+        var displayName = Plugin.DisplayName(profile, entry.CharacterName);
 
         Text.H2(displayName);
 

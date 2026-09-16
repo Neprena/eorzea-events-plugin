@@ -250,7 +250,12 @@ internal static class EncounterRegistry
         // Une fiche retenue arrive vidée : elle ne doit pas effacer ce qu'on savait.
         if (p.NsfwWithheld) return;
 
-        e.RpName      = p.RpName?.Trim() is { Length: > 0 } rp ? rp : null;
+        // Le nom retenu est celui qu'on a vu, forme choisie comprise. Mais
+        // cette forme ne circule que dans la liste des disponibilités : une
+        // fiche complète ne la porte pas, et s'en servir pour réécrire le nom
+        // remplacerait « Mimi » par « Y'mina » à la première ouverture de fiche.
+        if (p.NameplateName is not null || e.RpName is null)
+            e.RpName = Plugin.ComposeNameplateName(p.NameplateName, p.RpName, p.Nickname, e.Name);
         e.AccentColor = p.AccentColor;
         if (p.PortraitUrl is { Length: > 0 } portrait) e.PortraitUrl = portrait;
     }

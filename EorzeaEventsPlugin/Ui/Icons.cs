@@ -34,6 +34,7 @@ internal static class Icons
     // ─── Contexte in-game ─────────────────────────────────────────────────────
     public const FontAwesomeIcon Location  = FontAwesomeIcon.MapMarkerAlt;
     public const FontAwesomeIcon Character = FontAwesomeIcon.User;
+    public const FontAwesomeIcon Locked    = FontAwesomeIcon.Lock;
     public const FontAwesomeIcon Housing   = FontAwesomeIcon.Home;
     public const FontAwesomeIcon Map       = FontAwesomeIcon.Map;
     public const FontAwesomeIcon World     = FontAwesomeIcon.Globe;

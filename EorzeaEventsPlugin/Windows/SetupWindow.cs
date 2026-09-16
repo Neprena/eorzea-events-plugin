@@ -32,7 +32,7 @@ public class SetupWindow : ThemedWindow
     {
         LogicalSizeConstraints = new WindowSizeConstraints
         {
-            MinimumSize = new Vector2(620, 400),
+            MinimumSize = new Vector2(620, 560),
             MaximumSize = new Vector2(900, 640),
         };
         _config = config;
@@ -58,7 +58,15 @@ public class SetupWindow : ThemedWindow
         }
     }
 
-    private void DrawBanner(float maxHeight = 120f)
+    /// <summary>
+    /// Bandeau occupant toute la largeur.
+    ///
+    /// L'image fait près du double en largeur : montrée entière, elle prendrait
+    /// les deux tiers d'une fenêtre large. Plafonner sa hauteur la réduisait
+    /// alors à un timbre centré. Elle est donc rognée en son milieu, ce que le
+    /// logo supporte puisqu'il y est centré, et le décor seul est entamé.
+    /// </summary>
+    private void DrawBanner(float maxHeight = 180f)
     {
         if (_banner == null) return;
         IDalamudTextureWrap? wrap = _banner.GetWrapOrDefault();
@@ -66,11 +74,15 @@ public class SetupWindow : ThemedWindow
 
         var availW  = ImGui.GetContentRegionAvail().X;
         var aspect  = wrap.Width / (float)wrap.Height;
-        var h       = Math.Min(availW / aspect, maxHeight);
-        var w       = h * aspect;
-        var offsetX = (availW - w) / 2f;
-        if (offsetX > 0) ImGui.SetCursorPosX(ImGui.GetCursorPosX() + offsetX);
-        ImGui.Image(wrap.Handle, new Vector2(w, h));
+        var natural = availW / aspect;
+        var h       = Math.Min(natural, Theme.S(maxHeight));
+
+        // Part de l'image conservée en hauteur, prise au centre.
+        var keep = natural > 0f ? h / natural : 1f;
+        var uv0  = new Vector2(0f, (1f - keep) / 2f);
+        var uv1  = new Vector2(1f, (1f + keep) / 2f);
+
+        ImGui.Image(wrap.Handle, new Vector2(availW, h), uv0, uv1);
         ImGui.Spacing();
     }
 
@@ -84,8 +96,10 @@ public class SetupWindow : ThemedWindow
         var l = Plugin.L;
         DrawBanner();
 
+        ImGui.PushTextWrapPos(0);
         ImGui.Text(l.SetupWelcomeL1);
-        ImGui.SameLine(0, 4);
+        ImGui.PopTextWrapPos();
+
         ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(0.4f, 0.7f, 1f, 1f));
         ImGui.Text("eorzea.events");
         if (ImGui.IsItemHovered()) ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
@@ -96,15 +110,61 @@ public class SetupWindow : ThemedWindow
         ImGui.PushTextWrapPos(0);
         ImGui.TextColored(UiStyle.TextMuted, l.SetupWelcomeL2);
         ImGui.Spacing();
-        ImGui.TextColored(UiStyle.TextMuted, l.SetupWelcomeL3);
+        ImGui.Text(l.SetupWelcomeL3);
         ImGui.PopTextWrapPos();
+
+        // Ce que le couplage ajoute, énuméré plutôt que résumé : c'est la seule
+        // page où le joueur décide, et une phrase unique noyait les fonctions
+        // les unes dans les autres.
+        foreach (var perk in new[] { l.SetupPerk1, l.SetupPerk2, l.SetupPerk3, l.SetupPerk4, l.SetupPerk5 })
+        {
+            ImGui.Bullet();
+            ImGui.SameLine();
+            ImGui.PushTextWrapPos(0);
+            ImGui.TextColored(UiStyle.TextMuted, perk);
+            ImGui.PopTextWrapPos();
+        }
+
         ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
 
-        if (UiPrimitives.ColorButton(l.SetupStart, UiStyle.MediumButton,
+        // Largeur laissée au texte des deux côtés : « Lier mon personnage »
+        // comme « Continuer sans compte » débordent des 120 pixels du bouton
+        // moyen, et davantage encore en anglais.
+        if (UiPrimitives.ColorButton(l.SetupStart, Vector2.Zero,
             UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive))
+        {
             _step = 1;
+
+            // Le couplage part d'ici plutôt que d'attendre un second clic à
+            // l'étape suivante, qui ne ferait que redemander ce que celui-ci
+            // vient de dire. Ses autres cas, migration, jeton révoqué,
+            // personnage déjà lié, n'atteignent jamais cet écran : il ne
+            // s'ouvre qu'au tout premier lancement, sans aucun jeton.
+            //
+            // Hors du jeu, on s'arrête à l'étape suivante, qui sait le dire et
+            // garde son bouton désactivé.
+            if (Plugin.ObjectTable.LocalPlayer != null)
+            {
+                _initialCount = _config.CharacterTokens.Count;
+                _ = Plugin.StartCharacterLinkAsync();
+            }
+        }
+
+        ImGui.SameLine();
+        if (ImGui.Button(l.SetupGuestButton, Vector2.Zero))
+        {
+            _config.SetupSkipped = true;
+            _config.Save();
+            IsOpen = false;
+            Plugin.OpenMain();
+        }
+
+        ImGui.Spacing();
+        ImGui.PushTextWrapPos(0);
+        ImGui.TextColored(UiStyle.TextMuted, l.SetupGuestHint);
+        ImGui.PopTextWrapPos();
     }
 
     // ─── Étape 1 : Couplage du personnage in-game ────────────────────────────
@@ -247,6 +307,8 @@ public class SetupWindow : ThemedWindow
         {
             if (ImGui.Button(l.SetupSkip, UiStyle.SmallButton))
             {
+                _config.SetupSkipped = true;
+                _config.Save();
                 IsOpen = false;
                 Plugin.OpenMain();
             }

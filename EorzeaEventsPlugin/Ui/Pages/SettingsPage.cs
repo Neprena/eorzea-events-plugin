@@ -189,9 +189,41 @@ internal sealed class SettingsPage(Configuration config)
                 forget = i;
         }
 
-        if (forget is not { } index) return;
-        config.CharacterTokens.RemoveAt(index);
-        config.Save();
+        if (forget is { } index)
+        {
+            config.CharacterTokens.RemoveAt(index);
+            config.Save();
+        }
+
+        // Ce que le compte connaît et qui n'est pas lié sur cette machine. Un
+        // jeton ne se délivre qu'une fois, à la confirmation : réinstaller le
+        // jeu ou changer d'ordinateur les perd tous, alors que les personnages
+        // et leurs fiches restent intacts côté serveur. Sans cette liste,
+        // l'onglet laissait croire à une perte.
+        //
+        // Les résidus de renommage sont écartés : le serveur les signale, et
+        // proposer de lier un nom qui n'existe plus n'aiderait personne.
+        Plugin.RequestAccountCharacters();
+
+        var missing = Plugin.AccountCharacters
+            .Where(c => !c.Stale && config.FindCharacterToken(c.Name, c.WorldId) == null)
+            .ToList();
+        if (missing.Count == 0) return;
+
+        Layout.Divider(Theme.GapS);
+        Text.Small(l.CfgOtherCharacters);
+        Layout.Spacer(Theme.GapXs);
+
+        foreach (var character in missing)
+        {
+            Layout.Avatar(character.Name, 24f);
+            ImGui.SameLine(0f, Theme.S(Theme.GapS));
+            ImGui.AlignTextToFramePadding();
+            Text.Body($"{character.Name}@{character.WorldName}", Theme.TextMuted);
+        }
+
+        Layout.Spacer(Theme.GapXs);
+        Text.Wrapped(l.CfgOtherCharactersHint, Theme.TextFaint);
     }
 
     // ─── Notifications RP ─────────────────────────────────────────────────────
@@ -281,6 +313,7 @@ internal sealed class SettingsPage(Configuration config)
 
         Layout.SectionHeader(l.CfgSessionHeader, Icons.Edit);
 
+        Row(l.CfgRpAskOnLogin,   null, () => config.RpAskOnLogin,           v => config.RpAskOnLogin = v);
         Row(l.CfgSuggestOnTag,   null, () => config.SuggestSessionOnRpTag,  v => config.SuggestSessionOnRpTag = v);
         Row(l.CfgAlertZone,      null, () => config.AlertOnZoneChange,      v => config.AlertOnZoneChange = v);
         Row(l.CfgAlertTag,       null, () => config.AlertOnRpTagRemoved,    v => config.AlertOnRpTagRemoved = v);
@@ -308,7 +341,8 @@ internal sealed class SettingsPage(Configuration config)
         // rétablissement si le serveur refuse, et barre de statut remise à jour.
         Row(l.RpAvailableEnable, l.RpAvailableEnableHint,
             () => Plugin.CurrentCharacterAvailabilityWanted,
-            Plugin.SetRpAvailability);
+            Plugin.SetRpAvailability,
+            disabled: !Plugin.Api.HasToken);
 
         // Sous la disponibilité, parce qu'il n'a de sens qu'avec elle. Basculer
         // force un battement : le drapeau apparaît ou disparaît sans attendre.
@@ -337,9 +371,14 @@ internal sealed class SettingsPage(Configuration config)
         Row(l.CfgRpProfileTabs, l.CfgRpProfileTabsHint,
             () => config.RpProfileTabs, v => config.RpProfileTabs = v);
 
-        Layout.Spacer(Theme.GapS);
-        if (Btn.Draw(l.RpProfileSetup, BtnTone.Secondary, BtnSize.Medium, Icons.Edit))
-            Plugin.OpenRpProfileWizard();
+        // L'assistant crée une fiche sur le serveur : sans personnage lié, il
+        // irait au bout pour échouer à la dernière étape.
+        if (Plugin.Api.HasToken)
+        {
+            Layout.Spacer(Theme.GapS);
+            if (Btn.Draw(l.RpProfileSetup, BtnTone.Secondary, BtnSize.Medium, Icons.Edit))
+                Plugin.OpenRpProfileWizard();
+        }
     }
 
     // ─── Infobulle de survol ──────────────────────────────────────────────────

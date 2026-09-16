@@ -88,6 +88,7 @@ public sealed class Plugin : IDalamudPlugin
     private static   MySessionWindow?   _sessionWindow;
     private static   SetupWindow?       _setupWindow;
     private static   EstabDetailWindow? _estabDetailWindow;
+    private static   EventDetailWindow? _eventDetailWindow;
     private static   RpProfileWindow?      _rpProfileWindow;
     private static   RpAnnouncementWindow? _announcementWindow;
     private static   WhatsNewWindow?       _whatsNewWindow;
@@ -107,7 +108,12 @@ public sealed class Plugin : IDalamudPlugin
     private readonly record struct NameplateStyle(string? RpName, string? RpTitle, ushort? Color);
 
     /// <summary>
-    /// Nom à porter sur la plaque, ou null quand rien ne remplace celui du jeu.
+    /// Nom RP à afficher, ou null quand rien ne remplace celui du jeu.
+    ///
+    /// Vaut pour toutes les surfaces et non pour la seule plaque : le chat,
+    /// l'infobulle, « Autour de moi » et les notifications lisaient le nom RP
+    /// brut, si bien qu'un joueur ayant choisi son surnom apparaissait sous
+    /// deux noms différents dans la même scène.
     ///
     /// Reproduit à l'identique <c>composeNameplateName</c> de
     /// src/lib/rp-vocabulary.ts, qui alimente l'aperçu du formulaire sur le
@@ -144,6 +150,16 @@ public sealed class Plugin : IDalamudPlugin
 
         return composed;
     }
+
+    /// <summary>
+    /// Nom à afficher pour une fiche, avec repli sur le nom de personnage.
+    /// Commodité des écrans qui veulent toujours un nom, là où
+    /// <see cref="ComposeNameplateName"/> rend null quand il n'y a rien à
+    /// substituer.
+    /// </summary>
+    internal static string DisplayName(Api.RpProfileDto? profile, string characterName)
+        => ComposeNameplateName(profile?.NameplateName, profile?.RpName,
+                                profile?.Nickname, characterName) ?? characterName;
 
     /// <summary>
     /// Styles de plaque par nom + monde (monde en minuscules), pour tous les
@@ -265,6 +281,31 @@ public sealed class Plugin : IDalamudPlugin
     /// Même précaution que <see cref="CurrentCharacter"/> : la table d'objets
     /// n'est interrogeable que depuis le thread de jeu.
     /// </summary>
+    /// <summary>
+    /// Personnages du compte, pour dire lesquels ne sont pas liés ici.
+    /// Vide tant que le serveur n'a pas répondu, ce qui est le cas sans jeton.
+    /// </summary>
+    internal static IReadOnlyList<Api.AccountCharacterDto> AccountCharacters { get; private set; } = [];
+
+    private static bool _accountCharactersAsked;
+
+    /// <summary>
+    /// Relève les personnages du compte, une fois par session et après chaque
+    /// couplage. Appelée depuis l'écran qui les affiche : c'est un geste de
+    /// l'utilisateur, et non un relevé de fond, que les règles proscrivent.
+    /// </summary>
+    internal static void RequestAccountCharacters(bool force = false)
+    {
+        if (!Api.HasToken) return;
+        if (_accountCharactersAsked && !force) return;
+        _accountCharactersAsked = true;
+
+        Task.Run(async () =>
+        {
+            if (await Api.GetAccountCharactersAsync() is { } list) AccountCharacters = list;
+        });
+    }
+
     internal static string? HomeWorldName()
     {
         try
@@ -506,6 +547,13 @@ public sealed class Plugin : IDalamudPlugin
     /// la puce de la barre de statut hésiterait entre les deux états.
     /// </summary>
     private static bool _syncDueNow;
+
+    /// <summary>
+    /// Un relevé est dû dès que le battement en cours sera parti. Le relevé
+    /// précède le battement dans la boucle : le forcer directement ferait
+    /// relire au serveur un état qu'il n'a pas encore appris.
+    /// </summary>
+    private static bool _syncAfterHeartbeat;
     private bool _mainWindowWasOpen;
     /// <summary>Témoin de connexion, pour écrire le registre à la déconnexion.</summary>
     private bool _wasLoggedIn;
@@ -691,6 +739,7 @@ public sealed class Plugin : IDalamudPlugin
         _sessionWindow     = new MySessionWindow(Config);
         _setupWindow       = new SetupWindow(Config);
         _estabDetailWindow = new EstabDetailWindow(Config);
+        _eventDetailWindow = new EventDetailWindow();
         _rpProfileWindow    = new RpProfileWindow();
         _announcementWindow = new RpAnnouncementWindow(Config);
         _whatsNewWindow     = new WhatsNewWindow(Config);
@@ -703,6 +752,7 @@ public sealed class Plugin : IDalamudPlugin
         _windowSystem.AddWindow(_sessionWindow);
         _windowSystem.AddWindow(_setupWindow);
         _windowSystem.AddWindow(_estabDetailWindow);
+        _windowSystem.AddWindow(_eventDetailWindow);
         _windowSystem.AddWindow(_rpProfileWindow);
         _windowSystem.AddWindow(_announcementWindow);
         _windowSystem.AddWindow(_whatsNewWindow);
@@ -788,7 +838,11 @@ public sealed class Plugin : IDalamudPlugin
     private void DoFirstRunCheck()
     {
         if (string.IsNullOrWhiteSpace(Config.ApiToken) && Config.CharacterTokens.Count == 0)
-            OpenSetup();
+        {
+            // Le refus se retient : sans cela, chaque connexion rouvrait
+            // l'assistant en fermant la fenêtre principale.
+            if (!Config.SetupSkipped) OpenSetup();
+        }
         else if (!string.IsNullOrWhiteSpace(Config.ApiToken)
             && Config.CharacterTokens.Count == 0
             && !Config.MigrationNoticeSeen)
@@ -838,6 +892,10 @@ public sealed class Plugin : IDalamudPlugin
         { _estabDetailWindow?.Open(estab); }
     internal static void OpenEstabDetail(EorzeaEventsPlugin.Api.EstablishmentSummaryDto estab)
         { _estabDetailWindow?.Open(estab); }
+
+    /// <summary>Détail d'un événement : description entière, horaires, lieu.</summary>
+    internal static void OpenEventDetail(EorzeaEventsPlugin.Api.EventDto ev)
+        { _eventDetailWindow?.Open(ev); }
     internal static void OpenMySession()
     {
         if (IsBlocked)
@@ -1202,6 +1260,12 @@ public sealed class Plugin : IDalamudPlugin
         // porte la présence « en RP », qui met sinon jusqu'à une minute à
         // apparaître, et surtout jusqu'à une minute à disparaître.
         _heartbeatDue = true;
+        // Et le relevé suit, pour que la liste des disponibilités soit relue
+        // une fois le serveur au courant : sans cela, retirer le tag laissait
+        // son propre nom RP sur la plaque et dans le chat jusqu'à la minute
+        // suivante, ou jusqu'à ce qu'ouvrir la fenêtre ramène la cadence à
+        // cinq secondes.
+        _syncAfterHeartbeat = true;
 
         if (CurrentCharacter is { } character && Api.HasToken)
         {
@@ -1730,6 +1794,12 @@ public sealed class Plugin : IDalamudPlugin
                 }
                 else
                 {
+                    // Un couplage lève le refus : délier plus tard doit
+                    // redonner droit à l'assistant.
+                    Config.SetupSkipped = false;
+                    // La liste du compte change : ce personnage vient d'y
+                    // entrer, ou d'y retrouver un jeton.
+                    RequestAccountCharacters(force: true);
                     Config.CharacterTokens.Add(new CharacterTokenEntry
                     {
                         CharacterName = name,
@@ -1889,6 +1959,10 @@ public sealed class Plugin : IDalamudPlugin
             var mapId     = sharePos && ClientState.MapId > 0 ? ClientState.MapId : (uint?)null;
             var instance  = sharePos ? GetPublicInstanceId() : null;
 
+            // Consommé ici : le drapeau ne vaut que pour ce battement-ci.
+            var syncAfter = _syncAfterHeartbeat;
+            _syncAfterHeartbeat = false;
+
             Task.Run(async () =>
             {
                 await Api.HeartbeatAsync(
@@ -1906,6 +1980,8 @@ public sealed class Plugin : IDalamudPlugin
                     posZ:          coords?.y,
                     mapId:         mapId,
                     instanceId:    instance);
+
+                if (syncAfter) _syncDueNow = true;
             });
         }
 
@@ -2600,7 +2676,7 @@ public sealed class Plugin : IDalamudPlugin
             var zone = CurrentZone ?? string.Empty;
             var content = fresh.Count == 1
                 ? string.Format(L.NotifRpArrivalOne,
-                                fresh[0].Profile?.RpName is { Length: > 0 } rp ? rp : fresh[0].CharacterName,
+                                DisplayName(fresh[0].Profile, fresh[0].CharacterName),
                                 zone)
                 : string.Format(L.NotifRpArrivalMany, fresh.Count, zone);
 
@@ -2832,7 +2908,7 @@ public sealed class Plugin : IDalamudPlugin
         // Proposer une relation s'offre sur tout le monde : le menu ne doit pas
         // laisser deviner qui a une fiche ici. C'est le serveur qui répondra, et
         // sa réponse n'ira qu'à celui qui a demandé.
-        if (contentId != 0 || entry?.Profile?.CharacterId != null)
+        if (Api.HasToken && (contentId != 0 || entry?.Profile?.CharacterId != null))
         {
             args.AddMenuItem(new MenuItem
             {
@@ -2850,7 +2926,9 @@ public sealed class Plugin : IDalamudPlugin
         var already = IsFriendByContentId(contentId)
                    || IsFriend(entry?.Profile?.CharacterId);
 
-        if (contentId == 0 || already) return;
+        // Les deux gestes s'écrivent sur le serveur, au nom d'un personnage :
+        // sans jeton, le menu ne les propose pas plutôt que de les voir échouer.
+        if (!Api.HasToken || contentId == 0 || already) return;
 
         args.AddMenuItem(new MenuItem
         {
@@ -2910,10 +2988,19 @@ public sealed class Plugin : IDalamudPlugin
 
                 // La couleur n'accompagne qu'un nom RP : un nom réel garde la
                 // teinte du jeu, et la couleur dit à elle seule « nom de personnage ».
+                //
+                // Le contour suit la teinte, faute de pouvoir disparaître. Laissé
+                // à lui-même, le jeu garde le halo bleu des plaques de joueur,
+                // qui cerne d'une autre couleur un nom devenu rouge ou vert.
+                // `AddUiGlowOff` ne l'éteint pas, il le rend à ce défaut, et la
+                // bordure de plaque, elle, emporterait aussi le titre et la
+                // compagnie libre. Reste donc le contour assorti, pris sur le
+                // même index : la feuille UIColor associe à chaque teinte le
+                // sien.
                 if (wantColor && wantName && style.RpName != null && style.Color is { } color)
                     handler.NameParts.TextWrap = (
-                        new SeStringBuilder().AddUiForeground(color).Build(),
-                        new SeStringBuilder().AddUiForegroundOff().Build());
+                        new SeStringBuilder().AddUiForeground(color).AddUiGlow(color).Build(),
+                        new SeStringBuilder().AddUiGlowOff().AddUiForegroundOff().Build());
             }
 
             // Titre. « Dispo RP » d'abord : c'est l'information qui décide d'un

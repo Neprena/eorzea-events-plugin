@@ -114,6 +114,7 @@ public class MainWindow : ThemedWindow, IDisposable
                 // chose de la fiche qui appelle un geste, et le compteur ne suit
                 // rien d'autre.
                 Badge = () => Plugin.RelationRequestsReceived.Count,
+                Locked = () => !Plugin.Api.HasToken,
             },
             new ShellPage
             {
@@ -130,6 +131,7 @@ public class MainWindow : ThemedWindow, IDisposable
                 Label = () => Plugin.L.TabFriends,
                 Draw  = _friends.Draw,
                 Badge = () => Plugin.Friends.Count,
+                Locked = () => !Plugin.Api.HasToken,
             },
             new ShellPage
             {
@@ -347,115 +349,92 @@ public class MainWindow : ThemedWindow, IDisposable
     private void DrawOpenRpTab()
     {
         var l = Plugin.L;
-        ImGui.Spacing();
 
-        // Header : compteur chip + label + boutons
-        if (!_sessionsLoading)
-        {
-            var activeCount = _sessionsList.Count(s => s.EndedAt == null);
-            if (activeCount > 0)
-            {
-                UiPrimitives.DrawChip(activeCount.ToString(), UiStyle.ChipBgOpen);
-                ImGui.SameLine(0, UiStyle.InlineSpacing);
-                ImGui.TextColored(UiStyle.TextSection, l.TabRp);
-                ImGui.SameLine(0, UiStyle.InlineSpacing);
-            }
-            else
-            {
-                ImGui.TextColored(UiStyle.TextSubtle, l.RpNoSession);
-                ImGui.SameLine(0, UiStyle.InlineSpacing);
-            }
-        }
-        else
-        {
-            ImGui.TextColored(UiStyle.TextSubtle, l.Loading);
-            ImGui.SameLine(0, UiStyle.InlineSpacing);
-        }
+        Layout.Spacer(Theme.GapXs);
 
-        if (ImGui.Button(l.Refresh + "##sessions", UiStyle.SmallButton)) FetchSessions();
-        ImGui.SameLine(0, 4);
-        if (ImGui.Button(l.ViewOnline + "##sessions", UiStyle.SmallButton))
+        // Actions de la page, alignées à droite comme sur « Autour de moi ».
+        var gap    = Theme.S(Theme.GapM);
+        var offset = ImGui.GetContentRegionAvail().X
+                   - Btn.Measure(l.Refresh) - Btn.Measure(l.ViewOnline, Icons.External) - gap;
+        if (offset > 0f) ImGui.SetCursorPosX(ImGui.GetCursorPosX() + offset);
+
+        if (Btn.Draw(l.Refresh, BtnTone.Ghost, BtnSize.Medium, id: "rp_refresh"))
+            FetchSessions();
+        ImGui.SameLine(0f, gap);
+        if (Btn.Draw(l.ViewOnline, BtnTone.Ghost, BtnSize.Medium, Icons.External, id: "rp_online"))
             OpenUrl(_config.BaseUrl + "/rp-live");
 
-        if (!_sessionsLoading)
+        Layout.Spacer(Theme.GapS);
+        DrawSessionsList(l);
+
+        Layout.Spacer(Theme.GapM);
+        DrawAvailabilityCard(l);
+
+        Layout.Spacer(Theme.GapS);
+        DrawMySessionCard(l);
+    }
+
+    /// <summary>
+    /// Scènes ouvertes, les proches d'abord.
+    ///
+    /// Sans zone de défilement à hauteur figée : elle réservait dix lignes au bas
+    /// de la page quoi qu'il arrive, laissant un vide sous une liste courte et un
+    /// second ascenseur sous une longue.
+    /// </summary>
+    private void DrawSessionsList(Loc l)
+    {
+        if (_sessionsLoading)
         {
-            var activeSessions = _sessionsList.Where(s => s.EndedAt == null).ToList();
-            if (activeSessions.Count > 0)
-            {
-                ImGui.Spacing();
-                ImGui.Separator();
-                ImGui.Spacing();
-                var currentWorld = Plugin.ObjectTable.LocalPlayer?.CurrentWorld.Value.Name.ToString();
-                var currentZone  = GetCurrentZoneName();
-
-                List<RpSessionDto> nearby = [];
-                List<RpSessionDto> others = [];
-                foreach (var s in activeSessions)
-                {
-                    if (currentWorld != null && currentZone != null
-                        && s.Server == currentWorld && s.Location == currentZone)
-                        nearby.Add(s);
-                    else
-                        others.Add(s);
-                }
-
-                var bottomH = 10f * ImGui.GetFrameHeightWithSpacing();
-                if (!ImGui.BeginChild("##sessionsscroll", new Vector2(-1, -bottomH), false))
-                    goto DrawButton;
-
-                if (nearby.Count > 0)
-                {
-                    ImGui.TextColored(UiStyle.StatusOpen,
-                        string.Format(l.RpInYourZone, currentZone));
-                    ImGui.Spacing();
-                    foreach (var s in nearby)
-                        DrawSessionEntry(s);
-
-                    if (others.Count > 0)
-                    {
-                        ImGui.Spacing();
-                        ImGui.TextColored(UiStyle.TextSubtle, l.RpOtherServers);
-                        ImGui.Spacing();
-                    }
-                }
-
-                foreach (var s in others)
-                    DrawSessionEntry(s);
-
-                ImGui.EndChild();
-            }
+            Text.Body(l.Loading, Theme.TextMuted);
+            return;
         }
 
-        DrawButton:
-        ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
-
-        var noSessions = !_sessionsLoading && _sessionsList.All(s => s.EndedAt != null);
-        DrawAvailabilitySection(l, noSessions);
-
-        ImGui.Separator();
-        ImGui.Spacing();
-
-        if (Plugin.HasActiveSession)
+        var active = _sessionsList.Where(s => s.EndedAt == null).ToList();
+        if (active.Count == 0)
         {
-            ImGui.TextColored(UiStyle.StatusOpen, l.RpYourSessionActive);
-            ImGui.SameLine();
-            if (UiPrimitives.ColorButton(l.RpManageSession, UiStyle.PrimaryButton,
-                UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive))
-                Plugin.OpenMySession();
+            // « Soyez le premier » ne s'adresse qu'à qui peut ouvrir une scène.
+            // Non centré : les cartes suivent, et le centrage les aurait
+            // repoussées en bas d'une grande fenêtre.
+            Feedback.EmptyState(Icons.RpLive, l.RpNoSession,
+                                Plugin.Api.HasToken ? l.RpBeFirst : null,
+                                centered: false);
+            return;
         }
-        else
+
+        var currentWorld = Plugin.ObjectTable.LocalPlayer?.CurrentWorld.Value.Name.ToString();
+        var currentZone  = GetCurrentZoneName();
+
+        List<RpSessionDto> nearby = [];
+        List<RpSessionDto> others = [];
+        foreach (var s in active)
         {
-            if (UiPrimitives.ColorButton(l.RpNewSession, new Vector2(-1, 0),
-                UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive))
-                Plugin.OpenMySession();
+            if (currentWorld != null && currentZone != null
+                && s.Server == currentWorld && s.Location == currentZone)
+                nearby.Add(s);
+            else
+                others.Add(s);
+        }
+
+        if (nearby.Count > 0)
+        {
+            Layout.SectionHeader(string.Format(l.RpInYourZone, currentZone), Icons.Around);
+            foreach (var s in nearby) DrawSessionEntry(s);
+            if (others.Count > 0) Layout.Spacer(Theme.GapS);
+        }
+
+        if (others.Count > 0)
+        {
+            Layout.SectionHeader(l.RpOtherServers, Icons.RpLive);
+            foreach (var s in others) DrawSessionEntry(s);
         }
     }
 
-    private void DrawAvailabilitySection(Loc l, bool noSessions = false)
+    private void DrawAvailabilityCard(Loc l)
     {
-        // Bannière de prompt post-connexion
+        using var card = Card.Begin("rp_availability", interactive: false);
+
+        Layout.SectionHeader(l.RpAvailableTitle, Icons.Around);
+
         if (Plugin.LoginPromptPending)
         {
             UiPrimitives.DrawAlert(UiStyle.StatusOpen, l.RpAvailableActiveStatus, l.RpLoginPrompt, () =>
@@ -473,57 +452,56 @@ public class MainWindow : ThemedWindow, IDisposable
                     Plugin.SetRpAvailability(false);
                 }
             });
+            Layout.Spacer(Theme.GapS);
         }
 
-        // Explication de la fonctionnalité
-        ImGui.PushTextWrapPos(0);
-        ImGui.TextColored(UiStyle.TextSubtle, l.RpAvailableDesc);
-        ImGui.PopTextWrapPos();
-        ImGui.Spacing();
+        Text.Wrapped(l.RpAvailableDesc, Theme.TextMuted);
+        Layout.Spacer(Theme.GapS);
 
-        // Toggle disponibilité — désactivé si le perso actuel n'est pas lié
         var player     = Plugin.ObjectTable.LocalPlayer;
         var charLinked = player != null
             && Plugin.Config.FindCharacterToken(player.Name.TextValue, (int)player.HomeWorld.RowId) != null;
 
         if (!charLinked)
         {
-            ImGui.TextColored(new Vector4(1f, 0.6f, 0.2f, 1f), l.RpAvailableNoToken);
-            ImGui.Spacing();
-            if (ImGui.Button("Lier ce personnage##linkfromrp", Vector2.Zero))
+            Text.Wrapped(l.RpAvailableNoToken, Theme.Gold);
+            Layout.Spacer(Theme.GapXs);
+            if (Btn.Draw(l.LinkThisCharacter, BtnTone.Primary, BtnSize.Medium, id: "rp_link"))
                 Plugin.OpenSetup(migration: Plugin.Config.CharacterTokens.Count == 0
                     && !string.IsNullOrWhiteSpace(Plugin.Config.ApiToken));
-        }
-        else
-        {
-            var available = Plugin.CurrentCharacterAvailabilityWanted;
-            if (ImGui.Checkbox(l.RpAvailableEnable + "##rpavailabletoggle", ref available))
-                Plugin.SetRpAvailability(available);
+            return;
         }
 
-        ImGui.Spacing();
+        var available = Plugin.CurrentCharacterAvailabilityWanted;
+        if (Inputs.ToggleRow(l.RpAvailableEnable, ref available))
+            Plugin.SetRpAvailability(available);
 
-        // Option "demander à la reconnexion"
-        var askOnLogin = Plugin.Config.RpAskOnLogin;
-        if (ImGui.Checkbox(l.CfgRpAskOnLogin + "##askonlogin", ref askOnLogin))
-        {
-            Plugin.Config.RpAskOnLogin = askOnLogin;
-            Plugin.Config.Save();
-        }
-
-        ImGui.Spacing();
-
-        if (ImGui.Button(l.RpProfileSetup + "##openwizard", Vector2.Zero))
+        Layout.Spacer(Theme.GapS);
+        if (Btn.Draw(l.RpProfileSetup, BtnTone.Ghost, BtnSize.Medium, id: "rp_wizard"))
             Plugin.OpenRpProfileWizard();
+    }
 
-        if (noSessions)
+    private void DrawMySessionCard(Loc l)
+    {
+        // Rien à proposer sans personnage lié : ouvrir une scène lui est
+        // impossible, et la carte resterait vide.
+        if (!Plugin.Api.HasToken) return;
+
+        using var card = Card.Begin("rp_mysession", interactive: false);
+
+        Layout.SectionHeader(l.MySessionTitle, Icons.RpLive);
+
+        if (Plugin.HasActiveSession)
         {
-            ImGui.Spacing();
-            ImGui.TextColored(UiStyle.TextSubtle, l.RpNoSession);
-            ImGui.TextColored(UiStyle.TextSubtle, l.RpBeFirst);
+            Text.Wrapped(l.RpYourSessionActive, Theme.Online);
+            Layout.Spacer(Theme.GapS);
+            if (Btn.Draw(l.RpManageSession, BtnTone.Primary, BtnSize.Medium, id: "rp_manage"))
+                Plugin.OpenMySession();
+            return;
         }
 
-        ImGui.Spacing();
+        if (Btn.Draw(l.RpNewSession, BtnTone.Primary, BtnSize.Medium, id: "rp_new"))
+            Plugin.OpenMySession();
     }
 
     private void DrawSessionEntry(RpSessionDto s)
@@ -928,9 +906,12 @@ public class MainWindow : ThemedWindow, IDisposable
                 }
 
                 Layout.Spacer(Theme.GapS);
+                // « + d'infos » sur une carte d'événement parle de
+                // l'événement : la fiche du lieu reste à un clic, depuis la
+                // fenêtre qui s'ouvre.
                 if (Btn.Draw(l.MoreInfo, BtnTone.Primary, BtnSize.Medium,
-                             Icons.External, id: $"info_{ev.Id}"))
-                    Plugin.OpenEstabDetail(venue);
+                             Icons.Info, id: $"info_{ev.Id}"))
+                    Plugin.OpenEventDetail(ev);
 
                 TravelButton.Draw(venue, $"ev_{ev.Id}", sameLine: true);
             }
@@ -1057,9 +1038,23 @@ public class MainWindow : ThemedWindow, IDisposable
 
         if (!ImGui.BeginChild("##estabscroll", new Vector2(-1, -1), false)) return;
 
+        // Deux colonnes dès que la largeur le permet. Une carte de lieu se lit
+        // très bien sur une demi-largeur, et l'empilement en colonne unique
+        // faisait défiler longuement une liste pourtant courte. Sous le seuil,
+        // on retombe sur une colonne : à deux, les catégories et les boutons
+        // d'une carte étroite passeraient à la ligne les uns après les autres.
+        var columns = ImGui.GetContentRegionAvail().X >= Theme.S(680f) ? 2 : 1;
+
         string? toHide = null;
+        if (!ImGui.BeginTable("##estabgrid", columns, ImGuiTableFlags.None))
+        {
+            ImGui.EndChild();
+            return;
+        }
+
         foreach (var e in visibleEstabs)
         {
+            ImGui.TableNextColumn();
             bool hideThis = false;
             UiPrimitives.DrawCardWithBanner(Textures.Get(e.Banner), () =>
             {
@@ -1176,6 +1171,8 @@ public class MainWindow : ThemedWindow, IDisposable
 
             if (hideThis) { toHide = e.Id; break; }
         }
+
+        ImGui.EndTable();
         if (toHide != null) HideEstablishment(toHide);
 
         DrawHiddenEstablishmentsSection();

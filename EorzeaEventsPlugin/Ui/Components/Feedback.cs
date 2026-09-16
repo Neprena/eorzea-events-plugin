@@ -83,14 +83,20 @@ internal static class Feedback
     /// Bloc centré affiché à la place d'une liste vide : grande icône estompée,
     /// titre, explication, et appel à l'action facultatif.
     /// </summary>
+    /// <param name="centered">
+    /// Centre le bloc dans la hauteur restante. À couper quand la page
+    /// continue en dessous : le centrage repousserait alors le contenu
+    /// suivant vers le bas en creusant un vide au milieu.
+    /// </param>
     public static void EmptyState(FontAwesomeIcon icon, string title,
                                   string? description = null,
-                                  string? ctaLabel = null, Action? onCta = null)
+                                  string? ctaLabel = null, Action? onCta = null,
+                                  bool centered = true)
     {
         var avail = ImGui.GetContentRegionAvail();
         var block = Theme.S(description != null ? 108f : 78f);
 
-        if (avail.Y > block)
+        if (centered && avail.Y > block)
             ImGui.SetCursorPosY(ImGui.GetCursorPosY() + (avail.Y - block) * 0.4f);
 
         using (Fonts.PushTitle())

@@ -355,7 +355,7 @@ internal static class RpProfileView
         // Les chaînes sont composées avant d'être mesurées puis dessinées : le
         // centrage vertical se fait sur ce qui sera affiché, pas sur une
         // approximation reconstituée deux fois.
-        var displayName = profile?.RpName is { Length: > 0 } rpName ? rpName : characterName;
+        var displayName = Plugin.DisplayName(profile, characterName);
 
         // Le nom du personnage ne se répète pas sous lui-même. Le cas le plus
         // fréquent est de jouer sous son nom de personnage : la ligne affichait

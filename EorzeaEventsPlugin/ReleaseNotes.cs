@@ -63,6 +63,46 @@ internal static class ReleaseNotes
     public static readonly ReleaseNote[] All =
     [
         new(
+            Version: "2.13.0",
+            TitleFr: "Ouvert aux visiteurs sans compte",
+            TitleEn: "Open to guests without an account",
+            BodyFr: """
+                    - **Nouveauté :** L'écran d'accueil propose deux choix au même rang : lier un personnage ou continuer sans compte.
+                    - **Nouveauté :** Le bouton « + d'infos » d'un événement ouvre désormais le détail de l'événement (description entière, horaires de début et de fin, récurrence en clair, affiche, adresse du lieu, nombre d'inscrits et nombre de joueurs détectés sur place), avec un bouton pour accéder au lieu.
+                    - **Nouveauté :** Les paramètres affichent aussi les personnages de votre compte qui ne sont pas liés sur cet ordinateur et précisent qu'il faut se connecter sur chacun.
+                    - **Amélioration :** En mode « visiteur » (sans compte), vous conservez l'agenda des événements, l'annuaire des lieux, les scènes de jeu de rôle ouvertes, les fiches publiques des rôlistes croisés, les noms et titres de jeu de rôle sur les plaques, la mise en forme du chat et le carnet privé des rencontres.
+                    - **Amélioration :** En mode « visiteur », aucune action nécessitant un personnage lié n'est proposée (ajout d'ami, proposition de relation, ouverture de scène, disponibilité, assistant de fiche), y compris via le menu du clic droit en jeu.
+                    - **Amélioration :** Les pages « Mon profil RP » et « Amis RP » expliquent ce qui manque et proposent de lier un personnage ; un cadenas marque ces pages dans la barre latérale et la barre d'état indique « Mode visiteur ».
+                    - **Amélioration :** Lier un personnage passe de trois à deux clics : le bouton de l'écran d'accueil ouvre directement la page de confirmation dans le navigateur.
+                    - **Amélioration :** L'onglet « RP Ouvert » est refait pour s'aligner sur le reste de l'interface (cartes, en-têtes de section, interrupteur).
+                    - **Amélioration :** Le curseur de durée d'une scène adopte le style du plugin.
+                    - **Amélioration :** L'onglet des lieux s'affiche sur deux colonnes quand la fenêtre est assez large.
+                    - **Correction :** La page « Amis RP » n'annonce plus « aucun ami » en l'absence de compte ; elle indique qu'aucun personnage n'est lié.
+                    - **Correction :** L'assistant de couplage ne se rouvre plus à chaque connexion après avoir été écarté : il retient votre choix.
+                    - **Correction :** Le nom de jeu de rôle respecte partout la forme choisie sur la fiche (nom seul, surnom seul, ou nom suivi du surnom) : chat, infobulle au survol, liste « Autour de moi », fiche consultée, notification d'arrivée et carnet des rencontres.
+                    - **Correction :** Sur les plaques, le contour d'un nom coloré suit la couleur du nom et non plus le halo bleu du jeu.
+                    - **Correction :** Éteindre le tag « jeu de rôle » retire immédiatement le nom de jeu de rôle ; il ne persiste plus jusqu'à une minute.
+                    - **Correction :** Dans « RP Ouvert », la zone de défilement ne réserve plus dix lignes vides en bas et « Aucune session active » n'apparaît plus deux fois.
+                    """,
+            BodyEn: """
+                    - **New:** The welcome screen now offers two equal choices: link a character or continue without an account.
+                    - **New:** The "More info" button on an event now opens the event's own detail (full description, start and end times, readable recurrence, poster, venue address, number of sign-ups, and number of players detected on site), with a button to open the venue.
+                    - **New:** Settings also list the characters on your account that are not linked on this computer and clarify that you need to log in on each one.
+                    - **Improvement:** In guest mode (no account), you keep the events agenda, venues directory, open role-play scenes, public sheets of role-players you cross paths with, role-play names and titles on nameplates, chat formatting, and the private encounters log.
+                    - **Improvement:** In guest mode, actions that require a linked character are no longer offered (add friend, propose relationship, open a scene, set availability, sheet assistant), including via the in-game right-click menu.
+                    - **Improvement:** The "My RP profile" and "RP friends" pages explain what is missing and offer to link a character; a lock marks these pages in the sidebar and the status bar shows "Guest mode".
+                    - **Improvement:** Linking a character now takes two clicks instead of three: the welcome screen button opens the browser confirmation page directly.
+                    - **Improvement:** The "Open RP" tab has been redesigned to match the rest (cards, section headers, toggle).
+                    - **Improvement:** The scene duration slider now uses the plugin's style.
+                    - **Improvement:** The "Venues" tab switches to two columns when the window is wide enough.
+                    - **Fix:** The "RP friends" page no longer claims "no friends" when you have no account; it now indicates that no character is linked.
+                    - **Fix:** The linking assistant no longer reopens at every login after you dismissed it; it remembers your choice.
+                    - **Fix:** The role-play name now follows the exact form chosen on the sheet (name only, nickname only, or name then nickname) everywhere: chat, hover tooltip, "Around me" list, viewed sheet, arrival notification, and encounters log.
+                    - **Fix:** On nameplates, the outline of a colored name now follows the name's color instead of the game's blue glow.
+                    - **Fix:** Turning off the game's Role-playing status removes the role-play name immediately; it no longer lingers for up to a minute.
+                    - **Fix:** In "Open RP", the scroll area no longer reserves ten blank lines at the bottom and "No active session" no longer appears twice.
+                    """),
+        new(
             Version: "2.12.0",
             TitleFr: "Les relations se demandent",
             TitleEn: "Relationships are asked for",

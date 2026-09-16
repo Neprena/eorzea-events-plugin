@@ -108,9 +108,7 @@ internal static class ChatTokens
         var name  = player.Name.TextValue;
         var world = player.HomeWorld.ValueNullable?.Name.ToString();
         var entry = Plugin.FindAvailableEntry(name, world);
-        var rp    = entry?.Profile?.RpName?.Trim();
-
-        return string.IsNullOrEmpty(rp) ? name : rp;
+        return Plugin.DisplayName(entry?.Profile, name);
     }
 
     /// <summary>Son propre nom RP, lu dans le cache de sa fiche.</summary>
@@ -118,8 +116,10 @@ internal static class ChatTokens
     {
         if (Plugin.CurrentCharacter is not { } character) return null;
 
-        var rp = Plugin.Config.FindProfile(character.Name, character.WorldId)?.RpName?.Trim();
-        return string.IsNullOrEmpty(rp) ? character.Name : rp;
+        var cache = Plugin.Config.FindProfile(character.Name, character.WorldId);
+        return Plugin.ComposeNameplateName(cache?.NameplateName, cache?.RpName,
+                                           cache?.Nickname, character.Name)
+               ?? character.Name;
     }
 
     /// <summary>

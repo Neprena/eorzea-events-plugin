@@ -75,6 +75,72 @@ internal static class Inputs
     }
 
     /// <summary>
+    /// Curseur de valeur entière, avec la valeur courante à droite.
+    ///
+    /// Dessiné plutôt que laissé au style d'origine d'ImGui : c'était le seul
+    /// contrôle du plugin à ne ressembler à rien d'autre, une barre pleine sur
+    /// fond noir au milieu de cartes et d'interrupteurs.
+    ///
+    /// La place de la valeur est réservée d'après le plus grand libellé possible
+    /// et non d'après la valeur courante, sans quoi la piste changerait de
+    /// longueur en glissant, et le curseur fuirait sous le doigt.
+    /// </summary>
+    public static bool Slider(string id, ref int value, int min, int max,
+                              string? suffix = null, float width = -1f)
+    {
+        var frame = ImGui.GetFrameHeight();
+        var total = width > 0f ? width : ImGui.GetContentRegionAvail().X;
+
+        string Label(int v) => suffix is null ? v.ToString() : $"{v} {suffix}";
+
+        var gap      = Theme.S(Theme.GapS);
+        var valueW   = ImGui.CalcTextSize(Label(max)).X;
+        var trackW   = Math.Max(total - valueW - gap, Theme.S(40f));
+        var thickness = Theme.S(5f);
+        var knob      = frame * 0.24f;
+
+        var origin = ImGui.GetCursorScreenPos();
+        var dl     = ImGui.GetWindowDrawList();
+
+        ImGui.InvisibleButton(id, new Vector2(trackW, frame));
+        var hovered = ImGui.IsItemHovered();
+        var held    = ImGui.IsItemActive();
+
+        var left  = origin.X + knob;
+        var right = origin.X + trackW - knob;
+        var span  = Math.Max(right - left, 1f);
+
+        var changed = false;
+        if (held && max > min)
+        {
+            var t    = Math.Clamp((ImGui.GetIO().MousePos.X - left) / span, 0f, 1f);
+            var next = min + (int)MathF.Round(t * (max - min));
+            if (next != value) { value = next; changed = true; }
+        }
+
+        var ratio = max > min ? (value - min) / (float)(max - min) : 0f;
+        var midY  = origin.Y + frame * 0.5f;
+        var cx    = left + ratio * span;
+        var half  = thickness * 0.5f;
+
+        dl.AddRectFilled(new Vector2(origin.X, midY - half),
+                         new Vector2(origin.X + trackW, midY + half),
+                         ImGui.GetColorU32(Theme.BgSunken), half);
+        dl.AddRectFilled(new Vector2(origin.X, midY - half), new Vector2(cx, midY + half),
+                         ImGui.GetColorU32(Theme.Accent), half);
+
+        dl.AddCircleFilled(new Vector2(cx, midY), knob,
+                           ImGui.GetColorU32(hovered || held ? Theme.Text : Theme.TextOnLight));
+        dl.AddCircle(new Vector2(cx, midY), knob, ImGui.GetColorU32(Theme.Border));
+
+        ImGui.SameLine(0f, gap);
+        ImGui.AlignTextToFramePadding();
+        Text.Body(Label(value), Theme.Text);
+
+        return changed;
+    }
+
+    /// <summary>
     /// Ligne de réglage : libellé et description à gauche, interrupteur aligné
     /// à droite.
     /// </summary>

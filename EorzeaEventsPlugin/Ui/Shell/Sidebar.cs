@@ -112,6 +112,7 @@ internal static class Sidebar
 
         var count = page.Badge?.Invoke() ?? 0;
         if (count > 0) DrawBadge(dl, origin, width, item, count);
+        else if (page.Locked?.Invoke() == true) DrawLock(dl, origin, width, item);
 
         return clicked;
     }
@@ -128,6 +129,21 @@ internal static class Sidebar
 
         dl.AddCircleFilled(center, radius, ImGui.GetColorU32(Theme.Accent));
         dl.AddText(center - size * 0.5f, ImGui.GetColorU32(Theme.TextOn(Theme.Accent)), text);
+    }
+
+    /// <summary>
+    /// Cadenas discret, à la place de la pastille. L'entrée reste cliquable :
+    /// montrer ce qu'on gagne à lier un personnage vaut mieux que le cacher.
+    /// </summary>
+    private static void DrawLock(ImDrawListPtr dl, Vector2 origin, float width, float item)
+    {
+        using var font = Fonts.PushSmall();
+        var glyph = Icons.Locked.S();
+        var size  = ImGui.CalcTextSize(glyph);
+        dl.AddText(
+            new Vector2(origin.X + width - Theme.S(20f) - size.X * 0.5f,
+                        origin.Y + (item - size.Y) * 0.5f),
+            ImGui.GetColorU32(Theme.TextFaint), glyph);
     }
 
     /// <summary>Abscisse du centre des pictogrammes.</summary>

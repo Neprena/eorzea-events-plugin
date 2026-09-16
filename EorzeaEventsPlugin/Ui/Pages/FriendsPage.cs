@@ -35,6 +35,15 @@ internal sealed class FriendsPage
             return;
         }
 
+        // Sans jeton la liste reste vide de toute façon : afficher « aucun
+        // ami » laisserait croire que le compte n'en a pas.
+        if (!Plugin.Api.HasToken)
+        {
+            Feedback.EmptyState(Icons.Friend, l.NoCharacterLinked, l.RpFriendsNoToken,
+                                l.LinkThisCharacter, () => Plugin.OpenSetup());
+            return;
+        }
+
         Layout.Spacer(Theme.GapXs);
 
         Feedback.Alert(Theme.Accent, Icons.Info, l.RpFriendsTitle, l.RpFriendsNoticeBody);

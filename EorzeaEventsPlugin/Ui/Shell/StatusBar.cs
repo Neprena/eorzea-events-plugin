@@ -39,6 +39,17 @@ internal static class StatusBar
         dl.AddCircleFilled(new Vector2(origin.X + Theme.S(Theme.PadWindowX), mid),
             Theme.S(3.5f), ImGui.GetColorU32(linked ? Theme.Online : Theme.TextFaint));
 
+        // Nommer le mode : un point gris de trois pixels n'a jamais rien dit
+        // à personne, et le plugin sert pour de bon sans compte.
+        if (!linked)
+        {
+            var guest = Plugin.L.GuestMode;
+            var size  = ImGui.CalcTextSize(guest);
+            dl.AddText(
+                new Vector2(origin.X + Theme.S(Theme.PadWindowX + 10f), mid - size.Y * 0.5f),
+                ImGui.GetColorU32(Theme.TextFaint), guest);
+        }
+
         // Compteur de joueurs, à droite.
         if (_online > 0)
         {

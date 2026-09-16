@@ -32,6 +32,13 @@ internal sealed class ShellPage
     /// <summary>Compteur affiché en pastille. Zéro masque la pastille.</summary>
     public Func<int>? Badge { get; init; }
 
+    /// <summary>
+    /// Entrée accessible mais sans effet en l'état, signalée par un cadenas.
+    /// La page reste visible et cliquable : elle explique elle-même ce qui
+    /// manque, ce qu'une entrée masquée ne saurait faire.
+    /// </summary>
+    public Func<bool>? Locked { get; init; }
+
     /// <summary>Page masquée dans la barre latérale quand ceci renvoie faux.</summary>
     public Func<bool>? Visible { get; init; }
 

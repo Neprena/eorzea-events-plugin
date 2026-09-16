@@ -201,7 +201,8 @@ public class RpProfileWindow : ThemedWindow
         // Pas d'ajout en aperçu : on ne s'ouvre pas sa propre fiche. Et l'ajout
         // n'ouvre que la nôtre, ce que dit l'infobulle : cette fenêtre-ci ne
         // montrera pas davantage après coup.
-        if (!_isPreview && _viewCharacterId is { Length: > 0 } friendId)
+        if (!_isPreview && _viewCharacterId is { Length: > 0 } friendId
+            && (Plugin.IsFriend(friendId) || Plugin.Api.HasToken))
         {
             ImGui.SameLine(0f, Theme.S(Theme.GapS));
 
@@ -219,7 +220,9 @@ public class RpProfileWindow : ThemedWindow
         // Nouer un lien se décide en lisant une fiche : le bouton est là où la
         // décision se prend, et pas seulement dans le menu de clic droit. En
         // aperçu, il n'y a personne à qui proposer : c'est sa propre fiche.
-        if (!_isPreview && _viewCharacterId is { Length: > 0 } relationTarget)
+        // Proposer un lien demande un personnage lié : c'est lui qui le porte.
+        if (!_isPreview && Plugin.Api.HasToken
+            && _viewCharacterId is { Length: > 0 } relationTarget)
         {
             ImGui.SameLine(0f, Theme.S(Theme.GapS));
 

@@ -221,7 +221,7 @@ internal sealed class AroundPage
 
         ImGui.BeginGroup();
 
-        Text.Body(entry.Profile?.RpName is { Length: > 0 } rpName ? rpName : entry.CharacterName);
+        Text.Body(Plugin.DisplayName(entry.Profile, entry.CharacterName));
         Text.Small($"{entry.CharacterName} · {entry.Server}");
 
         // Teintée quand le joueur est dans ma zone : c'est la seule différence
@@ -325,7 +325,10 @@ internal sealed class AroundPage
         // Ajouter quelqu'un ouvre SA PROPRE fiche à cette personne : rien de ce
         // qui est affiché ici ne changera. L'infobulle le dit, sans quoi le geste
         // se lit comme une demande d'amitié.
-        if (entry.Profile?.CharacterId is { Length: > 0 } friendId)
+        // Sans personnage lié, ajouter un ami est refusé par le serveur : la
+        // pastille « déjà ami » reste, le bouton disparaît.
+        if (entry.Profile?.CharacterId is { Length: > 0 } friendId
+            && (Plugin.IsFriend(friendId) || Plugin.Api.HasToken))
         {
             ImGui.SameLine(0f, Theme.S(Theme.GapS));
 

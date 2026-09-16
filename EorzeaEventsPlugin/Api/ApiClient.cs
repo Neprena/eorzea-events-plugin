@@ -84,6 +84,22 @@ public class RpSessionDto
     [JsonPropertyName("meetingPoint")] public string? MeetingPoint { get; set; }
 }
 
+/// <summary>
+/// Personnage du compte, tel que le site le connaît. Sert à dire ce qui reste
+/// à lier sur cette machine : un jeton ne se délivre qu'une fois, et qui
+/// réinstalle son jeu n'a plus que celui qu'il vient de créer.
+/// </summary>
+public class AccountCharacterDto
+{
+    [JsonPropertyName("id")]        public string  Id        { get; set; } = string.Empty;
+    [JsonPropertyName("name")]      public string  Name      { get; set; } = string.Empty;
+    [JsonPropertyName("worldName")] public string? WorldName { get; set; }
+    [JsonPropertyName("worldId")]   public int     WorldId   { get; set; }
+
+    /// <summary>Probable résidu d'un renommage, d'après le serveur.</summary>
+    [JsonPropertyName("stale")]     public bool    Stale     { get; set; }
+}
+
 public class EstablishmentSummaryDto
 {
     [JsonPropertyName("id")]          public string  Id          { get; set; } = string.Empty;
@@ -1707,6 +1723,24 @@ public class ApiClient : IDisposable
             if (!res.IsSuccessStatusCode) return null;
 
             return await res.Content.ReadFromJsonAsync<List<RpFriendDto>>(JsonOptions, ct) ?? [];
+        }
+        catch { return null; }
+    }
+
+    /// <summary>
+    /// Personnages du compte. `null` quand l'appel échoue, pour distinguer
+    /// « aucun » d'un serveur muet : un compte porte toujours au moins le
+    /// personnage qui interroge.
+    /// </summary>
+    public async Task<List<AccountCharacterDto>?> GetAccountCharactersAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var res = await _http.GetAsync("api/user/characters", ct);
+            HandleAuthResponse(res);
+            if (!res.IsSuccessStatusCode) return null;
+
+            return await res.Content.ReadFromJsonAsync<List<AccountCharacterDto>>(JsonOptions, ct) ?? [];
         }
         catch { return null; }
     }

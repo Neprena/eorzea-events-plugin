@@ -452,10 +452,14 @@ public class MySessionWindow : ThemedWindow
         {
             var tokenMissing = !Plugin.Api.HasToken;
 
-            Feedback.EmptyState(Icons.Warning,
-                tokenMissing ? l.ErrTokenMissing : l.TokenInvalidLine1,
+            // Pas de personnage lié n'est pas une anomalie mais un mode de
+            // fonctionnement : le pictogramme d'alerte reste au jeton révoqué,
+            // qui, lui, demande une réparation.
+            Feedback.EmptyState(
+                tokenMissing ? Icons.Character : Icons.Warning,
+                tokenMissing ? l.NoCharacterLinked : l.TokenInvalidLine1,
                 tokenMissing ? l.MySessionTokenMissingDesc : l.MySessionTokenInvalidDesc,
-                tokenMissing ? l.BtnConfigureNow : l.TokenReconfigure,
+                tokenMissing ? l.LinkThisCharacter : l.TokenReconfigure,
                 () => Plugin.OpenSetup(tokenInvalid: !tokenMissing));
             return;
         }
@@ -482,8 +486,8 @@ public class MySessionWindow : ThemedWindow
         DrawPendingAlerts(l);
 
         if (!ImGui.BeginTable("##createform", 2, ImGuiTableFlags.None)) return;
-        ImGui.TableSetupColumn("ctx",  ImGuiTableColumnFlags.WidthStretch, 0.38f);
-        ImGui.TableSetupColumn("form", ImGuiTableColumnFlags.WidthStretch, 0.62f);
+        ImGui.TableSetupColumn("ctx",  ImGuiTableColumnFlags.WidthStretch, 0.34f);
+        ImGui.TableSetupColumn("form", ImGuiTableColumnFlags.WidthStretch, 0.66f);
         ImGui.TableNextRow();
 
         // Contexte détecté (gauche)
@@ -508,15 +512,17 @@ public class MySessionWindow : ThemedWindow
 
         Layout.Spacer(Theme.GapS);
         Text.Muted(l.FieldDuration);
-        ImGui.SetNextItemWidth(Card.FullWidth);
-        ImGui.SliderInt("##duration", ref _duration, 1, 8);
+        Inputs.Slider("##duration", ref _duration, 1, 8, l.HourSuffix);
 
+        ImGui.EndTable();
+
+        // Le bouton traverse les deux colonnes : il conclut le formulaire
+        // autant que le contexte, et il comble le bas de la carte de zone,
+        // plus courte que la colonne de saisie.
         Layout.Spacer(Theme.GapM);
         if (Btn.Draw(_busy ? l.StatusCreating : l.RpNewSession, BtnTone.Primary, BtnSize.Block,
                      Icons.RpLive, disabled: _busy || string.IsNullOrWhiteSpace(_title)))
             StartSession();
-
-        ImGui.EndTable();
     }
 
     /// <summary>Position, monde et logement lus dans le jeu, avant publication.</summary>

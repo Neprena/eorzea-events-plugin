@@ -393,6 +393,15 @@ internal sealed class RpProfilePage(Configuration config)
             return;
         }
 
+        // La fiche se charge depuis le serveur : sans jeton, la page restait
+        // vide sans un mot, après un squelette de chargement.
+        if (!Plugin.Api.HasToken)
+        {
+            Feedback.EmptyState(Icons.Character, l.NoCharacterLinked, l.RpProfileNoTokenBody,
+                                l.LinkThisCharacter, () => Plugin.OpenSetup());
+            return;
+        }
+
         var key = Configuration.CharacterKey(character.Name, character.WorldId);
         // Recharger aussi quand la fiche choisie change : la clé du personnage
         // ne suffit plus à décrire ce qui est à l'écran.

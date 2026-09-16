@@ -332,6 +332,13 @@ public class Configuration : IPluginConfiguration
     /// <summary>True si l'utilisateur a vu ou ignoré le wizard de migration vers les tokens de personnage.</summary>
     public bool MigrationNoticeSeen { get; set; } = false;
 
+    /// <summary>
+    /// L'assistant de couplage a été écarté volontairement. Sans ce drapeau,
+    /// il se rouvrait à chaque connexion en fermant la fenêtre principale, ce
+    /// qui revenait à harceler qui veut rester en lecture seule.
+    /// </summary>
+    public bool SetupSkipped { get; set; } = false;
+
     /// <summary>L'annonce de la fonctionnalité "Profil RP & Disponibilité" a été vue.</summary>
     public bool RpAnnouncementSeen { get; set; } = false;
 

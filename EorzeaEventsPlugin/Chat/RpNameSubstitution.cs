@@ -37,7 +37,13 @@ internal static class RpNameSubstitution
         }
 
         var entry  = Resolve(speaker.Name, speaker.World);
-        var rpName = entry?.Profile?.RpName?.Trim();
+        // Même nom que la plaque : le porteur choisit la forme, et la voir
+        // changer d'une ligne de chat à la plaque au-dessus de sa tête est le
+        // meilleur moyen de faire croire à deux personnes.
+        var rpName = entry?.Profile is { } profile
+            ? Plugin.ComposeNameplateName(profile.NameplateName, profile.RpName,
+                                          profile.Nickname, speaker.Name)
+            : null;
 
         Plugin.Log.Debug("[NomsRP] {0}@{1} : {2}",
                          speaker.Name, speaker.World,
@@ -45,10 +51,9 @@ internal static class RpNameSubstitution
                              ? "aucune entrée de disponibilité"
                              : $"entrée trouvée sur {entry.Server}, nom RP « {rpName ?? string.Empty} »");
 
-        // Une fiche sans nom RP, ou dont le nom RP est celui du personnage,
-        // n'a rien à substituer.
-        if (string.IsNullOrEmpty(rpName)
-            || string.Equals(rpName, speaker.Name, StringComparison.Ordinal)) return;
+        // La composition rend déjà null pour une fiche sans nom RP, ou dont le
+        // nom composé est celui du personnage.
+        if (string.IsNullOrEmpty(rpName)) return;
 
         var color   = ResolveColor(entry!.Profile!.AccentColor);
         var result  = new List<Payload>(sender.Payloads.Count + 3);

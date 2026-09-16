@@ -86,6 +86,8 @@ internal sealed class Loc
     public required string CfgLinkAgain        { get; init; }
     public required string CfgLinkCharacter    { get; init; }   // {0} = perso@monde
     public required string CfgLinkForget       { get; init; }
+    public required string CfgOtherCharacters  { get; init; }
+    public required string CfgOtherCharactersHint { get; init; }
     public required string And             { get; init; }
     public required string RecurrenceDaily    { get; init; }
     public required string RecurrenceWeekly   { get; init; }
@@ -131,6 +133,7 @@ internal sealed class Loc
     public required string FieldServer            { get; init; }
     public required string FieldCharName          { get; init; }
     public required string FieldDuration          { get; init; }
+    public required string HourSuffix             { get; init; }
     public required string FieldWard              { get; init; }
     public required string FieldPlot              { get; init; }
     public required string FieldRoom              { get; init; }
@@ -147,7 +150,6 @@ internal sealed class Loc
     public required string BtnEnd                 { get; init; }
     public required string BtnUpdatePos           { get; init; }
     public required string BtnExtend              { get; init; }
-    public required string BtnConfigureNow        { get; init; }
     public required string StatusPosUpdated       { get; init; }
     public required string StatusCreating         { get; init; }
     public required string StatusUpdating         { get; init; }
@@ -194,6 +196,11 @@ internal sealed class Loc
     public required string SetupWelcomeL2        { get; init; }
     public required string SetupWelcomeL3        { get; init; }
     public required string SetupStart            { get; init; }
+    public required string SetupPerk1           { get; init; }
+    public required string SetupPerk2           { get; init; }
+    public required string SetupPerk3           { get; init; }
+    public required string SetupPerk4           { get; init; }
+    public required string SetupPerk5           { get; init; }
     public required string SetupStepTitle        { get; init; }
     public required string SetupStepDesc         { get; init; }
     public required string SetupMigrationTitle   { get; init; }
@@ -203,6 +210,12 @@ internal sealed class Loc
     public required string SetupTokenInvalid    { get; init; }
     public required string SetupErrPrefix       { get; init; }
     public required string SetupSkip            { get; init; }
+    public required string NoCharacterLinked    { get; init; }
+    public required string LinkThisCharacter    { get; init; }
+    public required string RpProfileNoTokenBody { get; init; }
+    public required string SetupGuestButton     { get; init; }
+    public required string SetupGuestHint       { get; init; }
+    public required string GuestMode            { get; init; }
     public required string SetupDoneTitle       { get; init; }
     public required string SetupDoneL1          { get; init; }
     public required string SetupDoneL2          { get; init; }
@@ -915,6 +928,8 @@ internal sealed class Loc
         CfgLinkAgain        = "Relier",
         CfgLinkCharacter    = "Lier {0}",
         CfgLinkForget       = "Oublier ce personnage",
+        CfgOtherCharacters  = "Autres personnages de votre compte",
+        CfgOtherCharactersHint = "Connectez-vous sur l'un d'eux en jeu pour le lier ici. Un jeton n'est remis qu'une fois, à la confirmation : réinstaller le jeu ou changer d'ordinateur oblige à relier, sans rien perdre de vos fiches.",
         And                = "et",
         RecurrenceDaily    = "chaque jour",
         RecurrenceWeekly   = "chaque semaine",
@@ -951,6 +966,7 @@ internal sealed class Loc
         FieldServer           = "Serveur",
         FieldCharName         = "Nom du personnage",
         FieldDuration         = "Durée (heures)",
+        HourSuffix            = "h",
         FieldWard             = "Quartier",
         FieldPlot             = "Parcelle",
         FieldRoom             = "Appartement",
@@ -967,7 +983,6 @@ internal sealed class Loc
         BtnEnd                = "Terminer la session",
         BtnUpdatePos          = "Mettre à jour la position",
         BtnExtend             = "Prolonger (+1h)",
-        BtnConfigureNow       = "Configurer maintenant",
         StatusPosUpdated      = "Position mise à jour.",
         StatusCreating        = "Création en cours...",
         StatusUpdating        = "Mise à jour...",
@@ -981,12 +996,12 @@ internal sealed class Loc
         ErrUpdate             = "Erreur lors de la mise à jour.",
         ErrExtend             = "Erreur lors de la prolongation.",
         ErrTitleRequired      = "Le titre est obligatoire.",
-        ErrTokenMissing       = "Token API non configuré.",
+        ErrTokenMissing       = "Aucun personnage lié.",
         HintNoLocation        = "Zone introuvable, remplissez manuellement.",
         HintNoServer          = "Serveur introuvable, remplissez manuellement.",
         ExpiresIn             = "Expire dans environ",
         Hours                 = "heure(s)",
-        MySessionTokenMissingDesc = "Génère un token depuis ton profil pour accéder aux sessions RP.",
+        MySessionTokenMissingDesc = "Ouvrir un RP demande un personnage lié : c'est lui qui signe l'annonce, et lui seul peut la prolonger ou y mettre fin. Le reste du plugin fonctionne sans compte.",
         MySessionTokenInvalidDesc = "Tu dois générer un nouveau token pour continuer à utiliser le plugin.",
         AlertZoneChanged      = "Vous avez changé de zone.",
         AlertRpTagRemoved     = "Vous avez retiré le tag RP.",
@@ -1009,10 +1024,15 @@ internal sealed class Loc
         AlertEventPromoReason = "Motif : {0}",
         BtnCreateAnyway       = "Créer quand même",
 
-        SetupWelcomeL1     = "Ce plugin fonctionne de pair avec le site",
-        SetupWelcomeL2     = "Il vous permet de gérer vos sessions de RP ouvert directement depuis FFXIV, sans quitter le jeu.",
-        SetupWelcomeL3     = "Le couplage prend quelques secondes : il vous suffira de confirmer dans votre navigateur.",
-        SetupStart            = "Commencer",
+        SetupWelcomeL1     = "Eorzea Events rassemble en jeu les outils de la communauté RP francophone.",
+        SetupWelcomeL2     = "Sans compte, consultez les événements, lieux, scènes et fiches des rôlistes, et profitez des outils de jeu de rôle.",
+        SetupWelcomeL3     = "Lier votre personnage permet de :",
+        SetupStart            = "Lier mon personnage",
+        SetupPerk1         = "Publier votre propre fiche de personnage.",
+        SetupPerk2         = "Signaler votre disponibilité et partager votre position approximative.",
+        SetupPerk3         = "Gérer vos amis et les sections privées de votre fiche.",
+        SetupPerk4         = "Créer des relations entre personnages, avec l'accord des deux joueurs.",
+        SetupPerk5         = "Ouvrir et gérer vos scènes, annoncées sur les Discord abonnés.",
         SetupStepTitle        = "Étape 1 / 1 — Lier votre personnage",
         SetupStepDesc         = "Connectez-vous in-game sur le personnage à lier. Le plugin va lire son nom et son monde via Dalamud, puis ouvrir une page de confirmation dans votre navigateur. Cliquez « Confirmer » sur cette page et le couplage se fera automatiquement.",
         SetupMigrationTitle   = "Nouveau : tokens par personnage",
@@ -1022,6 +1042,12 @@ internal sealed class Loc
         SetupTokenInvalid  = "Le lien avec ce personnage a expiré ou été révoqué.\nRelancez le couplage pour continuer.",
         SetupErrPrefix     = "Aucun personnage n'est connecté in-game pour le moment.",
         SetupSkip          = "Passer",
+        NoCharacterLinked  = "Aucun personnage lié",
+        LinkThisCharacter  = "Lier ce personnage",
+        RpProfileNoTokenBody = "Liez ce personnage pour créer sa fiche RP, la publier et recevoir des demandes de relation.",
+        SetupGuestButton   = "Continuer sans compte",
+        SetupGuestHint     = "Vous pourrez lier un personnage plus tard depuis les paramètres.",
+        GuestMode          = "Mode visiteur",
         SetupDoneTitle     = "Personnage lié !",
         SetupDoneL1        = "Votre personnage est lié. Vous pouvez maintenant créer",
         SetupDoneL2        = "des sessions RP directement depuis le jeu.",
@@ -1087,7 +1113,7 @@ internal sealed class Loc
         CfgDtrRpAvail     = "Le statut de disponibilité RP (rond, horloge ou croix)",
         PlayersOnline     = "{0} joueur(s) en ligne",
 
-        RpAvailableDesc         = "Signale aux autres rôlistes que tu es disponible pour du RP spontané. Un titre coloré apparaît sous ton nom sur les nameplates des joueurs avec le plugin : « Dispo RP - Timide » si tu préfères qu'on vienne vers toi, « Dispo RP - Avenant·e » si tu peux faire le premier pas.",
+        RpAvailableDesc         = "Signale aux autres rôlistes que vous êtes disponible pour du RP spontané. Un titre coloré apparaît sous votre nom sur les plaques des joueurs équipés du plugin : « Dispo RP - Timide » si vous préférez qu'on vienne vers vous, « Dispo RP - Avenant·e » si vous pouvez faire le premier pas.",
         RpAvailableTitle        = "Disponibles pour du RP spontané",
         RpAvailableEmpty        = "Personne de disponible dans cette zone",
         RpAvailableInZone       = "{0} disponible(s) pour du RP dans votre zone",
@@ -1694,6 +1720,8 @@ internal sealed class Loc
         CfgLinkAgain        = "Relink",
         CfgLinkCharacter    = "Link {0}",
         CfgLinkForget       = "Forget this character",
+        CfgOtherCharacters  = "Other characters on your account",
+        CfgOtherCharactersHint = "Log in on one of them in game to link it here. A token is issued only once, at confirmation: reinstalling the game or changing computer means linking again, without losing any of your profiles.",
         And                = "and",
         RecurrenceDaily    = "every day",
         RecurrenceWeekly   = "every week",
@@ -1730,6 +1758,7 @@ internal sealed class Loc
         FieldServer           = "Server",
         FieldCharName         = "Character name",
         FieldDuration         = "Duration (hours)",
+        HourSuffix            = "h",
         FieldWard             = "Ward",
         FieldPlot             = "Plot",
         FieldRoom             = "Room",
@@ -1746,7 +1775,6 @@ internal sealed class Loc
         BtnEnd                = "End session",
         BtnUpdatePos          = "Update position",
         BtnExtend             = "Extend (+1h)",
-        BtnConfigureNow       = "Configure now",
         StatusPosUpdated      = "Position updated.",
         StatusCreating        = "Creating...",
         StatusUpdating        = "Updating...",
@@ -1760,12 +1788,12 @@ internal sealed class Loc
         ErrUpdate             = "Error while updating.",
         ErrExtend             = "Error extending session.",
         ErrTitleRequired      = "Title is required.",
-        ErrTokenMissing       = "API token not configured.",
+        ErrTokenMissing       = "No character linked.",
         HintNoLocation        = "Zone not found, please fill in manually.",
         HintNoServer          = "Server not found, please fill in manually.",
         ExpiresIn             = "Expires in about",
         Hours                 = "hour(s)",
-        MySessionTokenMissingDesc = "Generate a token from your profile to access RP sessions.",
+        MySessionTokenMissingDesc = "Opening an RP needs a linked character: it signs the announcement, and only it can extend or end it. The rest of the plugin works without an account.",
         MySessionTokenInvalidDesc = "You need to generate a new token to continue using the plugin.",
         AlertZoneChanged      = "You changed zone.",
         AlertRpTagRemoved     = "You removed the RP tag.",
@@ -1788,10 +1816,15 @@ internal sealed class Loc
         AlertEventPromoReason = "Reason: {0}",
         BtnCreateAnyway       = "Create anyway",
 
-        SetupWelcomeL1     = "This plugin works alongside the website",
-        SetupWelcomeL2     = "It lets you manage your open RP sessions directly from FFXIV, without leaving the game.",
-        SetupWelcomeL3     = "Linking takes a few seconds: just confirm in your browser.",
-        SetupStart            = "Get started",
+        SetupWelcomeL1     = "Eorzea Events brings the French-speaking RP community's tools into the game.",
+        SetupWelcomeL2     = "Without an account, browse events, venues, scenes and roleplayer profiles, and use the roleplaying tools.",
+        SetupWelcomeL3     = "Linking your character lets you:",
+        SetupStart            = "Link my character",
+        SetupPerk1         = "Publish your own character profile.",
+        SetupPerk2         = "Show your availability and share your approximate location.",
+        SetupPerk3         = "Manage friends and the private sections of your profile.",
+        SetupPerk4         = "Create character relationships, with both players' approval.",
+        SetupPerk5         = "Open and manage scenes, announced on subscribed Discord servers.",
         SetupStepTitle        = "Step 1 / 1 — Link your character",
         SetupStepDesc         = "Log in-game on the character you want to link. The plugin reads its name and world via Dalamud, then opens a confirmation page in your browser. Click \"Confirm\" on that page and the link completes automatically.",
         SetupMigrationTitle   = "New: per-character tokens",
@@ -1801,6 +1834,12 @@ internal sealed class Loc
         SetupTokenInvalid  = "The link with this character has expired or was revoked.\nStart the linking process again to continue.",
         SetupErrPrefix     = "No character is currently logged in-game.",
         SetupSkip          = "Skip",
+        NoCharacterLinked  = "No character linked",
+        LinkThisCharacter  = "Link this character",
+        RpProfileNoTokenBody = "Link this character to build its RP profile, publish it and receive relationship requests.",
+        SetupGuestButton   = "Continue without an account",
+        SetupGuestHint     = "You can link a character later from the settings.",
+        GuestMode          = "Guest mode",
         SetupDoneTitle     = "Character linked!",
         SetupDoneL1        = "Your character is linked. You can now create",
         SetupDoneL2        = "RP sessions directly from the game.",

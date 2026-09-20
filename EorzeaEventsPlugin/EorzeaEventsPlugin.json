@@ -3,7 +3,7 @@
   "Author": "Neprena",
   "Description": "Gérez vos sessions RP Eorzea Events directement depuis le jeu.",
   "Punchline": "Sessions RP Eorzea Events en un clic.",
-  "Changelog": "Cette version clarifie et sécurise l'usage sans compte : choix explicite au démarrage, véritable mode visiteur, pages et menus adaptés. Le détail des événements s'ouvre désormais depuis « + d'infos » et le nom de jeu de rôle s'affiche de façon cohérente partout, avec plusieurs correctifs d'affichage. Le couplage d'un personnage est plus direct et la section « RP Ouvert » a été remise au niveau du reste de l'interface. L'historique complet des nouveautés est dans le plugin.",
+  "Changelog": "Le plugin distingue désormais une scène de jeu de rôle ouverte d'une annonce d'établissement. Si votre texte ressemble à la présentation d'un lieu, un avertissement l'explique avant publication et propose d'enregistrer l'établissement, nom et adresse déjà remplis, ou de publier quand même. Ouvrir une scène à l'adresse exacte d'un établissement enregistré renvoie vers sa fiche et vers la publication d'un évènement. L'historique complet des nouveautés est dans le plugin.",
   "InternalName": "EorzeaEventsPlugin",
   "RepoUrl": "https://github.com/Neprena/eorzea-events-plugin",
   "Tags": [

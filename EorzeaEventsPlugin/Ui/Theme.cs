@@ -111,11 +111,11 @@ internal static class Theme
     // ─── Échelle ──────────────────────────────────────────────────────────────
 
     /// <summary>Met une dimension à l'échelle de l'interface Dalamud.</summary>
-    public static float S(float px) => px * ImGuiHelpers.GlobalScaleSafe;
+    public static float S(float px) => px * ImGuiHelpers.GlobalScale;
 
     /// <summary>Met un couple de dimensions à l'échelle de l'interface Dalamud.</summary>
     public static Vector2 S(float x, float y) =>
-        new(x * ImGuiHelpers.GlobalScaleSafe, y * ImGuiHelpers.GlobalScaleSafe);
+        new(x * ImGuiHelpers.GlobalScale, y * ImGuiHelpers.GlobalScale);
 
     // ─── Utilitaires couleur ──────────────────────────────────────────────────
 

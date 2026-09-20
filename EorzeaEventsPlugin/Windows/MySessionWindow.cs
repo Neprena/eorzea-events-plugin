@@ -47,6 +47,17 @@ public class MySessionWindow : ThemedWindow
     private string _promoEstabName         = string.Empty;
     private string _promoReason            = string.Empty;
 
+    // Avertissement contournable : republier en acquittant est possible.
+    private bool   _pendingVenueAdWarning  = false;
+    private string _venueAdReason          = string.Empty;
+    private string _venueAdRegisterQuery   = string.Empty;
+
+    // Blocage dur : un établissement est déjà enregistré à cette adresse.
+    private bool   _pendingEstabAddressBlock = false;
+    private string _estabAddressName          = string.Empty;
+    private string _estabAddressSlug          = string.Empty;
+    private string _estabAddressReason        = string.Empty;
+
     private DateTime _lastSessionCheck = DateTime.MinValue;
     private const int PollIntervalSeconds = 5;
 
@@ -159,7 +170,7 @@ public class MySessionWindow : ThemedWindow
     public void OnRpTagRemoved()     => _pendingRpTagPrompt       = true;
     public void OnRpTagActivated()   => _pendingRpTagActivePrompt = true;
 
-    private void StartSession(bool force = false)
+    private void StartSession(bool force = false, bool ackVenue = false)
     {
         var l = Plugin.L;
         if (!Plugin.Api.HasToken) { ShowError(l.ErrTokenMissing); return; }
@@ -186,6 +197,7 @@ public class MySessionWindow : ThemedWindow
             InstanceId    = Plugin.GetPublicInstanceId(),
             MapId         = mapId,
             Force         = force,
+            AcknowledgeVenueNotice = ackVenue,
         };
         if (string.IsNullOrWhiteSpace(req.Title)) { ShowError(l.ErrTitleRequired); return; }
 
@@ -199,6 +211,8 @@ public class MySessionWindow : ThemedWindow
                 _pendingActiveEventWarning = false;
                 _pendingActiveRpWarning    = false;
                 _pendingEventPromoBlock    = false;
+                _pendingVenueAdWarning     = false;
+                _pendingEstabAddressBlock  = false;
                 _config.ActiveSessionId = session!.Id; _config.Save();
                 ShowSuccess(l.StatusStarted);
                 _title = _description = string.Empty;
@@ -223,6 +237,23 @@ public class MySessionWindow : ThemedWindow
                 if (string.IsNullOrEmpty(_promoReason))
                     _promoReason = !string.IsNullOrEmpty(pex.ReasonFr) ? pex.ReasonFr : pex.ReasonEn;
                 _pendingEventPromoBlock = true;
+            }
+            catch (VenueAdSuspectedException vex)
+            {
+                _venueAdReason = Plugin.L == Loc.Fr ? vex.ReasonFr : vex.ReasonEn;
+                _venueAdRegisterQuery = vex.RegisterQuery;
+                if (string.IsNullOrEmpty(_venueAdReason))
+                    _venueAdReason = !string.IsNullOrEmpty(vex.ReasonFr) ? vex.ReasonFr : vex.ReasonEn;
+                _pendingVenueAdWarning = true;
+            }
+            catch (EstablishmentAddressBlockedException bex)
+            {
+                _estabAddressName   = bex.EstablishmentName;
+                _estabAddressSlug   = bex.Slug;
+                _estabAddressReason = Plugin.L == Loc.Fr ? bex.ReasonFr : bex.ReasonEn;
+                if (string.IsNullOrEmpty(_estabAddressReason))
+                    _estabAddressReason = !string.IsNullOrEmpty(bex.ReasonFr) ? bex.ReasonFr : bex.ReasonEn;
+                _pendingEstabAddressBlock = true;
             }
             catch (Exception ex)
             {
@@ -594,6 +625,56 @@ public class MySessionWindow : ThemedWindow
                 {
                     if (Btn.Draw(l.Cancel, BtnTone.Ghost, BtnSize.Small, id: "eventpromo"))
                         _pendingEventPromoBlock = false;
+                });
+
+        if (_pendingVenueAdWarning)
+            Feedback.Alert(Theme.Idle, Icons.Warning, l.AlertVenueAdTitle,
+                l.AlertVenueAdDesc
+                    + (string.IsNullOrEmpty(_venueAdReason)
+                        ? string.Empty
+                        : "\n\n" + string.Format(l.AlertVenueAdReason, _venueAdReason)),
+                () =>
+                {
+                    if (!string.IsNullOrEmpty(_venueAdRegisterQuery)
+                        && Btn.Draw(l.AlertVenueAdRegisterBtn, BtnTone.Primary, BtnSize.Medium,
+                                    Icons.External, id: "venuead_register"))
+                    {
+                        _pendingVenueAdWarning = false;
+                        OpenUrl(_config.BaseUrl + "/dashboard/etablissements/nouveau?" + _venueAdRegisterQuery);
+                    }
+
+                    ImGui.SameLine(0f, Theme.S(Theme.GapS));
+                    if (Btn.Draw(l.BtnCreateAnyway, BtnTone.Ghost, BtnSize.Small, id: "venuead_anyway"))
+                    {
+                        _pendingVenueAdWarning = false;
+                        StartSession(ackVenue: true);
+                    }
+
+                    ImGui.SameLine(0f, Theme.S(Theme.GapS));
+                    if (Btn.Draw(l.Cancel, BtnTone.Ghost, BtnSize.Small, id: "venuead_cancel"))
+                        _pendingVenueAdWarning = false;
+                });
+
+        if (_pendingEstabAddressBlock)
+            Feedback.Alert(Theme.Danger, Icons.Blocked, l.AlertEstabAddressTitle,
+                string.IsNullOrEmpty(_estabAddressReason)
+                    ? string.Format(l.AlertEstabAddressDesc, _estabAddressName)
+                    : _estabAddressReason,
+                () =>
+                {
+                    if (!string.IsNullOrEmpty(_estabAddressSlug)
+                        && Btn.Draw(l.AlertEstabAddressOpenBtn, BtnTone.Primary, BtnSize.Medium,
+                                    Icons.External, id: "estabaddr_open"))
+                    {
+                        _pendingEstabAddressBlock = false;
+                        OpenUrl(_config.BaseUrl + "/etablissements/" + _estabAddressSlug);
+                    }
+
+                    if (!string.IsNullOrEmpty(_estabAddressSlug))
+                        ImGui.SameLine(0f, Theme.S(Theme.GapS));
+
+                    if (Btn.Draw(l.Cancel, BtnTone.Ghost, BtnSize.Small, id: "estabaddr"))
+                        _pendingEstabAddressBlock = false;
                 });
 
         // System.Action explicite : Lumina expose aussi un type « Action ».

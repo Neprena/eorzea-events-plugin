@@ -78,7 +78,7 @@ public class PortraitZoomWindow : ThemedWindow
         // 960×1280 ne tiendrait pas sur un 1080p.
         var viewport = ImGui.GetMainViewport();
         var budget   = viewport.WorkSize * 0.85f;
-        var target   = new Vector2(texture.Width, texture.Height) * ImGuiHelpers.GlobalScaleSafe;
+        var target   = new Vector2(texture.Width, texture.Height) * ImGuiHelpers.GlobalScale;
         var factor   = MathF.Min(1f, MathF.Min(budget.X / target.X, budget.Y / target.Y));
 
         _size = target * factor;

@@ -3,8 +3,8 @@
     "Author": "Neprena",
     "Name": "Eorzea Events",
     "InternalName": "EorzeaEventsPlugin",
-    "AssemblyVersion": "2.13.0.0",
-    "TestingAssemblyVersion": "2.13.0.0",
+    "AssemblyVersion": "2.14.0.0",
+    "TestingAssemblyVersion": "2.14.0.0",
     "Description": "Gérez vos sessions RP Eorzea Events directement depuis le jeu.",
     "Punchline": "Sessions RP Eorzea Events en un clic.",
     "ApplicableVersion": "any",
@@ -15,12 +15,12 @@
     "DalamudApiLevel": 15,
     "IconUrl": "https://raw.githubusercontent.com/Neprena/eorzea-events-plugin/main/Plugin_Logo.png",
     "RepoUrl": "https://github.com/Neprena/eorzea-events-plugin",
-    "DownloadLinkInstall": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.13.0/EorzeaEventsPlugin.zip",
-    "DownloadLinkTesting": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.13.0/EorzeaEventsPlugin.zip",
-    "DownloadLinkUpdate": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.13.0/EorzeaEventsPlugin.zip",
+    "DownloadLinkInstall": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.14.0/EorzeaEventsPlugin.zip",
+    "DownloadLinkTesting": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.14.0/EorzeaEventsPlugin.zip",
+    "DownloadLinkUpdate": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.14.0/EorzeaEventsPlugin.zip",
     "TestingChangelog": "Proposez une relation d'un clic droit : la personne visée reçoit une demande, et le lien n'apparaît sur vos deux fiches qu'une fois qu'elle a accepté. Les demandes reçues se répondent depuis votre fiche RP, où une pastille les compte. Une relation liée ne se renomme plus en jeu, et la retirer prévient qu'elle disparaîtra aussi de la fiche d'en face. L'historique complet des nouveautés est dans le plugin.",
     "TestingDalamudApiLevel": 15,
-    "Changelog": "Cette version clarifie et sécurise l'usage sans compte : choix explicite au démarrage, véritable mode visiteur, pages et menus adaptés. Le détail des événements s'ouvre désormais depuis « + d'infos » et le nom de jeu de rôle s'affiche de façon cohérente partout, avec plusieurs correctifs d'affichage. Le couplage d'un personnage est plus direct et la section « RP Ouvert » a été remise au niveau du reste de l'interface. L'historique complet des nouveautés est dans le plugin.",
-    "LastUpdate": 1789564951
+    "Changelog": "Le plugin distingue désormais une scène de jeu de rôle ouverte d'une annonce d'établissement. Si votre texte ressemble à la présentation d'un lieu, un avertissement l'explique avant publication et propose d'enregistrer l'établissement, nom et adresse déjà remplis, ou de publier quand même. Ouvrir une scène à l'adresse exacte d'un établissement enregistré renvoie vers sa fiche et vers la publication d'un évènement. L'historique complet des nouveautés est dans le plugin.",
+    "LastUpdate": 1789946192
   }
 ]

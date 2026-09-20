@@ -63,6 +63,18 @@ internal static class ReleaseNotes
     public static readonly ReleaseNote[] All =
     [
         new(
+            Version: "2.14.0",
+            TitleFr: "Le jeu de rôle ouvert reste du jeu de rôle ouvert",
+            TitleEn: "Open roleplay stays open roleplay",
+            BodyFr: """
+                    - **Nouveauté :** Lorsque votre annonce ressemble à la présentation d'un établissement (ouverture, carte, tarifs, horaires réguliers, lien vers une brochure), le plugin le signale avant de publier et explique la différence : une scène ouverte annonce un moment de jeu ponctuel, qui disparaît au bout de quelques heures. Un bouton ouvre alors dans votre navigateur le formulaire d'enregistrement du lieu, nom et adresse déjà remplis d'après votre session ; un second publie quand même.
+                    - **Nouveauté :** Ouvrir une scène à l'adresse exacte d'un établissement déjà enregistré sur le site n'est plus possible. Le plugin affiche le nom du lieu, ouvre sa fiche dans votre navigateur si vous le demandez, et renvoie vers la publication d'un évènement, qui reste dans le calendrier et que le bot Discord annonce aux serveurs abonnés. Les gérantes et gérants de ce lieu, elles et eux, gardent la possibilité d'y ouvrir une scène.
+                    """,
+            BodyEn: """
+                    - **New:** When your announcement reads like a venue presentation (opening, menu, prices, regular hours, a link to a brochure), the plugin says so before publishing and explains the difference: an open scene announces a one-off moment of play, and it disappears after a few hours. One button then opens the venue registration form in your browser, with the name and address already filled in from your session; a second one publishes anyway.
+                    - **New:** Opening a scene at the exact address of a venue already registered on the website is no longer possible. The plugin shows the venue name, opens its page in your browser on request, and points to publishing an event instead, which stays in the calendar and which the Discord bot announces to subscribed servers. The people who manage that venue can still open a scene there.
+                    """),
+        new(
             Version: "2.13.0",
             TitleFr: "Ouvert aux visiteurs sans compte",
             TitleEn: "Open to guests without an account",

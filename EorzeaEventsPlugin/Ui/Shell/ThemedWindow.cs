@@ -84,7 +84,7 @@ public abstract class ThemedWindow : Window
 
         if (LogicalSizeConstraints is { } logical)
         {
-            var scale = ImGuiHelpers.GlobalScaleSafe;
+            var scale = ImGuiHelpers.GlobalScale;
             SizeConstraints = new WindowSizeConstraints
             {
                 MinimumSize = logical.MinimumSize * scale,

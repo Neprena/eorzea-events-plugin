@@ -189,6 +189,13 @@ internal sealed class Loc
     public required string AlertEventPromoTitle       { get; init; }
     public required string AlertEventPromoDesc        { get; init; }   // {0} = eventTitle, {1} = estabName
     public required string AlertEventPromoReason      { get; init; }   // {0} = motif serveur (reasonFr/reasonEn)
+    public required string AlertVenueAdTitle          { get; init; }
+    public required string AlertVenueAdDesc           { get; init; }
+    public required string AlertVenueAdReason         { get; init; }   // {0} = motif serveur (reasonFr/reasonEn)
+    public required string AlertVenueAdRegisterBtn    { get; init; }
+    public required string AlertEstabAddressTitle     { get; init; }
+    public required string AlertEstabAddressDesc      { get; init; }   // {0} = nom de l'établissement
+    public required string AlertEstabAddressOpenBtn   { get; init; }
     public required string BtnCreateAnyway            { get; init; }
 
     // ── Setup window ──────────────────────────────────────────────────────────
@@ -1022,6 +1029,13 @@ internal sealed class Loc
         AlertEventPromoTitle  = "⛔  Session refusée",
         AlertEventPromoDesc   = "Cette session ferait doublon avec l'événement « {0} » déjà annoncé chez {1}. Le RP ouvert sert aux scènes spontanées, pas à promouvoir un événement planifié. Rejoins l'événement existant, ou contacte le staff si c'est une erreur.",
         AlertEventPromoReason = "Motif : {0}",
+        AlertVenueAdTitle     = "On dirait l'annonce d'un établissement",
+        AlertVenueAdDesc      = "Cette annonce ressemble à la présentation d'un lieu plutôt qu'à une scène improvisée. Le RP ouvert annonce un moment de jeu ponctuel, qui disparaît au bout de quelques heures. Si tu tiens un établissement, enregistre-le sur le site : tu auras une fiche avec ton adresse et ta carte, et tes évènements resteront dans le calendrier.",
+        AlertVenueAdReason    = "Motif : {0}",
+        AlertVenueAdRegisterBtn = "Enregistrer mon établissement",
+        AlertEstabAddressTitle = "Un établissement est enregistré ici",
+        AlertEstabAddressOpenBtn = "Voir la fiche du lieu",
+        AlertEstabAddressDesc  = "« {0} » est enregistré à cette adresse. Publie un évènement depuis sa fiche plutôt qu'un RP ouvert : il apparaîtra dans le calendrier et sur la page de l'établissement.",
         BtnCreateAnyway       = "Créer quand même",
 
         SetupWelcomeL1     = "Eorzea Events rassemble en jeu les outils de la communauté RP francophone.",
@@ -1814,6 +1828,13 @@ internal sealed class Loc
         AlertEventPromoTitle  = "⛔  Session blocked",
         AlertEventPromoDesc   = "This session would duplicate the event \"{0}\" already announced at {1}. Open RP is for spontaneous scenes, not for promoting a planned event. Join the existing event, or contact staff if this is a mistake.",
         AlertEventPromoReason = "Reason: {0}",
+        AlertVenueAdTitle     = "This looks like a venue announcement",
+        AlertVenueAdDesc      = "This reads as a venue presentation rather than an improvised scene. Open RP announces a one-off moment of play, and it disappears after a few hours. If you run a venue, register it on the website: you get a page with your address and your menu, and your events stay in the calendar.",
+        AlertVenueAdReason    = "Reason: {0}",
+        AlertVenueAdRegisterBtn = "Register my venue",
+        AlertEstabAddressTitle = "A venue is registered here",
+        AlertEstabAddressOpenBtn = "See the venue page",
+        AlertEstabAddressDesc  = "\"{0}\" is registered at this address. Publish an event from its page rather than an open RP: it will appear in the calendar and on the venue page.",
         BtnCreateAnyway       = "Create anyway",
 
         SetupWelcomeL1     = "Eorzea Events brings the French-speaking RP community's tools into the game.",

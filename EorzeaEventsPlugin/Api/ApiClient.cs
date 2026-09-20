@@ -985,6 +985,9 @@ public class CreateSessionRequest
     [JsonPropertyName("instanceId")]    public uint?   InstanceId    { get; set; }
     [JsonPropertyName("mapId")]         public uint?   MapId         { get; set; }
     [JsonPropertyName("force")]         public bool    Force         { get; set; } = false;
+    // Acquittement de l'avertissement « annonce d'établissement ». Distinct de
+    // Force, qui ne concerne que le conflit avec un autre RP ouvert.
+    [JsonPropertyName("acknowledgeVenueNotice")] public bool AcknowledgeVenueNotice { get; set; } = false;
 }
 
 public class ActiveEventConflictException : Exception
@@ -1003,6 +1006,35 @@ public class ActiveRpConflictException : Exception
     public ActiveRpConflictException(string sessionTitle, string authorName)
         : base("active_rp_at_same_location")
     { SessionTitle = sessionTitle; AuthorName = authorName; }
+}
+
+// Avertissement contournable : la session ressemble à la présentation d'un
+// établissement plutôt qu'à une scène improvisée. Republier en acquittant
+// l'avertissement (AcknowledgeVenueNotice) est possible et reste tracé.
+public class VenueAdSuspectedException : Exception
+{
+    public string Level    { get; }
+    public string ReasonFr { get; }
+    public string ReasonEn { get; }
+    /// Chaîne de requête d'enregistrement de l'établissement, adresse et nom
+    /// déjà remplis par le serveur. Vide si la réponse n'en portait pas.
+    public string RegisterQuery { get; }
+    public VenueAdSuspectedException(string level, string reasonFr, string reasonEn, string registerQuery)
+        : base("venue_ad_suspected")
+    { Level = level; ReasonFr = reasonFr; ReasonEn = reasonEn; RegisterQuery = registerQuery; }
+}
+
+// Blocage dur : un établissement est enregistré à cette adresse exacte. Sa fiche
+// et son calendrier sont faits pour ça, il n'y a pas de bypass.
+public class EstablishmentAddressBlockedException : Exception
+{
+    public string EstablishmentName { get; }
+    public string Slug              { get; }
+    public string ReasonFr          { get; }
+    public string ReasonEn          { get; }
+    public EstablishmentAddressBlockedException(string estabName, string slug, string reasonFr, string reasonEn)
+        : base("establishment_address_blocked")
+    { EstablishmentName = estabName; Slug = slug; ReasonFr = reasonFr; ReasonEn = reasonEn; }
 }
 
 // Blocage dur (IA) : la session sert à promouvoir un évènement déjà annoncé.
@@ -1286,6 +1318,25 @@ public class ApiClient : IDisposable
                         var reasonEn = err.TryGetProperty("reasonEn",          out var ren) ? ren.GetString() ?? "" : "";
                         throw new EventPromotionBlockedException(estab, title, reasonFr, reasonEn);
                     }
+                    if (typeStr == "venue_ad_suspected")
+                    {
+                        var level    = err.TryGetProperty("level",    out var lv)  ? lv.GetString()  ?? "" : "";
+                        var reasonFr = err.TryGetProperty("reasonFr", out var rf3) ? rf3.GetString() ?? "" : "";
+                        var reasonEn = err.TryGetProperty("reasonEn", out var re3) ? re3.GetString() ?? "" : "";
+                        var register = err.TryGetProperty("prefill", out var pf)
+                                    && pf.ValueKind == JsonValueKind.Object
+                            ? BuildVenueRegisterQuery(pf)
+                            : string.Empty;
+                        throw new VenueAdSuspectedException(level, reasonFr, reasonEn, register);
+                    }
+                    if (typeStr == "establishment_address_blocked")
+                    {
+                        var estab    = err.TryGetProperty("establishmentName", out var en4) ? en4.GetString() ?? "" : "";
+                        var slug     = err.TryGetProperty("establishmentSlug", out var sl4) ? sl4.GetString() ?? "" : "";
+                        var reasonFr = err.TryGetProperty("reasonFr",          out var rf4) ? rf4.GetString() ?? "" : "";
+                        var reasonEn = err.TryGetProperty("reasonEn",          out var re4) ? re4.GetString() ?? "" : "";
+                        throw new EstablishmentAddressBlockedException(estab, slug, reasonFr, reasonEn);
+                    }
                 }
                 if (err.TryGetProperty("error", out var msg))
                     throw new Exception(msg.GetString() ?? $"HTTP {(int)res.StatusCode}");
@@ -1294,9 +1345,49 @@ public class ApiClient : IDisposable
             catch (ActiveEventConflictException) { throw; }
             catch (ActiveRpConflictException) { throw; }
             catch (EventPromotionBlockedException) { throw; }
+            catch (VenueAdSuspectedException) { throw; }
+            catch (EstablishmentAddressBlockedException) { throw; }
             throw new Exception($"HTTP {(int)res.StatusCode}");
         }
         return await res.Content.ReadFromJsonAsync<RpSessionDto>(JsonOptions, ct);
+    }
+
+    /// <summary>
+    /// Transforme le `prefill` d'une réponse « annonce d'établissement » en
+    /// chaîne de requête. Le quartier et le nom viennent du serveur, qui les a
+    /// déjà normalisés : les recalculer ici les ferait diverger du site.
+    /// </summary>
+    private static string BuildVenueRegisterQuery(JsonElement prefill)
+    {
+        var parts = new List<string> { "from=rp-session" };
+
+        void AddText(string key)
+        {
+            if (prefill.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.String)
+            {
+                var value = v.GetString();
+                if (!string.IsNullOrWhiteSpace(value))
+                    parts.Add($"{key}={Uri.EscapeDataString(value)}");
+            }
+        }
+
+        void AddNumber(string key)
+        {
+            if (prefill.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number
+                && v.TryGetInt32(out var n))
+                parts.Add($"{key}={n}");
+        }
+
+        AddText("name");
+        AddText("server");
+        AddText("district");
+        AddNumber("ward");
+        AddNumber("plot");
+        AddNumber("room");
+        if (prefill.TryGetProperty("wing", out var wing) && wing.ValueKind == JsonValueKind.True)
+            parts.Add("wing=1");
+
+        return string.Join("&", parts);
     }
 
     public async Task<RpSessionDto?> UpdateSessionAsync(string sessionId, UpdateSessionRequest req, CancellationToken ct = default)

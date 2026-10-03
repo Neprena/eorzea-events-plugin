@@ -63,6 +63,18 @@ internal static class ReleaseNotes
     public static readonly ReleaseNote[] All =
     [
         new(
+            Version: "2.14.1",
+            TitleFr: "Le bon chemin vers vos réglages",
+            TitleEn: "The right way to your settings",
+            BodyFr: """
+                    - **Correction :** Sur une fiche de personnage réservée aux adultes, le bouton « Régler sur le site » ouvre la page « Confidentialité » de votre espace, où se trouve le réglage du contenu adulte. Il ouvrait jusqu'ici la page « Profil », qui ne le contient plus.
+                    - **Correction :** Quand votre token n'est plus valide, la notification indique de le régénérer depuis la page « Plugin » de votre espace sur le site, et non plus depuis votre profil.
+                    """,
+            BodyEn: """
+                    - **Fix:** On an adults-only character profile, the "Set it on the website" button opens the "Privacy" page of your dashboard, where the adult content setting lives. It used to open the "Profile" page, which no longer has it.
+                    - **Fix:** When your token is no longer valid, the notification tells you to generate a new one from the "Plugin" page of your dashboard on the website, instead of from your profile.
+                    """),
+        new(
             Version: "2.14.0",
             TitleFr: "Le jeu de rôle ouvert reste du jeu de rôle ouvert",
             TitleEn: "Open roleplay stays open roleplay",

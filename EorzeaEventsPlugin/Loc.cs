@@ -1110,7 +1110,7 @@ internal sealed class Loc
         BlockedOpenPluginPage = "Ouvrir la page du plugin",
 
         NotifTokenTitle   = "Token API expiré — Eorzea Events",
-        NotifTokenContent = "Ton token API n'est plus valide. Génère-en un nouveau depuis ton profil.",
+        NotifTokenContent = "Ton token API n'est plus valide. Génère-en un nouveau depuis la page « Plugin » de ton espace sur le site.",
         NotifNewRpTitle   = "Nouvelle session de RP ouvert",
         NotifNearbyRp     = "RP ouvert dans votre zone !\n{0}",
         NotifNewRpScreen  = "Nouveau RP ouvert !\n{0} — {1} ({2})",
@@ -1909,7 +1909,7 @@ internal sealed class Loc
         BlockedOpenPluginPage = "Open plugin page",
 
         NotifTokenTitle   = "API token expired — Eorzea Events",
-        NotifTokenContent = "Your API token is no longer valid. Generate a new one from your profile.",
+        NotifTokenContent = "Your API token is no longer valid. Generate a new one from the “Plugin” page of your dashboard on the website.",
         NotifNewRpTitle   = "New Open RP Session",
         NotifNearbyRp     = "Open RP in your zone!\n{0}",
         NotifNewRpScreen  = "New open RP!\n{0} — {1} ({2})",

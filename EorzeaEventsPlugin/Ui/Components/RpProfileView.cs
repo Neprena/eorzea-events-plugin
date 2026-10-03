@@ -43,7 +43,7 @@ internal static class RpProfileView
             Feedback.EmptyState(Icons.Warning, l.RpProfileNsfwWithheld,
                                 l.RpProfileNsfwWithheldHint,
                                 l.RpProfileNsfwWithheldCta,
-                                () => OpenUrl(Plugin.Config.BaseUrl + "/dashboard/profil"));
+                                () => OpenUrl(Plugin.Config.BaseUrl + "/dashboard/confidentialite"));
             return;
         }
 

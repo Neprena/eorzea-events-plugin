@@ -65,6 +65,16 @@ internal static class ReleaseNotes
     public static readonly ReleaseNote[] All =
     [
         new(
+            Version: "2.15.1",
+            TitleFr: "Des actualités à jour",
+            TitleEn: "Up-to-date news",
+            BodyFr: """
+                    - **Correction :** Une actualité publiée sur le site pouvait mettre jusqu'à dix minutes à apparaître dans le plugin. La liste a maintenant au plus trente secondes quand vous ouvrez la fenêtre principale ou la page « Actualités », elle se relit ensuite toutes les trois minutes tant que la fenêtre reste ouverte, et le bouton « Actualiser » de la page la relit à la demande.
+                    """,
+            BodyEn: """
+                    - **Fix:** A news item published on the website could take up to ten minutes to show up in the plugin. The list is now at most thirty seconds old when you open the main window or the "News" page, it then refreshes every three minutes while the window stays open, and the page's "Refresh" button reloads it on demand.
+                    """),
+        new(
             Version: "2.15.0",
             TitleFr: "La Nuit dorée",
             TitleEn: "The Golden Night",

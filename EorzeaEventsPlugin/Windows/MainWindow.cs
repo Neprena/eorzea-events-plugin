@@ -238,7 +238,11 @@ public class MainWindow : ThemedWindow, IDisposable
     /// juge de l'appel réseau, qu'elle ne déclenche qu'une fois réellement
     /// affichée.
     /// </summary>
-    public override void OnOpen() => _rpProfile.NotifyWindowOpened();
+    public override void OnOpen()
+    {
+        _rpProfile.NotifyWindowOpened();
+        _news.NotifyWindowOpened();
+    }
 
     /// <summary>Ouvre la fenêtre sur une page donnée.</summary>
     public void OpenAt(string pageId)

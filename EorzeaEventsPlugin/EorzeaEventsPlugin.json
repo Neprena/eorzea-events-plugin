@@ -3,7 +3,7 @@
   "Author": "Neprena",
   "Description": "Gérez vos sessions RP Eorzea Events directement depuis le jeu.",
   "Punchline": "Sessions RP Eorzea Events en un clic.",
-  "Changelog": "La page Actualités affiche les nouvelles du site, et l'équipe peut vous transmettre des messages d'incident ou de maintenance directement en jeu. L'interface adopte un habillage bleu nuit et doré, avec une opacité et un flou réglables, une barre latérale redimensionnable et une réduction à la barre de titre. Les cartes d'Autour de moi, de Rencontres et de RP Ouvert sont réorganisées, et les suppressions et retraits se confirment par un appui prolongé. L'historique complet des nouveautés est dans le plugin.",
+  "Changelog": "Une actualité publiée sur le site apparaît maintenant dans le plugin dès l'ouverture de la fenêtre ou de la page Actualités, qui gagne un bouton Actualiser. L'historique complet des nouveautés est dans le plugin.",
   "InternalName": "EorzeaEventsPlugin",
   "RepoUrl": "https://github.com/Neprena/eorzea-events-plugin",
   "Tags": [

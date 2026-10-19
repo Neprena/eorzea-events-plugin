@@ -13,10 +13,18 @@ namespace EorzeaEventsPlugin.Ui.Pages;
 /// La liste n'est relevée que fenêtre ouverte : les bandeaux et la pastille ne
 /// se voient que là, et une actualité n'a rien d'urgent. L'urgence passe par
 /// l'alerte, servie avec le relevé agrégé du plugin.
+///
+/// Relevée toutes les trois minutes, et aussitôt qu'on ouvre la fenêtre ou la
+/// page si la liste a plus de trente secondes. À dix minutes et sans bouton,
+/// une actualité publiée sur le site restait absente du plugin le temps qu'on
+/// en vienne à croire qu'il ne se mettait plus à jour.
 /// </summary>
 internal sealed class NewsPage
 {
-    private static readonly TimeSpan RefreshInterval = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan RefreshInterval = TimeSpan.FromMinutes(3);
+
+    /// <summary>Âge au-delà duquel ouvrir la fenêtre ou la page relit la liste.</summary>
+    private static readonly TimeSpan StaleOnOpen = TimeSpan.FromSeconds(30);
 
     private List<NewsItemDto> _items = [];
     private bool     _loading;
@@ -26,6 +34,9 @@ internal sealed class NewsPage
 
     /// <summary>Langue du dernier relevé : le serveur traduit, changer de langue impose de relire.</summary>
     private string? _lang;
+
+    /// <summary>Image du dernier rendu de la page, pour reconnaître l'arrivée sur celle-ci.</summary>
+    private int _lastDrawFrame = -1;
 
     /// <summary>Actualités publiées depuis la dernière visite de la page.</summary>
     public int UnreadCount
@@ -45,6 +56,15 @@ internal sealed class NewsPage
     {
         if (_loading) return;
         if (_lang == Plugin.L.Code && DateTime.UtcNow - _lastFetch < RefreshInterval) return;
+        _ = FetchAsync();
+    }
+
+    /// <summary>La fenêtre principale vient de s'ouvrir : relire une liste qui date un peu.</summary>
+    public void NotifyWindowOpened() => RefreshIfOlderThan(StaleOnOpen);
+
+    private void RefreshIfOlderThan(TimeSpan age)
+    {
+        if (_loading || DateTime.UtcNow - _lastFetch < age) return;
         _ = FetchAsync();
     }
 
@@ -242,6 +262,12 @@ internal sealed class NewsPage
     {
         var l = Plugin.L;
 
+        // Arrivée sur la page (elle n'était pas dessinée à l'image précédente) :
+        // on relit la liste si elle a un peu vécu.
+        var frame = ImGui.GetFrameCount();
+        if (_lastDrawFrame != frame - 1) RefreshIfOlderThan(StaleOnOpen);
+        _lastDrawFrame = frame;
+
         // La page ouverte, ce qu'elle liste est vu : la pastille s'éteint.
         if (UnreadCount > 0) MarkAllSeen();
 
@@ -262,7 +288,15 @@ internal sealed class NewsPage
             return;
         }
 
-        Layout.SectionHeader(l.TabNews, Icons.News);
+        Layout.SectionHeader(l.TabNews, Icons.News,
+                             actions: () =>
+                             {
+                                 if (Btn.Draw(_loading ? l.Loading : l.Refresh, BtnTone.Secondary, BtnSize.Medium,
+                                              Icons.Refresh, disabled: _loading, id: "news_refresh"))
+                                     _ = FetchAsync();
+                             },
+                             actionsWidth: Math.Max(Btn.Measure(l.Refresh, Icons.Refresh),
+                                                    Btn.Measure(l.Loading, Icons.Refresh)));
 
         using var scroll = ImRaii.Child("##newsscroll", new Vector2(-1f, -1f));
         if (!scroll) return;

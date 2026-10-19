@@ -99,7 +99,7 @@ internal static class Feedback
         if (centered && avail.Y > block)
             ImGui.SetCursorPosY(ImGui.GetCursorPosY() + (avail.Y - block) * 0.4f);
 
-        using (Fonts.PushTitle())
+        using (Fonts.PushH1())
             Center(icon.S(), Theme.Alpha(Theme.TextFaint, 0.55f));
 
         ImGui.Dummy(new Vector2(0f, Theme.S(Theme.GapM)));

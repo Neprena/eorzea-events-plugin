@@ -42,16 +42,24 @@ public abstract class ThemedWindow : Window
     protected WindowSizeConstraints? LogicalSizeConstraints { get; set; }
 
     /// <summary>
-    /// Opacité du fond de fenêtre. Légèrement translucide, avec le flou natif
-    /// de Dalamud derrière : le décor du jeu transparaît sans nuire à la
-    /// lisibilité du texte.
+    /// Opacité du fond de fenêtre, réglable dans les paramètres. Translucide,
+    /// avec le flou natif de Dalamud derrière : le décor du jeu transparaît sans
+    /// nuire à la lisibilité du texte.
     /// </summary>
-    protected virtual float BackgroundOpacity => 0.94f;
+    protected virtual float BackgroundOpacity => Math.Clamp(Plugin.Config.WindowOpacity, 0.4f, 1f);
+
+    /// <summary>
+    /// Intensité du flou à 100 %, le plafond de Dalamud. Le défaut en prend
+    /// un dixième : vu en jeu le 19 octobre, dès 8 ou 12 le décor se moyennait
+    /// en une teinte sombre presque uniforme, et la fenêtre paraissait opaque.
+    /// </summary>
+    private const float MaxBlur = 14f;
 
     protected ThemedWindow(string name, ImGuiWindowFlags flags = ImGuiWindowFlags.None)
         : base(name, flags | ImGuiWindowFlags.NoCollapse)
     {
-        AllowBackgroundBlur = true;
+        // Le flou de Dalamud est coupé : le plugin pose le sien, voir PaintNight.
+        AllowBackgroundBlur = false;
 
         // Boutons de titre redessinés plutôt que natifs.
         //
@@ -75,6 +83,78 @@ public abstract class ThemedWindow : Window
     /// autrement (chrome maison, lightbox) la neutralisent.
     /// </summary>
     protected virtual void OnCloseButton() => IsOpen = false;
+
+    /// <summary>
+    /// Peint la nuit, puis le contenu. Scellé : c'est ce qui garantit que toutes
+    /// les fenêtres du plugin portent le même fond, sans que chacune ait à
+    /// penser à l'appeler.
+    /// </summary>
+    public sealed override void Draw()
+    {
+        PaintNight();
+        DrawContents();
+    }
+
+    /// <summary>Le contenu de la fenêtre, dessiné sur la nuit.</summary>
+    protected abstract void DrawContents();
+
+    /// <summary>
+    /// Fond de la fenêtre. Le fond natif d'ImGui est transparent : c'est cette
+    /// nuit, peinte au début de chaque image, qui porte l'opacité.
+    /// </summary>
+    private void PaintNight()
+    {
+        var position = ImGui.GetWindowPos();
+        var size     = ImGui.GetWindowSize();
+        var dl       = ImGui.GetWindowDrawList();
+
+        // Sous la barre de titre native quand elle existe : elle est dessinée
+        // avant le contenu dans la même liste, la recouvrir effacerait le titre.
+        var titled = (Flags & ImGuiWindowFlags.NoTitleBar) == 0;
+        var top    = titled ? ImGui.GetFrameHeight() : 0f;
+
+        // ImGui a déjà dessiné l'ascenseur dans la même liste : la nuit ne couvre
+        // pas sa colonne, sans quoi une fenêtre qui défile garde un ascenseur
+        // invisible et son contenu semble simplement coupé. Repris de Linkpearl.
+        var scrolls   = (Flags & ImGuiWindowFlags.NoScrollbar) == 0 && ImGui.GetScrollMaxY() > 0f;
+        var scrollbar = scrolls ? ImGui.GetStyle().ScrollbarSize : 0f;
+        var rounding  = Theme.S(Theme.RadiusWindow);
+
+        // Le flou du décor derrière la fenêtre. Celui de Dalamud dépend du
+        // style choisi dans /xlstyle, qui le met à zéro dans bien des styles
+        // personnalisés : le plugin pose donc le sien, réglable dans les
+        // paramètres. Inséré en tête de la liste, il passe sous tout le reste.
+        // Seulement dans la fenêtre du jeu : hors d'elle, il n'y a rien à
+        // flouter.
+        var blur = Math.Clamp(Plugin.Config.WindowBlur, 0f, 1f);
+        if (blur > 0f && ImGui.GetWindowViewport().ID == ImGui.GetMainViewport().ID)
+            ImGuiHelpers.PrependBlurBehind(dl, position, position + size, blur * MaxBlur, rounding,
+                                           tintColor: Vector4.Zero, luminosityColor: Vector4.Zero,
+                                           noiseOpacity: 0.03f);
+
+        // Hors de la zone de contenu : la liste de la fenêtre est rognée en deçà
+        // des marges, et le fond n'irait pas jusqu'au bord.
+        dl.PushClipRect(position, position + size, false);
+        Surface.NightBackground(dl, position + new Vector2(0f, top), position + size - new Vector2(scrollbar, 0f),
+                                rounding, roundTop: !titled, BackgroundOpacity);
+        dl.AddRect(position, position + size, ImGui.GetColorU32(Theme.BorderSoft), rounding, ImDrawFlags.None,
+                   ImGui.GetStyle().WindowBorderSize);
+
+        // ImGui a dessiné la poignée de redimensionnement dans Begin, sous la
+        // nuit : on la retrace par-dessus, sans quoi rien ne dit plus qu'on peut
+        // tirer le coin.
+        if ((Flags & (ImGuiWindowFlags.NoResize | ImGuiWindowFlags.AlwaysAutoResize)) == 0)
+        {
+            var corner  = position + size - new Vector2(rounding * 0.3f);
+            var grip    = Theme.S(13f);
+            var hovered = ImGui.IsMouseHoveringRect(corner - new Vector2(grip, grip), corner + Vector2.One);
+            dl.AddTriangleFilled(corner - new Vector2(grip, 0f), corner, corner - new Vector2(0f, grip),
+                                 ImGui.GetColorU32(hovered ? Theme.Alpha(Theme.Accent, 0.70f)
+                                                           : Theme.BorderLight));
+        }
+
+        dl.PopClipRect();
+    }
 
     public override void PreDraw()
     {
@@ -121,7 +201,10 @@ public abstract class ThemedWindow : Window
             .Var(ImGuiStyleVar.ItemInnerSpacing, Theme.S(Theme.GapL, 4f))
             .Var(ImGuiStyleVar.CellPadding,      Theme.S(Theme.GapM, Theme.GapS))
             .Var(ImGuiStyleVar.IndentSpacing,    Theme.S(18f))
-            .Var(ImGuiStyleVar.ScrollbarSize,    Theme.S(10f))
+            // Plus large que la barre visible : ImGui inset la poignée de
+            // 3 px de chaque côté dans sa piste, qui reste transparente. On
+            // obtient une barre fine de 6 px qui flotte, avec de l'air autour.
+            .Var(ImGuiStyleVar.ScrollbarSize,    Theme.S(12f))
             .Var(ImGuiStyleVar.GrabMinSize,      Theme.S(14f))
 
             // ─── Alignements ──────────────────────────────────────────────────
@@ -130,10 +213,16 @@ public abstract class ThemedWindow : Window
             .Var(ImGuiStyleVar.SelectableTextAlign, new Vector2(0f,   0.5f))
 
             // ─── Fonds et bordures ────────────────────────────────────────────
-            // Seul le fond de fenêtre est translucide : les cartes et les
-            // panneaux restent opaques, sans quoi le décor du jeu remonterait
-            // derrière le texte et le rendrait illisible.
-            .Color(ImGuiCol.WindowBg,     Theme.Alpha(Theme.BgBase, BackgroundOpacity))
+            // Le fond natif s'efface presque : c'est la nuit, peinte au début de
+            // Draw, qui porte l'opacité. Les cartes posées dessus sont
+            // translucides à leur tour et laissent voir le halo ; elles ne
+            // descendent jamais sous l'opacité de la fenêtre, puisqu'elles s'y
+            // ajoutent.
+            //
+            // Presque, et pas tout à fait : Dalamud ignore les fenêtres dont ce
+            // fond est entièrement transparent, et un réglage de flou qui
+            // reviendrait par lui n'aurait alors aucun effet.
+            .Color(ImGuiCol.WindowBg,     Theme.Alpha(Theme.BgBase, 0.02f))
             .Color(ImGuiCol.ChildBg,      Vector4.Zero)
             .Color(ImGuiCol.PopupBg,      Theme.BgSurface)
             .Color(ImGuiCol.Border,       Theme.BorderSoft)
@@ -157,9 +246,11 @@ public abstract class ThemedWindow : Window
 
             // ─── Ascenseurs ───────────────────────────────────────────────────
             .Color(ImGuiCol.ScrollbarBg,          Vector4.Zero)
-            .Color(ImGuiCol.ScrollbarGrab,        Theme.Alpha(Theme.BorderLight, 0.60f))
-            .Color(ImGuiCol.ScrollbarGrabHovered, Theme.BorderLight)
-            .Color(ImGuiCol.ScrollbarGrabActive,  Theme.TextMuted)
+            // Discrète au repos, plus claire au survol, cristal quand on la
+            // tire : elle ne doit pas concurrencer les filets dorés des cartes.
+            .Color(ImGuiCol.ScrollbarGrab,        Theme.Alpha(Theme.Text, 0.16f))
+            .Color(ImGuiCol.ScrollbarGrabHovered, Theme.Alpha(Theme.Text, 0.32f))
+            .Color(ImGuiCol.ScrollbarGrabActive,  Theme.Alpha(Theme.Accent, 0.80f))
 
             // ─── Contrôles ────────────────────────────────────────────────────
             .Color(ImGuiCol.CheckMark,        Theme.Accent)
@@ -176,7 +267,7 @@ public abstract class ThemedWindow : Window
             .Color(ImGuiCol.Separator,         Theme.BorderSoft)
             .Color(ImGuiCol.SeparatorHovered,  Theme.BorderLight)
             .Color(ImGuiCol.SeparatorActive,   Theme.Accent)
-            .Color(ImGuiCol.ResizeGrip,        Theme.Alpha(Theme.BorderLight, 0.35f))
+            .Color(ImGuiCol.ResizeGrip,        Theme.Border)
             .Color(ImGuiCol.ResizeGripHovered, Theme.Alpha(Theme.Accent, 0.70f))
             .Color(ImGuiCol.ResizeGripActive,  Theme.Accent)
 
@@ -188,7 +279,7 @@ public abstract class ThemedWindow : Window
             // ─── Tables ───────────────────────────────────────────────────────
             .Color(ImGuiCol.TableHeaderBg,     Theme.BgSurface)
             .Color(ImGuiCol.TableBorderStrong, Theme.Border)
-            .Color(ImGuiCol.TableBorderLight,  Theme.Alpha(Theme.Border, 0.50f))
+            .Color(ImGuiCol.TableBorderLight,  Theme.BorderSoft)
             .Color(ImGuiCol.TableRowBg,        Vector4.Zero)
             .Color(ImGuiCol.TableRowBgAlt,     Theme.Alpha(Theme.BgSurface, 0.5f))
 

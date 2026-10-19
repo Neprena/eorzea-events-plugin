@@ -1,6 +1,6 @@
 <Project Sdk="Dalamud.NET.Sdk/15.0.0">
   <PropertyGroup>
-    <Version>2.14.1</Version>
+    <Version>2.15.0</Version>
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
@@ -14,5 +14,11 @@
          défaut et le nom de dossier, ce qui casse silencieusement le chargement. -->
     <EmbeddedResource Include="Assets\Fonts\Inter-Regular.ttf"  LogicalName="Fonts.Inter-Regular.ttf" />
     <EmbeddedResource Include="Assets\Fonts\Inter-SemiBold.ttf" LogicalName="Fonts.Inter-SemiBold.ttf" />
+    <EmbeddedResource Include="Assets\Fonts\Nunito-Regular.ttf" LogicalName="Fonts.Nunito-Regular.ttf" />
+    <EmbeddedResource Include="Assets\Fonts\Nunito-Bold.ttf"    LogicalName="Fonts.Nunito-Bold.ttf" />
+    <EmbeddedResource Include="Assets\Fonts\Cinzel-Bold.ttf"    LogicalName="Fonts.Cinzel-Bold.ttf" />
+    <!-- Le logo, pour la barre de titre. Réduit à 128 px : il n'est jamais
+         affiché plus grand, et l'original pèse un demi-mégaoctet. -->
+    <EmbeddedResource Include="Assets\Images\logo.png" LogicalName="Images.logo.png" />
   </ItemGroup>
 </Project>

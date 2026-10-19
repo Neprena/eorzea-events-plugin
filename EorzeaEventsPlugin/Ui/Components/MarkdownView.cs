@@ -29,13 +29,22 @@ internal static class MarkdownView
     {
         if (string.IsNullOrWhiteSpace(markdown)) return;
 
+        var afterHeading = false;
         foreach (var block in Parse(markdown))
-            DrawBlock(block, baseColor ?? Theme.Text);
+        {
+            DrawBlock(block, baseColor ?? Theme.Text, afterHeading);
+            afterHeading = block.Kind == BlockKind.Heading;
+        }
     }
 
     // ─── Rendu ────────────────────────────────────────────────────────────────
 
-    private static void DrawBlock(Block block, Vector4 baseColor)
+    /// <param name="afterHeading">
+    /// Le bloc précédent était un titre. La ligne vide qui suit d'ordinaire un
+    /// titre ne doit pas creuser un blanc de paragraphe : le titre en a déjà un
+    /// au-dessus, et un second l'éloignait du texte qu'il annonce.
+    /// </param>
+    private static void DrawBlock(Block block, Vector4 baseColor, bool afterHeading = false)
     {
         switch (block.Kind)
         {
@@ -44,16 +53,35 @@ internal static class MarkdownView
                 return;
 
             case BlockKind.Heading:
-                Layout.Spacer(Theme.GapM);
-                using (block.Level <= 2 ? Fonts.PushH2() : Fonts.PushBodyStrong())
-                    DrawSpans(block.Spans, block.Level <= 2 ? Theme.Accent : Theme.Text);
+            {
+                // De l'air avant un titre plus qu'entre deux paragraphes : c'est
+                // ce qui le rattache au texte qui suit plutôt qu'à celui d'avant.
+                Layout.Spacer(Theme.GapL);
+
+                // L'or des titres et non l'accent : en bleu clair, un intertitre
+                // se confondait avec un lien.
+                var major = block.Level <= 2;
+                var tint  = major ? Theme.TitleGold : Theme.Text;
+                Func<IDisposable> font = major ? Fonts.PushH2 : Fonts.PushBodyStrong;
+
+                using (font())
+                {
+                    if (block.Lead is { } headIcon)
+                    {
+                        ImGui.TextColored(tint, headIcon.S());
+                        ImGui.SameLine(0f, Theme.S(Theme.GapS));
+                    }
+                    DrawSpans(block.Spans, tint, font: font);
+                }
 
                 // Un filet sous les titres de premier rang : la taille et la
                 // couleur seules ne les détachaient pas assez du corps, et un
                 // titre qui ne se voit pas ne sert à rien dans un texte long.
-                if (block.Level <= 2) Layout.Divider(Theme.GapXs);
-                else                  Layout.Spacer(Theme.GapXs);
+                // Un filet nu, collé au titre : Layout.Divider l'entourait de
+                // deux marges, qui laissaient un vide entre le titre et son texte.
+                if (major) ImGui.Separator();
                 return;
+            }
 
             case BlockKind.Bullet:
                 // Puce des notes de version : l'étiquette de la ligne remplace
@@ -66,7 +94,8 @@ internal static class MarkdownView
                     return;
                 }
 
-                DrawMarker("•", block.Indent);
+                if (block.Lead is { } bulletIcon) DrawMarker(bulletIcon.S(), block.Indent, Theme.TitleGold);
+                else                              DrawMarker("•", block.Indent);
                 DrawSpans(block.Spans, baseColor, BulletIndent(block.Indent));
                 return;
 
@@ -84,7 +113,21 @@ internal static class MarkdownView
                 // vide l'annonce. Posé après chaque ligne, il transformait un
                 // texte écrit au fil des retours à la ligne en une suite de
                 // paragraphes espacés.
-                if (block.BlankBefore) Layout.Spacer(Theme.GapXs);
+                //
+                // Les deux tiers d'une ligne, et non plus 3 px : vu en jeu le
+                // 19 octobre, les lignes vides d'une description disparaissaient
+                // et tous les paragraphes se suivaient sans respiration.
+                if (block.BlankBefore && !afterHeading)
+                    ImGui.Dummy(new Vector2(0f, MathF.Round(ImGui.GetTextLineHeight() * 0.65f)));
+
+                // L'émoji de tête devenu icône, en or, à la place d'une puce.
+                if (block.Lead is { } leadIcon)
+                {
+                    DrawMarker(leadIcon.S(), block.Indent, Theme.TitleGold);
+                    DrawSpans(block.Spans, baseColor, BulletIndent(block.Indent));
+                    return;
+                }
+
                 DrawSpans(block.Spans, baseColor);
                 return;
         }
@@ -136,8 +179,13 @@ internal static class MarkdownView
     /// version (« Nouveauté : », « Correction : »…). Le reste de la ligne garde
     /// la couleur du corps.
     /// </param>
+    /// <param name="font">
+    /// Police imposée à tous les segments, pour un titre. Sans elle, chaque
+    /// segment pousse la police du corps, qui écrasait celle du titre : les
+    /// intertitres sortaient à la taille du texte.
+    /// </param>
     private static void DrawSpans(List<Span> spans, Vector4 color, float indent = 0f,
-                                  Vector4? leadColor = null)
+                                  Vector4? leadColor = null, Func<IDisposable>? font = null)
     {
         var left     = ImGui.GetCursorPosX();
         var maxWidth = ImGui.GetContentRegionAvail().X - Card.RightInset - indent;
@@ -151,9 +199,9 @@ internal static class MarkdownView
         {
             var span = spans[index];
 
-            using var font = span.Style.HasFlag(SpanStyle.Bold)
-                ? Fonts.PushBodyStrong()
-                : Fonts.PushBody();
+            using var spanFont = font != null                       ? font()
+                               : span.Style.HasFlag(SpanStyle.Bold) ? Fonts.PushBodyStrong()
+                               :                                      Fonts.PushBody();
 
             var tint = span.Url != null                        ? Theme.Link
                      : index == 0 && leadColor is { } lead     ? lead
@@ -197,6 +245,10 @@ internal static class MarkdownView
 
     private static void Open(string url)
     {
+        // Les textes rédigés sur le site y lient leurs pages en chemin relatif
+        // (« /aide ») : hors du site, il faut leur rendre l'adresse de celui-ci.
+        if (url.StartsWith('/')) url = Plugin.Config.BaseUrl.TrimEnd('/') + url;
+
         try { Dalamud.Utility.Util.OpenLink(url); }
         catch { /* le navigateur peut être indisponible */ }
     }
@@ -207,7 +259,9 @@ internal static class MarkdownView
     {
         if (Cache.TryGetValue(markdown, out var cached)) return cached;
 
-        var blocks = ParseBlocks(Glyphs.Safe(markdown));
+        // Le texte n'est plus nettoyé d'un bloc : chaque ligne l'est à son tour,
+        // après qu'on a relevé l'émoji qui l'ouvre, que le nettoyage effacerait.
+        var blocks = ParseBlocks(markdown.Replace("\r", string.Empty));
 
         if (Cache.Count >= CacheLimit) Cache.Clear();
         Cache[markdown] = blocks;
@@ -224,15 +278,27 @@ internal static class MarkdownView
 
         foreach (var raw in text.Split('\n'))
         {
-            var line = raw.TrimEnd();
-            if (line.Trim().Length == 0)
+            var indent = CountIndent(raw);
+            var source = raw.Trim();
+
+            // Un émoji en tête de ligne, ou juste après une puce, devient une
+            // icône : c'est lui qui marquait la rubrique.
+            FontAwesomeIcon? lead = null;
+            var bulleted = source.Length > 1 && source[0] is '-' or '*' or '+' && source[1] == ' ';
+            var body     = bulleted ? source[2..].TrimStart() : source;
+            if (Emoji.TryLeading(body, out var icon, out var rest))
             {
+                lead   = icon;
+                source = bulleted ? $"{source[0]} {rest}" : rest;
+            }
+
+            var trimmed = Glyphs.Safe(source);
+            if (trimmed.Length == 0)
+            {
+                // Une ligne faite d'un seul émoji reste une ligne vide.
                 blank = true;
                 continue;
             }
-
-            var indent  = CountIndent(line);
-            var trimmed = line.TrimStart();
 
             // Filet horizontal.
             if (trimmed is "---" or "***" or "___")
@@ -248,8 +314,18 @@ internal static class MarkdownView
                 while (level < trimmed.Length && trimmed[level] == '#') level++;
                 if (level <= 6 && level < trimmed.Length && trimmed[level] == ' ')
                 {
-                    blocks.Add(new Block(BlockKind.Heading, ParseSpans(trimmed[(level + 1)..]),
-                                         level, indent, 0));
+                    // L'émoji d'un titre suit les dièses : relevé ici, sur la
+                    // ligne d'origine, avant que le nettoyage ne l'efface.
+                    var heading = source.TrimStart('#').TrimStart();
+                    FontAwesomeIcon? headLead = null;
+                    if (Emoji.TryLeading(heading, out var headIcon, out var headRest))
+                    {
+                        headLead = headIcon;
+                        heading  = headRest;
+                    }
+
+                    blocks.Add(new Block(BlockKind.Heading, ParseSpans(Glyphs.Safe(heading)),
+                                         level, indent, 0, Lead: headLead));
                     continue;
                 }
             }
@@ -266,7 +342,7 @@ internal static class MarkdownView
             {
                 var item = trimmed[2..];
                 blocks.Add(new Block(BlockKind.Bullet, ParseSpans(item), 0, indent, 0,
-                                     Tag: DetectTag(item)));
+                                     Tag: DetectTag(item), Lead: lead));
                 continue;
             }
 
@@ -280,7 +356,7 @@ internal static class MarkdownView
                 continue;
             }
 
-            blocks.Add(new Block(BlockKind.Paragraph, ParseSpans(trimmed), 0, indent, 0, blank));
+            blocks.Add(new Block(BlockKind.Paragraph, ParseSpans(trimmed), 0, indent, 0, blank, Lead: lead));
             blank = false;
         }
 
@@ -403,8 +479,10 @@ internal static class MarkdownView
     /// un texte écrit au fil des lignes s'affichait aéré comme autant de
     /// paragraphes.
     /// </param>
+    /// <param name="Lead">Icône de l'émoji qui ouvrait la ligne, posée en guise de puce.</param>
     private sealed record Block(BlockKind Kind, List<Span> Spans, int Level, int Indent, int Number,
-                                bool BlankBefore = false, NoteTag Tag = NoteTag.None);
+                                bool BlankBefore = false, NoteTag Tag = NoteTag.None,
+                                FontAwesomeIcon? Lead = null);
 
     private readonly record struct Span(string Text, SpanStyle Style, string? Url);
 }

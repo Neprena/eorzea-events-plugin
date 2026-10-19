@@ -4,8 +4,13 @@ using System.Numerics;
 namespace EorzeaEventsPlugin.Ui;
 
 /// <summary>
-/// Jetons de design du plugin. Miroir de <c>tailwind.config.ts</c> côté site,
-/// pour que le plugin et le web partagent la même identité visuelle.
+/// Jetons de design du plugin : la « Nuit dorée ».
+///
+/// La palette vient du logo : la nuit bleu encre où se dresse la citadelle,
+/// le cristal bleu qui marque ce qui est actif ou choisi, et l'or des lettres,
+/// réservé à l'action principale d'un écran et aux titres. La structure, elle,
+/// est celle de Linkpearl : fond de nuit en dégradé avec un halo, cartes
+/// translucides, entrée active entourée de lumière.
 ///
 /// Toute dimension en pixels doit passer par <see cref="S(float)"/> : sans ça
 /// l'interface devient illisible dès que l'utilisateur monte l'échelle Dalamud.
@@ -27,75 +32,126 @@ internal static class Theme
     // une interface sombre lisible : chaque niveau doit être distinct du
     // précédent, sinon les cartes disparaissent dans le fond et tout paraît plat.
     //
-    //   BgSunken  <  BgBase  <  BgSurface  <  BgRaised  <  BgHover
+    //   BgSunken  <  BgSidebar  <  BgBase  <  BgSurface  <  BgRaised  <  BgHover
+    //
+    // BgSurface et au-delà sont opaques : ils servent à ce qui doit masquer le
+    // décor (infobulles, menus, notifications). Les cartes posées sur la nuit
+    // utilisent CardFill, translucide.
 
-    public static readonly Vector4 BgSunken  = Hex(0x1C1F26); // champs de saisie, zones creusées
-    public static readonly Vector4 BgBase    = Hex(0x212530); // fond de fenêtre
-    public static readonly Vector4 BgSidebar = Hex(0x252A35); // barre latérale, barre de titre
-    public static readonly Vector4 BgSurface = Hex(0x2C313C); // cartes, panneaux
-    public static readonly Vector4 BgRaised  = Hex(0x363C48); // carte survolée, boutons neutres
-    public static readonly Vector4 BgHover   = Hex(0x424A58); // survol d'un élément surélevé
+    public static readonly Vector4 BgSunken  = Hex(0x070915); // champs de saisie, zones creusées
+    public static readonly Vector4 BgBase    = Hex(0x0B0E1C); // bas du fond de fenêtre
+    public static readonly Vector4 BgSidebar = Hex(0x090C18); // barres et colonne, un cran sous le fond
+    public static readonly Vector4 BgSurface = Hex(0x171C30); // surfaces opaques, infobulles
+    public static readonly Vector4 BgRaised  = Hex(0x20263C); // surface survolée, boutons neutres
+    public static readonly Vector4 BgHover   = Hex(0x2B3149); // survol d'un élément surélevé
 
-    // Conservés pour la façade UiStyle, le temps de la migration.
-    public static readonly Vector4 BgDeep     = Hex(0x1C1F26);
-    public static readonly Vector4 BgModifier = Hex(0x252A35);
-    public static readonly Vector4 BgModHover = Hex(0x363C48);
+    /// <summary>Conservé pour la façade UiStyle, le temps de la migration.</summary>
+    public static readonly Vector4 BgDeep = BgSunken;
+
+    /// <summary>Fond d'une carte posée sur la nuit : translucide, pour laisser voir le halo.</summary>
+    public static readonly Vector4 CardFill      = Hex(0xFFFFFF, 0.045f);
+    public static readonly Vector4 CardFillHover = Hex(0xFFFFFF, 0.08f);
+
+    /// <summary>Haut du dégradé de fond.</summary>
+    public static readonly Vector4 NightTop = Hex(0x141A33);
+
+    /// <summary>Les deux halos du haut de fenêtre : le cristal au centre, l'or plus large et plus pâle.</summary>
+    public static readonly Vector4 HaloCrystal = Hex(0x5096FF, 0.30f);
+    public static readonly Vector4 HaloGold    = Hex(0xE9BE5C, 0.10f);
 
     /// <summary>Ombre portée sous les surfaces surélevées.</summary>
     public static readonly Vector4 Shadow = Hex(0x000000, 0.50f);
 
     // ─── Accents ──────────────────────────────────────────────────────────────
+    //
+    // Le cristal marque ce qui est actif ou choisi : entrée de navigation,
+    // filtre, interrupteur. L'or ne sert qu'à l'action principale d'un écran :
+    // répandu, il ne désignerait plus rien.
 
-    public static readonly Vector4 Accent       = Hex(0x22D3EE);
-    public static readonly Vector4 AccentHover  = Hex(0x67E8F9);
-    public static readonly Vector4 AccentActive = Hex(0x0891B2);
+    public static readonly Vector4 Accent       = Hex(0x6CCBFF);
+    public static readonly Vector4 AccentHover  = Hex(0x9ADCFF);
+    public static readonly Vector4 AccentActive = Hex(0x3FA9E6);
 
-    /// <summary>Version assourdie de l'accent, pour les fonds et les voiles.</summary>
-    public static readonly Vector4 AccentMuted = Hex(0x1B7F92);
+    public static readonly Vector4 Action       = Hex(0xE9BE5C);
+    public static readonly Vector4 ActionHover  = Hex(0xF4D27A);
+    public static readonly Vector4 ActionActive = Hex(0xD9A63E);
 
+    /// <summary>Texte posé sur l'or, un brun profond plutôt qu'un noir.</summary>
+    public static readonly Vector4 TextOnAction = Hex(0x2A1A00);
+
+    /// <summary>Or des titres de page et de la marque, celui des lettres du logo.</summary>
+    public static readonly Vector4 TitleGold = Hex(0xE9C46A);
+
+    /// <summary>
+    /// Or historique. Inchangé à dessein : il sert aussi de couleur par défaut
+    /// des emotes dans le chat, que le joueur a pu adopter.
+    /// </summary>
     public static readonly Vector4 Gold      = Hex(0xE0B44C);
     public static readonly Vector4 GoldHover = Hex(0xF0CC72);
 
     // ─── Texte ────────────────────────────────────────────────────────────────
+    //
+    // Un ivoire chaud plutôt qu'un blanc bleuté : il s'accorde à l'or et reste
+    // au-dessus de 4,5:1 jusqu'au plus pâle, même sur le haut du dégradé.
 
-    public static readonly Vector4 Text      = Hex(0xE8EAEF);
-    public static readonly Vector4 TextMuted = Hex(0xAEB5C2);
-    public static readonly Vector4 TextFaint = Hex(0x808896);
-    public static readonly Vector4 Link      = Hex(0x7DD3FC);
+    public static readonly Vector4 Text      = Hex(0xF1ECE0);
+    public static readonly Vector4 TextMuted = Hex(0xC9C0AA);
+    public static readonly Vector4 TextFaint = Hex(0x958F82);
+    public static readonly Vector4 Link      = Hex(0x8FD8FF);
 
-    /// <summary>Texte posé sur une surface claire (bouton d'accent, chip vif).</summary>
-    public static readonly Vector4 TextOnLight = Hex(0x0E1116);
+    /// <summary>Texte posé sur une surface claire (cristal, chip vif).</summary>
+    public static readonly Vector4 TextOnLight = Hex(0x12152A);
 
     // ─── Statuts ──────────────────────────────────────────────────────────────
 
-    public static readonly Vector4 Online      = Hex(0x3DD68C);
-    public static readonly Vector4 Idle        = Hex(0xF5B942);
-    public static readonly Vector4 Danger      = Hex(0xF4595C);
-    public static readonly Vector4 DangerHover = Hex(0xFF7376);
+    public static readonly Vector4 Online      = Hex(0x6FE0B0);
+
+    /// <summary>Jaune et non orange : l'or est à l'action.</summary>
+    public static readonly Vector4 Idle        = Hex(0xF5D06F);
+
+    public static readonly Vector4 Danger      = Hex(0xFF6B7D);
+    public static readonly Vector4 DangerHover = Hex(0xFF8A98);
 
     // ─── Bordures ─────────────────────────────────────────────────────────────
+    //
+    // Des filets d'or translucides, comme sur le site. Précalculés en opaque
+    // sur le fond, ils faisaient des traits sombres dès que la surface était
+    // translucide et le décor clair derrière : vu en jeu le 19 octobre, le
+    // filet d'un titre de section barrait la carte des filtres.
+    //
+    // Pour les atténuer, multiplier leur opacité (Faded) plutôt que la
+    // remplacer avec Alpha : celle-ci les rendrait plus opaques qu'à l'origine.
 
-    public static readonly Vector4 Border      = Hex(0x3E4552);
-    public static readonly Vector4 BorderSoft  = Hex(0x313743);
-    public static readonly Vector4 BorderLight = Hex(0x525C6E);
+    public static readonly Vector4 Border      = Hex(0xE9BE5C, 0.24f);
+    public static readonly Vector4 BorderSoft  = Hex(0xE9BE5C, 0.13f);
+    public static readonly Vector4 BorderLight = Hex(0xE9BE5C, 0.40f);
 
     /// <summary>
     /// Liseré clair posé sur l'arête haute d'une surface. C'est ce qui donne
-    /// l'impression que la carte capte la lumière et se détache du fond.
+    /// l'impression que la carte capte la lumière et se détache du fond. Doré,
+    /// comme les filets.
     /// </summary>
-    public static readonly Vector4 Highlight = Hex(0xFFFFFF, 0.055f);
+    public static readonly Vector4 Highlight = Hex(0xF2CB6B, 0.22f);
 
     // ─── Métriques (en pixels non scalés : toujours passer par S()) ───────────
 
-    public const float RadiusWindow = 10f;
-    public const float RadiusCard   =  8f;
-    public const float RadiusFrame  =  6f;
-    public const float RadiusPill   = 10f;
+    public const float RadiusWindow = 12f;
+    public const float RadiusCard   = 12f;
+    public const float RadiusFrame  =  8f;
+    public const float RadiusPill   = 11f;
 
-    public const float SidebarWidth    = 186f;
-    public const float SidebarItem     = 40f;
+    /// <summary>Largeur de la colonne par défaut, et ses bornes quand on la tire.</summary>
+    public const float SidebarWidth    = 196f;
+    public const float SidebarMin      = 150f;
+    public const float SidebarMax      = 260f;
+
+    /// <summary>Largeur de la colonne repliée en icônes.</summary>
+    public const float SidebarRail     = 76f;
+
+    public const float SidebarItem     = 38f;
+    public const float SidebarRailItem = 56f;
     public const float TitleBarHeight  = 40f;
-    public const float StatusBarHeight = 26f;
+    public const float StatusBarHeight = 30f;
 
     public const float PadWindowX = 16f;
     public const float PadWindowY = 14f;
@@ -121,6 +177,9 @@ internal static class Theme
 
     public static Vector4 Alpha(Vector4 c, float a) => c with { W = a };
 
+    /// <summary>Atténue une couleur en multipliant son opacité, sans la remplacer.</summary>
+    public static Vector4 Faded(Vector4 c, float factor) => c with { W = c.W * factor };
+
     /// <summary>
     /// Convertit une couleur au format « #RRGGBB » venue de l'API. Renvoie null
     /// si la valeur est absente ou malformée, à charge de l'appelant de retomber
@@ -145,12 +204,13 @@ internal static class Theme
     /// l'interface. Les couleurs saisies par les gérants d'établissement sont
     /// pensées pour un fond clair et peuvent être quasi noires.
     /// </summary>
-    public static Vector4 EnsureReadable(Vector4 color, float minimum = 0.30f)
+    /// <param name="toward">Teinte vers laquelle éclaircir ; le texte de l'interface par défaut.</param>
+    public static Vector4 EnsureReadable(Vector4 color, float minimum = 0.30f, Vector4? toward = null)
     {
         var luminance = Luminance(color);
         return luminance >= minimum
             ? color
-            : Mix(color, Text, (minimum - luminance) / Math.Max(minimum, 0.001f) * 0.8f);
+            : Mix(color, toward ?? Text, (minimum - luminance) / Math.Max(minimum, 0.001f) * 0.8f);
     }
 
     public static Vector4 Mix(Vector4 a, Vector4 b, float t) => Vector4.Lerp(a, b, t);
@@ -162,9 +222,8 @@ internal static class Theme
     public static float Luminance(Vector4 c) => 0.2126f * c.X + 0.7152f * c.Y + 0.0722f * c.Z;
 
     /// <summary>
-    /// Couleur de texte lisible sur le fond donné. Indispensable depuis que
-    /// l'accent est une couleur claire : du texte blanc sur du turquoise vif
-    /// serait illisible.
+    /// Couleur de texte lisible sur le fond donné. Le cristal et l'or étant
+    /// clairs, du texte blanc dessus serait illisible.
     /// </summary>
     public static Vector4 TextOn(Vector4 background) =>
         Luminance(background) > 0.55f ? TextOnLight : Text;

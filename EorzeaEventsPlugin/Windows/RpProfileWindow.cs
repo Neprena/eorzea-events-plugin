@@ -137,7 +137,7 @@ public class RpProfileWindow : ThemedWindow
         if (_viewCharacterId is { Length: > 0 } characterId) FetchFullProfile(characterId);
     }
 
-    public override void Draw() => DrawViewer();
+    protected override void DrawContents() => DrawViewer();
 
     // ── Viewer ────────────────────────────────────────────────────────────────
 

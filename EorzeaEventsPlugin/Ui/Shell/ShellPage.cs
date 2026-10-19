@@ -44,4 +44,11 @@ internal sealed class ShellPage
 
     /// <summary>Ancrée en bas de la barre latérale, séparée des autres.</summary>
     public bool Pinned { get; init; }
+
+    /// <summary>
+    /// Titre du groupe auquel appartient l'entrée. Un titre s'affiche au-dessus
+    /// de la première entrée de chaque groupe, et devient un simple trait quand
+    /// la colonne est repliée. Lu à chaque frame, pour suivre la langue.
+    /// </summary>
+    public Func<string>? Section { get; init; }
 }

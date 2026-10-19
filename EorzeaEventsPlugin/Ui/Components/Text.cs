@@ -14,11 +14,49 @@ namespace EorzeaEventsPlugin.Ui.Components;
 /// </summary>
 internal static class Text
 {
-    /// <summary>Titre de page ou de carte.</summary>
+    /// <summary>Titre de page, en H1. Or par défaut, comme les lettres du logo.</summary>
     public static void Title(string text, Vector4? color = null)
     {
+        using var _ = Fonts.PushH1();
+        ImGui.TextColored(color ?? Theme.TitleGold, Glyphs.Safe(text));
+    }
+
+    /// <summary>
+    /// Nom d'un personnage en tête de sa fiche RP, dans la police de la marque :
+    /// avec le logo, le seul usage de Cinzel.
+    /// </summary>
+    public static void Name(string text, Vector4? color = null)
+    {
         using var _ = Fonts.PushTitle();
-        ImGui.TextColored(color ?? Theme.Text, Glyphs.Safe(text));
+        ImGui.TextColored(color ?? Theme.TitleGold, Glyphs.Safe(text));
+    }
+
+    /// <summary>
+    /// Titre d'une fiche (actualité, événement, lieu), en H1 replié sur la
+    /// largeur utile : un titre long, coupé net au bord, perdait sa fin sans
+    /// indice.
+    /// </summary>
+    public static void TitleWrapped(string text, Vector4? color = null)
+    {
+        using var _ = Fonts.PushH1();
+        Wrap(text, color ?? Theme.TitleGold);
+    }
+
+    /// <summary>Titre d'une carte de liste, en H2 replié.</summary>
+    public static void CardTitle(string text, Vector4? color = null)
+    {
+        using var _ = Fonts.PushH2();
+        Wrap(text, color ?? Theme.Text);
+    }
+
+    private static void Wrap(string text, Vector4 color)
+    {
+        // Card ne crée pas de fenêtre enfant : le repli se calcule sur son bord
+        // intérieur, comme dans WithIcon.
+        var wrapAt = ImGui.GetCursorPosX() + ImGui.GetContentRegionAvail().X - Card.RightInset;
+        ImGui.PushTextWrapPos(wrapAt);
+        ImGui.TextColored(color, Glyphs.Safe(text));
+        ImGui.PopTextWrapPos();
     }
 
     /// <summary>En-tête de section.</summary>
@@ -39,6 +77,20 @@ internal static class Text
     {
         using var _ = Fonts.PushSmall();
         ImGui.TextColored(color ?? Theme.TextMuted, Glyphs.Safe(text));
+    }
+
+    /// <summary>
+    /// Explication, aide ou message sous un réglage : taille du corps, gris
+    /// lisible, repliée sur la largeur utile. En petit (<see cref="Small"/>),
+    /// ces textes passaient inaperçus ; le petit reste aux métadonnées (monde,
+    /// compteur, version).
+    /// </summary>
+    public static void Hint(string text, Vector4? color = null)
+    {
+        var wrapAt = ImGui.GetCursorPosX() + ImGui.GetContentRegionAvail().X - Card.RightInset;
+        ImGui.PushTextWrapPos(wrapAt);
+        ImGui.TextColored(color ?? Theme.TextMuted, Glyphs.Safe(text));
+        ImGui.PopTextWrapPos();
     }
 
     /// <summary>Texte à la ligne automatique sur la largeur disponible.</summary>

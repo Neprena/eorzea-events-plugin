@@ -82,6 +82,9 @@ public class RpSessionDto
 
     /// <summary>Point de rendez-vous décrit par l'auteur (session web hors logement).</summary>
     [JsonPropertyName("meetingPoint")] public string? MeetingPoint { get; set; }
+
+    /// <summary>Instance de la zone, quand elle en a plusieurs. Lecture seule.</summary>
+    [JsonPropertyName("instanceId")] public int? InstanceId { get; set; }
 }
 
 /// <summary>
@@ -563,6 +566,47 @@ public class PluginSyncDto
     [JsonPropertyName("sessions")]       public List<RpSessionDto>         Sessions       { get; set; } = [];
     [JsonPropertyName("events")]         public List<EventDto>             Events         { get; set; } = [];
     [JsonPropertyName("availabilities")] public List<RpAvailabilityEntryDto> Availabilities { get; set; } = [];
+
+    /// <summary>Alerte de l'équipe en cours, <c>null</c> hors incident.</summary>
+    [JsonPropertyName("alert")]          public PluginAlertDto?            Alert          { get; set; }
+}
+
+/// <summary>
+/// Message de l'équipe diffusé à tous les plugins, sans les bloquer.
+///
+/// L'identifiant change à chaque modification du texte : c'est lui que le
+/// plugin retient pour ne notifier qu'une fois, et pour renotifier quand
+/// l'équipe met l'alerte à jour.
+/// </summary>
+public class PluginAlertDto
+{
+    [JsonPropertyName("id")]        public string  Id        { get; set; } = string.Empty;
+    [JsonPropertyName("level")]     public string  Level     { get; set; } = "warning";
+    [JsonPropertyName("message")]   public string  Message   { get; set; } = string.Empty;
+    [JsonPropertyName("messageEn")] public string? MessageEn { get; set; }
+
+    /// <summary>Le texte à montrer : le français en français, l'anglais sinon s'il existe.</summary>
+    public string MessageFor(string languageCode) =>
+        languageCode == "fr" || string.IsNullOrWhiteSpace(MessageEn) ? Message : MessageEn;
+}
+
+/// <summary>Une actualité du site, déjà traduite par le serveur.</summary>
+public class NewsItemDto
+{
+    [JsonPropertyName("id")]          public string    Id          { get; set; } = string.Empty;
+    [JsonPropertyName("title")]       public string    Title       { get; set; } = string.Empty;
+    [JsonPropertyName("excerpt")]     public string    Excerpt     { get; set; } = string.Empty;
+    [JsonPropertyName("content")]     public string    Content     { get; set; } = string.Empty;
+    [JsonPropertyName("imageUrl")]    public string?   ImageUrl    { get; set; }
+    [JsonPropertyName("category")]    public string    Category    { get; set; } = "ANNOUNCEMENT";
+    [JsonPropertyName("isPinned")]    public bool      IsPinned    { get; set; }
+    [JsonPropertyName("publishedAt")] public DateTime? PublishedAt { get; set; }
+    [JsonPropertyName("path")]        public string    Path        { get; set; } = string.Empty;
+}
+
+public class NewsListDto
+{
+    [JsonPropertyName("items")] public List<NewsItemDto> Items { get; set; } = [];
 }
 
 /// <summary>
@@ -1241,6 +1285,21 @@ public class ApiClient : IDisposable
         catch { return new PluginSyncResult(); }
     }
 
+    /// <summary>
+    /// Actualités du site, épinglée en tête. <c>null</c> sur un échec, pour que
+    /// l'appelant garde ce qu'il affiche déjà plutôt que de vider la page.
+    /// </summary>
+    public async Task<List<NewsItemDto>?> GetNewsAsync(string languageCode, CancellationToken ct = default)
+    {
+        try
+        {
+            var res = await _publicHttp.GetFromJsonAsync<NewsListDto>(
+                $"api/plugin/news?lang={Uri.EscapeDataString(languageCode)}", JsonOptions, ct);
+            return res?.Items;
+        }
+        catch { return null; }
+    }
+
     public async Task<PluginVersionInfoDto?> GetVersionInfoAsync(CancellationToken ct = default)
     {
         try
@@ -1893,6 +1952,38 @@ public class ApiClient : IDisposable
             var res = await _http.DeleteAsync(
                 $"api/rp-friends/{Uri.EscapeDataString(characterId)}", ct);
             HandleAuthResponse(res);
+            return res.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
+
+    /// <summary>
+    /// Jeton actuellement posé sur le client, ou null. Sert à figer celui d'un
+    /// geste différé, que l'envoi doit faire au nom du personnage qui l'a demandé.
+    /// </summary>
+    public string? CurrentToken => _http.DefaultRequestHeaders.Authorization?.Parameter;
+
+    /// <summary>
+    /// Retrait envoyé avec un jeton donné, et non celui du client à l'instant
+    /// de l'envoi. Un retrait différé peut partir après une déconnexion ou un
+    /// changement de personnage : avec le jeton courant, il viderait la liste
+    /// d'un autre personnage, ou partirait sans jeton du tout.
+    ///
+    /// Le statut d'authentification n'est appliqué au client que si ce jeton
+    /// est encore le sien : le refus d'un ancien jeton ne dit rien du nouveau.
+    /// </summary>
+    public async Task<bool> RemoveRpFriendAsync(string characterId, string token, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(characterId) || string.IsNullOrWhiteSpace(token)) return false;
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Delete,
+                                                       $"api/rp-friends/{Uri.EscapeDataString(characterId)}");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var res = await _http.SendAsync(request, ct);
+            if (token == CurrentToken) HandleAuthResponse(res);
             return res.IsSuccessStatusCode;
         }
         catch { return false; }

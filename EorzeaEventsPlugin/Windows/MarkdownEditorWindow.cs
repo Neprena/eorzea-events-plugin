@@ -110,7 +110,7 @@ public sealed class MarkdownEditorWindow : ThemedWindow
         IsOpen    = false;
     }
 
-    public override void Draw()
+    protected override void DrawContents()
     {
         var l = Plugin.L;
 
@@ -123,7 +123,7 @@ public sealed class MarkdownEditorWindow : ThemedWindow
         if (_showHelp)
         {
             Layout.Spacer(Theme.GapXs);
-            Text.Small(l.MdEditorHelpBody, Theme.TextMuted);
+            Text.Hint(l.MdEditorHelpBody);
         }
 
         Layout.Spacer(Theme.GapS);
@@ -149,7 +149,7 @@ public sealed class MarkdownEditorWindow : ThemedWindow
         {
             if (pane)
             {
-                if (string.IsNullOrWhiteSpace(_text)) Text.Small(l.MdEditorEmpty, Theme.TextMuted);
+                if (string.IsNullOrWhiteSpace(_text)) Text.Hint(l.MdEditorEmpty);
                 else                                  MarkdownView.Draw(_text, Theme.Text);
             }
         }
@@ -169,7 +169,7 @@ public sealed class MarkdownEditorWindow : ThemedWindow
         if (_text != _original)
         {
             ImGui.SameLine(0f, Theme.S(Theme.GapM));
-            Text.Small(l.MdEditorUnsaved, Theme.Gold);
+            Text.Hint(l.MdEditorUnsaved, Theme.Gold);
         }
     }
 

@@ -72,9 +72,6 @@ public sealed class RpRelationWindow : ThemedWindow
     private string _feedback      = string.Empty;
     private bool   _feedbackError;
 
-    /// <summary>Le geste destructeur est armé : un second clic l'exécute.</summary>
-    private bool _armed;
-
     /// <summary>Personne derrière ce nom ici : le texte libre est proposé.</summary>
     private bool _offerFree;
 
@@ -186,7 +183,6 @@ public sealed class RpRelationWindow : ThemedWindow
         _world         = string.Empty;
         _kindIndex     = 0;
         _busy          = false;
-        _armed         = false;
         _offerFree     = false;
         _feedback      = string.Empty;
         _feedbackError = false;
@@ -211,7 +207,7 @@ public sealed class RpRelationWindow : ThemedWindow
         _                          => l.RpRelationPropose,
     };
 
-    public override void Draw()
+    protected override void DrawContents()
     {
         var l = Plugin.L;
 
@@ -222,7 +218,7 @@ public sealed class RpRelationWindow : ThemedWindow
             : string.Format(l.RpRelationWithPlain, _name));
 
         if (_mode == RelationWindowMode.Respond)
-            Text.Small(string.Format(l.RpRelationTheirKind, _name,
+            Text.Hint(string.Format(l.RpRelationTheirKind, _name,
                                      RpProfileView.RelationLabel(_proposedKind, l)), Theme.Gold);
 
         Layout.Spacer(Theme.GapS);
@@ -239,7 +235,7 @@ public sealed class RpRelationWindow : ThemedWindow
         if (_mode == RelationWindowMode.Edit && _linked)
         {
             Layout.Spacer(Theme.GapXs);
-            Text.Small(l.RpRelationBreakWarning, Theme.TextMuted);
+            Text.Hint(l.RpRelationBreakWarning);
         }
 
         Layout.Divider(Theme.GapS);
@@ -248,7 +244,7 @@ public sealed class RpRelationWindow : ThemedWindow
         if (_feedback.Length > 0)
         {
             Layout.Spacer(Theme.GapXs);
-            Text.Small(_feedback, _feedbackError ? Theme.Danger : Theme.Online);
+            Text.Hint(_feedback, _feedbackError ? Theme.Danger : Theme.Online);
         }
 
         if (_offerFree) DrawFreeOffer(l);
@@ -290,17 +286,10 @@ public sealed class RpRelationWindow : ThemedWindow
 
                 ImGui.SameLine(0f, Theme.S(Theme.GapS));
 
-                // Refus en deux temps, comme tout geste sans retour du projet : le
-                // premier clic arme, le second exécute, quitter le bouton désarme.
-                if (Btn.Draw(_armed ? l.RpRelationDeclineArm : l.RpRelationDecline,
-                             _armed ? BtnTone.Danger : BtnTone.Ghost, BtnSize.Medium,
-                             disabled: _busy, id: "rel_decline"))
-                {
-                    if (_armed) Respond("decline");
-                    else        _armed = true;
-                }
-
-                if (_armed && !ImGui.IsItemHovered()) _armed = false;
+                // Refus à maintenir, comme tout geste sans retour du projet :
+                // lâcher avant que le bouton soit plein annule.
+                if (Btn.Hold(l.RpRelationDecline, "rel_decline", size: BtnSize.Medium, disabled: _busy))
+                    Respond("decline");
                 break;
 
             case RelationWindowMode.Edit:
@@ -310,15 +299,8 @@ public sealed class RpRelationWindow : ThemedWindow
 
                 ImGui.SameLine(0f, Theme.S(Theme.GapS));
 
-                if (Btn.Draw(_armed ? l.RpRelationRemoveArm : l.RpRelationRemove,
-                             _armed ? BtnTone.Danger : BtnTone.Ghost, BtnSize.Medium, Icons.Trash,
-                             disabled: _busy, id: "rel_remove"))
-                {
-                    if (_armed) Remove();
-                    else        _armed = true;
-                }
-
-                if (_armed && !ImGui.IsItemHovered()) _armed = false;
+                if (Btn.Hold(l.RpRelationRemove, "rel_remove", Icons.Trash, BtnSize.Medium, disabled: _busy))
+                    Remove();
                 break;
         }
 
@@ -335,7 +317,7 @@ public sealed class RpRelationWindow : ThemedWindow
     private void DrawFreeOffer(Loc l)
     {
         Layout.Spacer(Theme.GapXs);
-        Text.Small(l.RpRelationFreeOffer, Theme.TextMuted);
+        Text.Hint(l.RpRelationFreeOffer);
         Layout.Spacer(Theme.GapXs);
 
         if (Btn.Draw(l.RpRelationFreeAdd, BtnTone.Secondary, BtnSize.Small, Icons.Plus,
@@ -426,7 +408,6 @@ public sealed class RpRelationWindow : ThemedWindow
         if (_requestId is not { Length: > 0 } requestId) return;
 
         _busy     = true;
-        _armed    = false;
         _feedback = string.Empty;
 
         var accepting = action == "accept";
@@ -520,7 +501,6 @@ public sealed class RpRelationWindow : ThemedWindow
         if (_relationId is not { Length: > 0 } relationId) return;
 
         _busy     = true;
-        _armed    = false;
         _feedback = string.Empty;
 
         Task.Run(async () =>

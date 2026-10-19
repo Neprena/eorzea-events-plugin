@@ -7,9 +7,11 @@ using System.Text.Unicode;
 namespace EorzeaEventsPlugin.Ui;
 
 /// <summary>
-/// Polices du plugin : Inter, embarqué et sous-ensemblé, avec FontAwesome
-/// fusionné dans le corps de texte pour que les icônes s'écrivent inline sans
-/// pousser ni dépiler de police.
+/// Polices du plugin : Cinzel pour les titres et la marque, en capitales gravées
+/// comme les lettres du logo, Nunito pour le texte. Inter, sous-ensemblé, est
+/// fusionné derrière chacune pour combler leurs trous, et FontAwesome dans
+/// toutes pour que les icônes s'écrivent inline sans pousser ni dépiler de
+/// police.
 ///
 /// L'atlas est isolé (<c>CreateFontAtlas</c>) : une reconstruction ne touche pas
 /// celui de Dalamud ni celui des autres plugins.
@@ -27,8 +29,18 @@ internal static class Fonts
     private static ushort[]?   _iconRanges;
     private static bool        _loggedFailure;
 
-    /// <summary>Titres de page et de carte.</summary>
+    /// <summary>
+    /// Cinzel, la police de la marque. Réservée au logo et aux noms de profil
+    /// RP : posée sur chaque titre de carte, une police décorative en petites
+    /// capitales faisait crier toute une liste à la fois.
+    /// </summary>
     public static IFontHandle? Title { get; private set; }
+
+    /// <summary>Titres de page et de fiche, en Nunito gras : un cran au-dessus de H2.</summary>
+    public static IFontHandle? H1 { get; private set; }
+
+    /// <summary>Nom du plugin dans la barre de titre, dans la police des titres.</summary>
+    public static IFontHandle? Brand { get; private set; }
 
     /// <summary>En-têtes de section.</summary>
     public static IFontHandle? H2 { get; private set; }
@@ -81,30 +93,41 @@ internal static class Fonts
             _atlas = pi.UiBuilder.CreateFontAtlas(
                 FontAtlasAutoRebuildMode.Async, isGlobalScaled: true, "EorzeaEvents");
 
-            // FontAwesome est fusionné dans les quatre niveaux : les pastilles
+            // FontAwesome est fusionné dans tous les niveaux : les pastilles
             // utilisent Small et les en-têtes utilisent H2, ils ont donc besoin
             // des icônes autant que le corps de texte.
+            //
+            // Nunito a un œil plus petit qu'Inter : à taille égale, son texte
+            // paraît d'un cran en dessous. D'où un pixel de plus qu'avant.
             Body  = _atlas.NewDelegateFontHandle(tk => tk.OnPreBuild(
-                p => Compose(p, "Fonts.Inter-Regular.ttf",  15f)));
+                p => Compose(p, "Fonts.Nunito-Regular.ttf", "Fonts.Inter-Regular.ttf",  16f)));
             Small = _atlas.NewDelegateFontHandle(tk => tk.OnPreBuild(
-                p => Compose(p, "Fonts.Inter-Regular.ttf",  12f)));
+                p => Compose(p, "Fonts.Nunito-Regular.ttf", "Fonts.Inter-Regular.ttf",  13f)));
+            H1    = _atlas.NewDelegateFontHandle(tk => tk.OnPreBuild(
+                p => Compose(p, "Fonts.Nunito-Bold.ttf",    "Fonts.Inter-SemiBold.ttf", 22f)));
             H2    = _atlas.NewDelegateFontHandle(tk => tk.OnPreBuild(
-                p => Compose(p, "Fonts.Inter-SemiBold.ttf", 18f)));
-            Title = _atlas.NewDelegateFontHandle(tk => tk.OnPreBuild(
-                p => Compose(p, "Fonts.Inter-SemiBold.ttf", 24f)));
+                p => Compose(p, "Fonts.Nunito-Bold.ttf",    "Fonts.Inter-SemiBold.ttf", 18f)));
             BodyStrong = _atlas.NewDelegateFontHandle(tk => tk.OnPreBuild(
-                p => Compose(p, "Fonts.Inter-SemiBold.ttf", 15f)));
+                p => Compose(p, "Fonts.Nunito-Bold.ttf",    "Fonts.Inter-SemiBold.ttf", 16f)));
+
+            // Cinzel n'a pas de minuscules : il les dessine en petites capitales.
+            // Réservé aux titres, où c'est l'effet cherché ; en corps de texte, il
+            // se lirait mal.
+            Title = _atlas.NewDelegateFontHandle(tk => tk.OnPreBuild(
+                p => Compose(p, "Fonts.Cinzel-Bold.ttf",    "Fonts.Inter-SemiBold.ttf", 23f)));
+            Brand = _atlas.NewDelegateFontHandle(tk => tk.OnPreBuild(
+                p => Compose(p, "Fonts.Cinzel-Bold.ttf",    "Fonts.Inter-SemiBold.ttf", 16f)));
         }
         catch (Exception ex)
         {
             Plugin.Log.Warning(ex, "Chargement des polices impossible, repli sur la police Dalamud.");
-            Title = H2 = Body = Small = BodyStrong = null;
+            Title = Brand = H1 = H2 = Body = Small = BodyStrong = null;
             _atlas?.Dispose();
             _atlas = null;
         }
     }
 
-    private static void Compose(IFontAtlasBuildToolkitPreBuild p, string resource, float sizePx)
+    private static void Compose(IFontAtlasBuildToolkitPreBuild p, string resource, string fallback, float sizePx)
     {
         var cfg = new SafeFontConfig { SizePx = sizePx, GlyphRanges = _textRanges };
 
@@ -112,6 +135,16 @@ internal static class Fonts
             ?? throw new FileNotFoundException($"Ressource de police introuvable : {resource}");
 
         var font = p.AddFontFromStream(stream, in cfg, leaveOpen: false, resource);
+
+        // Inter derrière, sur les mêmes plages. ImGui garde le premier glyphe
+        // venu : Nunito et Cinzel dessinent tout ce qu'elles ont, Inter ne comble
+        // que leurs trous (flèches, symboles, et pour Cinzel l'essentiel du latin
+        // étendu, qu'un nom de personnage peut porter).
+        using var fallbackStream = Asm.GetManifestResourceStream(fallback)
+            ?? throw new FileNotFoundException($"Ressource de police introuvable : {fallback}");
+
+        var secours = new SafeFontConfig { SizePx = sizePx, GlyphRanges = _textRanges, MergeFont = font };
+        p.AddFontFromStream(fallbackStream, in secours, leaveOpen: false, fallback);
 
         // Accents et alphabets supplémentaires selon la langue configurée dans Dalamud.
         var extra = new SafeFontConfig { SizePx = sizePx, MergeFont = font };
@@ -133,7 +166,9 @@ internal static class Fonts
     private static ushort[] BuildIconRanges()
     {
         var builder = new FluentGlyphRangeBuilder();
-        foreach (var icon in Icons.All)
+        // Les icônes qui remplacent les émojis des descriptions en font partie :
+        // n'importe laquelle peut apparaître dans n'importe quel texte.
+        foreach (var icon in Icons.All.Concat(Emoji.AllIcons))
             builder = builder.With((uint)icon);
         return builder.BuildExact();
     }
@@ -141,6 +176,8 @@ internal static class Fonts
     // ─── Utilisation ──────────────────────────────────────────────────────────
 
     public static IDisposable PushTitle() => Use(Title);
+    public static IDisposable PushBrand() => Use(Brand);
+    public static IDisposable PushH1()    => Use(H1);
     public static IDisposable PushH2()    => Use(H2);
     public static IDisposable PushBody()  => Use(Body);
     public static IDisposable PushSmall()      => Use(Small);
@@ -166,7 +203,7 @@ internal static class Fonts
 
     public static void Dispose()
     {
-        Title = H2 = Body = Small = BodyStrong = null;
+        Title = Brand = H1 = H2 = Body = Small = BodyStrong = null;
         _atlas?.Dispose();
         _atlas = null;
     }

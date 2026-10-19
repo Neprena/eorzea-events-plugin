@@ -176,7 +176,7 @@ public sealed class RpTooltipWindow : ThemedWindow
                            Math.Clamp(position.Y, min.Y, MathF.Max(min.Y, max.Y)));
     }
 
-    public override void Draw()
+    protected override void DrawContents()
     {
         if (_entry is not { Profile: { } profile } entry) return;
 

@@ -3,8 +3,8 @@
     "Author": "Neprena",
     "Name": "Eorzea Events",
     "InternalName": "EorzeaEventsPlugin",
-    "AssemblyVersion": "2.14.1.0",
-    "TestingAssemblyVersion": "2.14.1.0",
+    "AssemblyVersion": "2.15.0.0",
+    "TestingAssemblyVersion": "2.15.0.0",
     "Description": "Gérez vos sessions RP Eorzea Events directement depuis le jeu.",
     "Punchline": "Sessions RP Eorzea Events en un clic.",
     "ApplicableVersion": "any",
@@ -15,12 +15,12 @@
     "DalamudApiLevel": 15,
     "IconUrl": "https://raw.githubusercontent.com/Neprena/eorzea-events-plugin/main/Plugin_Logo.png",
     "RepoUrl": "https://github.com/Neprena/eorzea-events-plugin",
-    "DownloadLinkInstall": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.14.1/EorzeaEventsPlugin.zip",
-    "DownloadLinkTesting": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.14.1/EorzeaEventsPlugin.zip",
-    "DownloadLinkUpdate": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.14.1/EorzeaEventsPlugin.zip",
+    "DownloadLinkInstall": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.15.0/EorzeaEventsPlugin.zip",
+    "DownloadLinkTesting": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.15.0/EorzeaEventsPlugin.zip",
+    "DownloadLinkUpdate": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.15.0/EorzeaEventsPlugin.zip",
     "TestingChangelog": "Proposez une relation d'un clic droit : la personne visée reçoit une demande, et le lien n'apparaît sur vos deux fiches qu'une fois qu'elle a accepté. Les demandes reçues se répondent depuis votre fiche RP, où une pastille les compte. Une relation liée ne se renomme plus en jeu, et la retirer prévient qu'elle disparaîtra aussi de la fiche d'en face. L'historique complet des nouveautés est dans le plugin.",
     "TestingDalamudApiLevel": 15,
-    "Changelog": "Sur une fiche réservée aux adultes, le bouton Régler sur le site ouvre désormais la page Confidentialité du site, où se trouve le réglage du contenu adulte. La notification de token invalide renvoie vers la page Plugin du site pour en générer un nouveau. L'historique complet des nouveautés est dans le plugin.",
-    "LastUpdate": 1791060067
+    "Changelog": "La page Actualités affiche les nouvelles du site, et l'équipe peut vous transmettre des messages d'incident ou de maintenance directement en jeu. L'interface adopte un habillage bleu nuit et doré, avec une opacité et un flou réglables, une barre latérale redimensionnable et une réduction à la barre de titre. Les cartes d'Autour de moi, de Rencontres et de RP Ouvert sont réorganisées, et les suppressions et retraits se confirment par un appui prolongé. L'historique complet des nouveautés est dans le plugin.",
+    "LastUpdate": 1792436555
   }
 ]

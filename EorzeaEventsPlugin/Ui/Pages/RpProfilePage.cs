@@ -89,9 +89,6 @@ internal sealed class RpProfilePage(Configuration config)
     /// </summary>
     private int _glanceCount;
 
-    /// <summary>Emplacement dont le retrait est armé, -1 si aucun.</summary>
-    private int _glanceArmed = -1;
-
     // Codes de sync : emplacements fixes, comme les accroches. Pas de boutons
     // ajouter/supprimer, une ligne sans identifiant n'est simplement pas envoyée.
     private readonly int[]    _syncTypes = new int[MaxSyncshells];
@@ -213,10 +210,6 @@ internal sealed class RpProfilePage(Configuration config)
     /// </summary>
     private readonly string?[] _relationTargetIds = new string?[MaxRelations];
     private int _relationCount;
-    private int _relationArmed = -1;
-
-    /// <summary>Demande dont le geste destructeur est armé, par identifiant.</summary>
-    private string? _requestArmed;
 
     // Liens de la fiche, hors syncshells.
     private string _themeSongUrl = string.Empty;
@@ -451,8 +444,8 @@ internal sealed class RpProfilePage(Configuration config)
             ImGui.SameLine(0f, Theme.S(Theme.GapM));
             ImGui.AlignTextToFramePadding();
 
-            if (_saveFailed) Text.Small(SaveFailureText(l), Theme.Danger);
-            else             Text.Small(l.RpProfileUnsaved, Theme.Gold);
+            if (_saveFailed) Text.Hint(SaveFailureText(l), Theme.Danger);
+            else             Text.Hint(l.RpProfileUnsaved, Theme.Gold);
 
             return;
         }
@@ -707,7 +700,6 @@ internal sealed class RpProfilePage(Configuration config)
     private bool   _slotsFailed;
     private bool   _switching;
     private string _slotError    = string.Empty;
-    private string _confirmDelete = string.Empty;
 
     /// <summary>Identifiant de la fiche publiée, ou vide si le serveur ne l'a pas dit.</summary>
     private string ActiveSlotId => _slots.FirstOrDefault(s => s.IsActive)?.Id ?? string.Empty;
@@ -755,7 +747,7 @@ internal sealed class RpProfilePage(Configuration config)
         {
             using var failed = Card.Begin("rp_slots_failed", interactive: false);
             Layout.SectionHeader(l.RpProfileSlots, Icons.Profile, tone: Tone);
-            Text.Small(l.RpProfileSlotsUnavailable, Theme.TextMuted);
+            Text.Hint(l.RpProfileSlotsUnavailable);
             return;
         }
 
@@ -764,7 +756,7 @@ internal sealed class RpProfilePage(Configuration config)
         using var card = Card.Begin("rp_slots", interactive: false);
 
         Layout.SectionHeader(l.RpProfileSlots, Icons.Profile, count: _slots.Count, tone: Tone);
-        Text.Small(l.RpProfileSlotsHint, Theme.TextMuted);
+        Text.Hint(l.RpProfileSlotsHint);
         Layout.Spacer(Theme.GapXs);
 
         // Le nom de la fiche publiée, modifiable ici : c'est lui qui nomme le
@@ -822,34 +814,27 @@ internal sealed class RpProfilePage(Configuration config)
                             id: "rpslot_dup"))
                 RunSlotAction(() => Plugin.Api.DuplicateRpProfileAsync(SelectedSlotId));
 
-            // Deux clics, comme partout ailleurs dans le plugin : le premier
-            // arme le bouton, le second supprime. Une fiche emporte ses images.
+            // À maintenir, comme partout ailleurs dans le plugin, et plus
+            // longtemps qu'ailleurs : une fiche emporte ses images.
             if (_slots.Count > 1)
             {
                 ImGui.SameLine(0f, Theme.S(Theme.GapXs));
-                var armed = _confirmDelete == SelectedSlotId && SelectedSlotId.Length > 0;
-                if (Btn.Draw(armed ? l.RpProfileSlotDeleteConfirm : l.RpProfileSlotDelete,
-                             armed ? BtnTone.Danger : BtnTone.Ghost, BtnSize.Small, Icons.Trash,
-                             id: "rpslot_del"))
+                if (Btn.Hold(l.RpProfileSlotDelete, "rpslot_del", Icons.Trash, seconds: 1.5f,
+                             disabled: SelectedSlotId.Length == 0))
                 {
-                    if (armed)
-                    {
-                        var doomed = SelectedSlotId;
-                        // Revenir à la fiche publiée : celle qu'on supprime ne
-                        // sera plus là pour être rechargée.
-                        _selectedProfileId = string.Empty;
-                        RunSlotAction(() => Plugin.Api.DeleteRpProfileAsync(doomed));
-                    }
-                    else _confirmDelete = SelectedSlotId;
+                    var doomed = SelectedSlotId;
+                    // Revenir à la fiche publiée : celle qu'on supprime ne
+                    // sera plus là pour être rechargée.
+                    _selectedProfileId = string.Empty;
+                    RunSlotAction(() => Plugin.Api.DeleteRpProfileAsync(doomed));
                 }
-                if (!ImGui.IsItemHovered() && armed) _confirmDelete = string.Empty;
             }
         }
 
         if (_slotError.Length > 0)
         {
             Layout.Spacer(Theme.GapXs);
-            Text.Small(_slotError, Theme.Danger);
+            Text.Hint(_slotError, Theme.Danger);
         }
     }
 
@@ -864,7 +849,6 @@ internal sealed class RpProfilePage(Configuration config)
     {
         _switching     = true;
         _slotError     = string.Empty;
-        _confirmDelete = string.Empty;
 
         var key = _loadedFor;
 
@@ -948,7 +932,6 @@ internal sealed class RpProfilePage(Configuration config)
         }
 
         _slotError = string.Empty;
-        _confirmDelete = string.Empty;
         _selectedProfileId = profileId == ActiveSlotId ? string.Empty : profileId;
     }
 
@@ -961,7 +944,6 @@ internal sealed class RpProfilePage(Configuration config)
     private void CreateSlot()
     {
         _slotError     = string.Empty;
-        _confirmDelete = string.Empty;
 
         var key = _loadedFor;
 
@@ -1012,7 +994,6 @@ internal sealed class RpProfilePage(Configuration config)
         // Seuls les emplacements réellement enregistrés sont ouverts : la fiche
         // vide n'affiche donc aucun champ, juste son bouton d'ajout.
         _glanceCount = Math.Min(p?.Glances.Length ?? 0, MaxGlances);
-        _glanceArmed = -1;
 
         for (var i = 0; i < MaxGlances; i++)
         {
@@ -1098,7 +1079,6 @@ internal sealed class RpProfilePage(Configuration config)
         _raceIndex = Math.Max(0, Array.IndexOf(RaceKeys, p?.Race ?? string.Empty));
 
         _relationCount = Math.Min(p?.Relations.Length ?? 0, MaxRelations);
-        _relationArmed = -1;
         for (var i = 0; i < MaxRelations; i++)
         {
             var relation = i < _relationCount ? p!.Relations[i] : null;
@@ -1184,9 +1164,11 @@ internal sealed class RpProfilePage(Configuration config)
             background:   hasAccent ? RpProfileView.HeaderBackground(accent, accent2) : null,
             accent:       hasAccent ? accent : null,
             banner:       banner,
-            bannerHeight: RpProfileView.HeaderBanner);
+            bannerHeight: RpProfileView.HeaderBanner,
+            sky:          banner == null ? RpProfileView.HeaderSky(hasAccent, accent, accent2) : null);
 
-        var overlap = RpProfileView.HeaderOverlap(banner != null);
+        // Bannière ou ciel, il y a toujours de quoi chevaucher.
+        var overlap = RpProfileView.HeaderOverlap(hasBanner: true);
         if (overlap > 0f)
             ImGui.SetCursorPosY(ImGui.GetCursorPosY() - Theme.S(overlap));
 
@@ -1215,9 +1197,9 @@ internal sealed class RpProfilePage(Configuration config)
         // Pas de badge d'équipe dans ce bloc : sur sa propre fiche il reste avec
         // les chips de synthèse, cet écran ayant sa propre mise en page.
         RpProfileView.HeaderNameFiller(null, displayName, _profile?.RpTitle, null, nickname,
-                                       RpProfileView.HeaderNameMinTop(cardOrigin, banner != null));
+                                       RpProfileView.HeaderNameMinTop(cardOrigin, hasBanner: true));
 
-        Text.Title(displayName);
+        Text.Name(displayName);
 
         // Titre court réservé aux membres, à la même place que sur la fiche vue
         // par les autres.
@@ -1310,7 +1292,7 @@ internal sealed class RpProfilePage(Configuration config)
         using var card = Card.Begin("rp_status", interactive: false);
 
         Layout.SectionHeader(l.RpProfileStatus, Icons.RpLive, tone: Tone);
-        Text.Small(l.RpProfileStatusHint);
+        Text.Hint(l.RpProfileStatusHint);
         Layout.Spacer(Theme.GapS);
 
         // L'état de jeu se lit, il ne se règle plus : le jeu a déjà son tag
@@ -1318,10 +1300,10 @@ internal sealed class RpProfilePage(Configuration config)
         // contradictoires à la même question. Le tag fait foi, le plugin le
         // recopie, et n'écrit jamais /jdr à la place du joueur.
         var stateKey = CurrentStateKey();
-        Text.Small(l.RpProfileIcState);
+        Text.Hint(l.RpProfileIcState);
         Chip.Draw(RpProfileView.IcStateLabel(stateKey, l),
                   RpProfileView.IcStateTone(stateKey), Icons.RpLive);
-        Text.Small(l.RpProfileIcStateHint);
+        Text.Hint(l.RpProfileIcStateHint);
 
         Layout.Spacer(Theme.GapS);
 
@@ -1447,7 +1429,7 @@ internal sealed class RpProfilePage(Configuration config)
         using var card = Card.Begin("rp_hooks", interactive: false);
 
         Layout.SectionHeader(l.RpProfileHooks, Icons.Sparkle, tone: Tone);
-        Text.Small(l.RpProfileHooksHint);
+        Text.Hint(l.RpProfileHooksHint);
         Layout.Spacer(Theme.GapS);
 
         for (var i = 0; i < _hooks.Length; i++)
@@ -1481,7 +1463,7 @@ internal sealed class RpProfilePage(Configuration config)
         using var card = Card.Begin("rp_glance", interactive: false);
 
         Layout.SectionHeader(l.RpProfileGlance, Icons.Show, tone: Tone);
-        Text.Small(l.RpProfileGlanceHint);
+        Text.Hint(l.RpProfileGlanceHint);
         Layout.Spacer(Theme.GapS);
 
         // Le glyphe précède son nom dans chaque entrée du menu, et donc aussi
@@ -1495,6 +1477,10 @@ internal sealed class RpProfilePage(Configuration config)
 
         for (var i = 0; i < _glanceCount; i++)
         {
+            // Un identifiant par emplacement : les interrupteurs « Affiché »
+            // portent tous le même libellé, et partageaient leur animation.
+            using var slot = ImRaii.PushId($"glance{i}");
+
             if (i > 0) Layout.Divider(Theme.GapS);
 
             DrawGlanceRemove(i, l);
@@ -1533,27 +1519,22 @@ internal sealed class RpProfilePage(Configuration config)
     /// <summary>
     /// En-tête d'un emplacement : son rang à gauche, son retrait à droite.
     ///
-    /// Retrait en deux temps, comme partout ailleurs dans le projet : le premier
-    /// clic arme, le second efface, et quitter le bouton désarme.
+    /// Retrait à maintenir, comme partout ailleurs dans le projet : lâcher avant
+    /// que le bouton soit plein annule.
     /// </summary>
     private void DrawGlanceRemove(int index, Loc l)
     {
+        // Centré sur la hauteur du bouton qui partage la ligne.
+        ImGui.AlignTextToFramePadding();
         Text.Muted(string.Format(l.RpProfileGlanceSlot, index + 1));
         ImGui.SameLine();
 
-        var armed   = _glanceArmed == index;
-        var caption = armed ? l.RpProfileGlanceRemoveArm : l.RpProfileGlanceRemove;
+        var caption = l.RpProfileGlanceRemove;
 
-        Layout.RightAlign(Btn.Measure(caption, Icons.Trash));
+        Layout.RightAlign(Btn.MeasureHold(caption, Icons.Trash, BtnSize.Medium));
 
-        if (Btn.Draw(caption, armed ? BtnTone.Danger : BtnTone.Ghost, BtnSize.Medium,
-                     Icons.Trash, id: $"glance_del_{index}"))
-        {
-            if (armed) RemoveGlance(index);
-            else       _glanceArmed = index;
-        }
-
-        if (armed && !ImGui.IsItemHovered()) _glanceArmed = -1;
+        if (Btn.Hold(caption, $"glance_del_{index}", Icons.Trash, BtnSize.Medium))
+            RemoveGlance(index);
     }
 
     /// <summary>
@@ -1594,7 +1575,6 @@ internal sealed class RpProfilePage(Configuration config)
         _glanceBodies[_glanceCount] = string.Empty;
         _glanceActive[_glanceCount] = true;
 
-        _glanceArmed = -1;
         MarkDirty();
     }
 
@@ -1611,7 +1591,7 @@ internal sealed class RpProfilePage(Configuration config)
         using var card = Card.Begin("rp_traits", interactive: false);
 
         Layout.SectionHeader(l.RpProfileTraits, Icons.Character, tone: Tone);
-        Text.Small(l.RpProfileTraitsHint);
+        Text.Hint(l.RpProfileTraitsHint);
         Layout.Spacer(Theme.GapS);
 
         if (Inputs.Field("##height", l.RpProfileHeight, ref _height, 30)) MarkDirty();
@@ -1664,7 +1644,7 @@ internal sealed class RpProfilePage(Configuration config)
         using var card = Card.Begin("rp_sync", interactive: false);
 
         Layout.SectionHeader(l.RpProfileSyncshells, Icons.Copy, tone: Tone);
-        Text.Small(l.RpProfileSyncshellsHint);
+        Text.Hint(l.RpProfileSyncshellsHint);
         Layout.Spacer(Theme.GapS);
 
         var typeLabels = SyncTypeKeys
@@ -1764,23 +1744,8 @@ internal sealed class RpProfilePage(Configuration config)
 
         ImGui.SameLine(0f, Theme.S(Theme.GapS));
 
-        var armed = _requestArmed == request.Id;
-        if (Btn.Draw(armed ? l.RpRelationDeclineArm : l.RpRelationDecline,
-                     armed ? BtnTone.Danger : BtnTone.Ghost, BtnSize.Small,
-                     id: $"relreq_no_{request.Id}"))
-        {
-            if (armed)
-            {
-                Decline(request.Id);
-                _requestArmed = null;
-            }
-            else
-            {
-                _requestArmed = request.Id;
-            }
-        }
-
-        if (armed && !ImGui.IsItemHovered()) _requestArmed = null;
+        if (Btn.Hold(l.RpRelationDecline, $"relreq_no_{request.Id}"))
+            Decline(request.Id);
     }
 
     /// <summary>
@@ -1802,23 +1767,8 @@ internal sealed class RpProfilePage(Configuration config)
 
         ImGui.SameLine(0f, Theme.S(Theme.GapS));
 
-        var armed = _requestArmed == request.Id;
-        if (Btn.Draw(armed ? l.RpRelationCancelArm : l.RpRelationCancel,
-                     armed ? BtnTone.Danger : BtnTone.Ghost, BtnSize.Small,
-                     id: $"relreq_cancel_{request.Id}"))
-        {
-            if (armed)
-            {
-                CancelRequest(request.Id);
-                _requestArmed = null;
-            }
-            else
-            {
-                _requestArmed = request.Id;
-            }
-        }
-
-        if (armed && !ImGui.IsItemHovered()) _requestArmed = null;
+        if (Btn.Hold(l.RpRelationCancel, $"relreq_cancel_{request.Id}"))
+            CancelRequest(request.Id);
     }
 
     /// <summary>
@@ -1965,25 +1915,20 @@ internal sealed class RpProfilePage(Configuration config)
         return true;
     }
 
-    /// <summary>Ligne de titre d'une relation, avec sa suppression en deux clics.</summary>
+    /// <summary>Ligne de titre d'une relation, avec sa suppression à maintenir.</summary>
     private void DrawRelationRemove(int index, Loc l)
     {
+        // Centré sur la hauteur du bouton qui partage la ligne.
+        ImGui.AlignTextToFramePadding();
         Text.Muted(string.Format(l.RpProfileRelationSlot, index + 1));
         ImGui.SameLine();
 
-        var armed   = _relationArmed == index;
-        var caption = armed ? l.RpProfileGlanceRemoveArm : l.RpProfileGlanceRemove;
+        var caption = l.RpProfileGlanceRemove;
 
-        Layout.RightAlign(Btn.Measure(caption, Icons.Trash));
+        Layout.RightAlign(Btn.MeasureHold(caption, Icons.Trash, BtnSize.Medium));
 
-        if (Btn.Draw(caption, armed ? BtnTone.Danger : BtnTone.Ghost, BtnSize.Medium,
-                     Icons.Trash, id: $"rel_del_{index}"))
-        {
-            if (armed) RemoveRelation(index);
-            else       _relationArmed = index;
-        }
-
-        if (armed && !ImGui.IsItemHovered()) _relationArmed = -1;
+        if (Btn.Hold(caption, $"rel_del_{index}", Icons.Trash, BtnSize.Medium))
+            RemoveRelation(index);
     }
 
     /// <summary>Retire une relation en décalant les suivantes, sans laisser de trou.</summary>
@@ -2004,7 +1949,6 @@ internal sealed class RpProfilePage(Configuration config)
         _relationNotes[_relationCount]     = string.Empty;
         _relationIds[_relationCount]       = null;
         _relationTargetIds[_relationCount] = null;
-        _relationArmed = -1;
         MarkDirty();
     }
 
@@ -2097,7 +2041,7 @@ internal sealed class RpProfilePage(Configuration config)
                        ? string.Format(l.RpProfileNameplatePreview, shown)
                        : l.RpProfileNameplatePreviewNone,
                    Theme.TextMuted);
-        Text.Small(l.RpProfileNameplateHint, Theme.TextMuted);
+        Text.Hint(l.RpProfileNameplateHint);
         Layout.Spacer(Theme.GapXs);
 
         if (Inputs.Field("##age", l.RpProfileAge, ref _age, 30))               MarkDirty();
@@ -2145,7 +2089,7 @@ internal sealed class RpProfilePage(Configuration config)
 
         if (_profile?.CosmeticsAllowed != true)
         {
-            Text.Small(l.RpProfileStylingLocked, Theme.TextMuted);
+            Text.Hint(l.RpProfileStylingLocked);
             return;
         }
 
@@ -2153,7 +2097,7 @@ internal sealed class RpProfilePage(Configuration config)
             MarkDirty();
         ImGui.SameLine(0f, Theme.S(Theme.GapS));
         ImGui.AlignTextToFramePadding();
-        Text.Small(l.RpProfileAccent, Theme.TextMuted);
+        Text.Hint(l.RpProfileAccent);
 
         // La seconde couleur est facultative : sans elle, la fiche garde un
         // aplat plutôt qu'un dégradé. Un interrupteur dit mieux « aucune » qu'une
@@ -2167,7 +2111,7 @@ internal sealed class RpProfilePage(Configuration config)
                 MarkDirty();
             ImGui.SameLine(0f, Theme.S(Theme.GapS));
             ImGui.AlignTextToFramePadding();
-            Text.Small(l.RpProfileAccent2, Theme.TextMuted);
+            Text.Hint(l.RpProfileAccent2);
         }
 
         Layout.Spacer(Theme.GapS);
@@ -2182,7 +2126,7 @@ internal sealed class RpProfilePage(Configuration config)
         if (_profile?.TitlesBlocked == true)
         {
             Layout.Spacer(Theme.GapS);
-            Text.Small(l.RpProfileTitleBlocked, Theme.Danger);
+            Text.Hint(l.RpProfileTitleBlocked, Theme.Danger);
             if (_textDirty) DrawSaveRow(l);
             return;
         }
@@ -2329,7 +2273,7 @@ internal sealed class RpProfilePage(Configuration config)
         using var card = Card.Begin(id, interactive: false);
         Layout.SectionHeader(title, icon, tone: tone);
 
-        if (string.IsNullOrWhiteSpace(value)) Text.Small(l.RpProfileEmptyText, Theme.TextMuted);
+        if (string.IsNullOrWhiteSpace(value)) Text.Hint(l.RpProfileEmptyText);
         else                                  MarkdownView.Draw(value, Theme.TextMuted);
 
         Layout.Spacer(Theme.GapXs);
@@ -2456,11 +2400,11 @@ internal sealed class RpProfilePage(Configuration config)
         DrawAutoSaveAt("vis_preset", l);
 
         Layout.Spacer(Theme.GapS);
-        Text.Small(string.Format(l.RpProfileVisOwnerNote, ownerLabel));
+        Text.Hint(string.Format(l.RpProfileVisOwnerNote, ownerLabel));
         Layout.Spacer(Theme.GapXs);
-        Text.Small(l.RpProfileVisFriendNote);
+        Text.Hint(l.RpProfileVisFriendNote);
         Layout.Spacer(Theme.GapXs);
-        Text.Small(l.RpProfileVisAlwaysPublic);
+        Text.Hint(l.RpProfileVisAlwaysPublic);
 
         // Le bouton n'a plus à paraître pour un interrupteur, qui part de
         // lui-même : il apparaîtrait le temps du délai puis disparaîtrait, ce qui

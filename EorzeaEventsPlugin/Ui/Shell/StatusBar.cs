@@ -25,30 +25,34 @@ internal static class StatusBar
         var end    = new Vector2(origin.X + width, origin.Y + height);
         var dl     = ImGui.GetWindowDrawList();
 
-        dl.AddRectFilled(origin, end, ImGui.GetColorU32(Theme.BgSidebar),
+        dl.AddRectFilled(origin, end, ImGui.GetColorU32(Theme.Alpha(Theme.BgSidebar, AppShell.ChromeOpacity(0.10f))),
             Theme.S(Theme.RadiusWindow), ImDrawFlags.RoundCornersBottom);
         dl.AddLine(origin, new Vector2(end.X, origin.Y),
             ImGui.GetColorU32(Theme.BorderSoft), 1f);
 
-        using var font = Fonts.PushSmall();
-
+        // Corps de texte et non petit, comme dans Linkpearl : en bas d'une
+        // grande fenêtre, l'état se lisait mal en 12 px.
         var mid = origin.Y + height * 0.5f;
 
         // État de la liaison, à gauche.
         var linked = Plugin.Api.HasToken && !Plugin.Api.IsTokenRevoked;
         dl.AddCircleFilled(new Vector2(origin.X + Theme.S(Theme.PadWindowX), mid),
-            Theme.S(3.5f), ImGui.GetColorU32(linked ? Theme.Online : Theme.TextFaint));
+            Theme.S(4.5f), ImGui.GetColorU32(linked ? Theme.Online : Theme.TextFaint));
 
-        // Nommer le mode : un point gris de trois pixels n'a jamais rien dit
-        // à personne, et le plugin sert pour de bon sans compte.
-        if (!linked)
-        {
-            var guest = Plugin.L.GuestMode;
-            var size  = ImGui.CalcTextSize(guest);
-            dl.AddText(
-                new Vector2(origin.X + Theme.S(Theme.PadWindowX + 10f), mid - size.Y * 0.5f),
-                ImGui.GetColorU32(Theme.TextFaint), guest);
-        }
+        // Nommer l'état en toutes lettres : un point n'a jamais rien dit à
+        // personne, et le plugin sert pour de bon sans compte. L'état prend la
+        // couleur du point, le détail reste discret.
+        var state  = linked ? Plugin.L.StatusLinked : Plugin.L.GuestMode;
+        var detail = linked ? LinkedCharacter() : null;
+        var x      = origin.X + Theme.S(Theme.PadWindowX + 12f);
+
+        var stateSize = ImGui.CalcTextSize(state);
+        dl.AddText(new Vector2(x, mid - stateSize.Y * 0.5f),
+            ImGui.GetColorU32(linked ? Theme.Online : Theme.TextMuted), state);
+
+        if (detail != null)
+            dl.AddText(new Vector2(x + stateSize.X, mid - stateSize.Y * 0.5f),
+                ImGui.GetColorU32(Theme.TextFaint), $" · {detail}");
 
         // Compteur de joueurs, à droite.
         if (_online > 0)
@@ -60,6 +64,15 @@ internal static class StatusBar
         }
 
         ImGui.Dummy(new Vector2(width, height));
+    }
+
+    /// <summary>« Nom (Monde) » du personnage lié qui est connecté, ou null hors jeu.</summary>
+    private static string? LinkedCharacter()
+    {
+        if (Plugin.CurrentCharacter is not { } character) return null;
+
+        var world = Plugin.Config.FindCharacterToken(character.Name, character.WorldId)?.WorldName;
+        return world is { Length: > 0 } ? $"{character.Name} ({world})" : character.Name;
     }
 
     private static void Refresh()

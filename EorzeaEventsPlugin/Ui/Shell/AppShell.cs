@@ -1,5 +1,6 @@
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility.Raii;
+using EorzeaEventsPlugin.Ui.Components;
 using System.Numerics;
 
 namespace EorzeaEventsPlugin.Ui.Shell;
@@ -12,15 +13,18 @@ namespace EorzeaEventsPlugin.Ui.Shell;
 /// marge intérieure, le shell peignant lui-même bord à bord.
 ///
 ///     ┌────────────────────────────────────────┐
-///     │ Eorzea Events                    ↗  ✕  │  barre de titre, déplaçable
-///     ├──────┬─────────────────────────────────┤
-///     │ ico  │                                 │
-///     │ ico  │  contenu de la page             │
-///     │ ico  │                                 │
-///     │ ⚙    │                                 │
-///     ├──────┴─────────────────────────────────┤
-///     │                    ● 28 en ligne       │
+///     │ ◉ Eorzea Events               ↗  —  ✕  │  barre de titre, déplaçable
+///     ├──────────┬─────────────────────────────┤
+///     │ JOUER    │                             │
+///     │ ico  RP  │  contenu de la page         │
+///     │ ico  …  ┃│                             │  ┃ poignée de largeur
+///     │ ⚙        │                             │
+///     ├──────────┴─────────────────────────────┤
+///     │ ● Compte lié · Nom          28 en ligne│
 ///     └────────────────────────────────────────┘
+///
+/// Réduite, la fenêtre ne garde que sa barre de titre, qui gagne alors
+/// l'interrupteur de disponibilité et le compteur « autour de moi ».
 /// </summary>
 internal sealed class AppShell
 {
@@ -35,6 +39,13 @@ internal sealed class AppShell
 
     public string ActiveId => _activeId;
 
+    /// <summary>
+    /// Bandeaux posés en tête du contenu, au-dessus de la page active : alerte
+    /// de l'équipe, actualité épinglée. Absent des écrans bloquants. Reçoit
+    /// l'identifiant de la page active.
+    /// </summary>
+    public Action<string>? Banner { get; init; }
+
     public void Navigate(string pageId)
     {
         if (_pages.Exists(p => p.Id == pageId)) _activeId = pageId;
@@ -45,21 +56,35 @@ internal sealed class AppShell
     /// écrans bloquants (version obsolète, jeton invalide) de court-circuiter
     /// la navigation tout en conservant la barre de titre.
     /// </summary>
-    public void Draw(out bool closeRequested, Action? fullScreen = null)
+    /// <param name="folded">
+    /// La fenêtre est réduite à sa barre de titre, ou en train de l'être : seule
+    /// la barre est dessinée, le reste n'aurait de toute façon pas la place.
+    /// </param>
+    public TitleAction Draw(bool folded = false, Action? fullScreen = null)
     {
         var available = ImGui.GetContentRegionAvail();
 
-        closeRequested = TitleBar.Draw(available.X);
+        var action = TitleBar.Draw(available.X, folded);
 
         var bodyHeight = available.Y
                          - Theme.S(Theme.TitleBarHeight)
                          - Theme.S(Theme.StatusBarHeight);
 
+        // Pendant que la fenêtre se replie, la place manque : un enfant de
+        // hauteur nulle ou négative serait pris par ImGui pour « tout le reste ».
+        if (folded || bodyHeight < Theme.S(60f))
+        {
+            // Valide la position où la barre a laissé le curseur : ImGui refuse
+            // qu'un SetCursorPos étende la fenêtre sans élément derrière.
+            ImGui.Dummy(Vector2.Zero);
+            return action;
+        }
+
         if (fullScreen != null)
         {
             DrawContent("##shellfull", available.X, bodyHeight, fullScreen);
             StatusBar.Draw();
-            return;
+            return action;
         }
 
         var clicked = Sidebar.Draw(Visible(), _activeId, bodyHeight);
@@ -72,13 +97,29 @@ internal sealed class AppShell
 
         ImGui.SameLine(0f, 0f);
 
-        DrawContent("##shellcontent",
-                    available.X - Theme.S(Theme.SidebarWidth),
-                    bodyHeight,
-                    Active().Draw);
+        var contentWidth = available.X - Sidebar.CurrentWidth;
+        var contentMin   = ImGui.GetCursorScreenPos();
+
+        var page = Active();
+        DrawContent("##shellcontent", contentWidth, bodyHeight, page.Draw,
+                    Banner == null ? null : () => Banner(page.Id));
+
+        // La notification se pose sur le contenu, puis le curseur revient où le
+        // contenu l'a laissé : la barre d'état se place d'après lui.
+        var after = ImGui.GetCursorScreenPos();
+        Snackbar.Draw(contentMin, contentMin + new Vector2(contentWidth, bodyHeight));
+        ImGui.SetCursorScreenPos(after);
 
         StatusBar.Draw();
+        return action;
     }
+
+    /// <summary>
+    /// Opacité des barres et de la colonne : celle de la fenêtre, relevée d'un
+    /// cran. Le cadre d'une vitre est toujours plus dense que la vitre.
+    /// </summary>
+    public static float ChromeOpacity(float lift) =>
+        Math.Clamp(Plugin.Config.WindowOpacity + lift, 0.4f, 1f);
 
     /// <summary>
     /// Zone de contenu, marges comprises.
@@ -88,7 +129,7 @@ internal sealed class AppShell
     /// est déjà la bonne, et les éléments qui demandent toute la largeur ne
     /// débordent pas sous la marge droite.
     /// </summary>
-    private static void DrawContent(string id, float width, float height, Action body)
+    private static void DrawContent(string id, float width, float height, Action body, Action? banner = null)
     {
         var padX = Theme.S(Theme.PadWindowX);
         var padY = Theme.S(Theme.PadWindowY);
@@ -100,6 +141,7 @@ internal sealed class AppShell
         if (!child) return;
 
         ImGui.Dummy(new Vector2(0f, padY));
+        banner?.Invoke();
         body();
     }
 

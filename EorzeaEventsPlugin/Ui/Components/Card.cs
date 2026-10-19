@@ -4,6 +4,12 @@ using System.Numerics;
 
 namespace EorzeaEventsPlugin.Ui.Components;
 
+/// <summary>
+/// Ciel étoilé peint à la place d'une bannière absente : couleurs du haut et du
+/// milieu, deux halos. Le bas se fond dans le fond de la carte.
+/// </summary>
+internal readonly record struct CardSky(Vector4 Top, Vector4 Middle, Vector4 Glow, Vector4 Glow2, bool Animated);
+
 internal enum CardTone
 {
     /// <summary>Surface neutre.</summary>
@@ -77,6 +83,9 @@ internal static class Card
 
     private const float EstimatedHeight = 64f;
 
+    /// <summary>Air entre une carte et la barre de défilement de sa zone.</summary>
+    private const float ScrollGutter = 6f;
+
     /// <summary>
     /// Marge droite de la carte en cours, en pixels déjà mis à l'échelle.
     ///
@@ -106,16 +115,26 @@ internal static class Card
                                   Vector4? border = null,
                                   Vector4? accent = null,
                                   IDalamudTextureWrap? banner = null,
-                                  float bannerHeight = 96f)
+                                  float bannerHeight = 96f,
+                                  CardSky? sky = null)
     {
+        // La bannière l'emporte toujours : le ciel n'est qu'un repli.
+        var art = banner != null || sky != null;
+
         var key    = ImGui.GetID(id);
         var origin = ImGui.GetCursorScreenPos();
-        var width  = ImGui.GetContentRegionAvail().X;
+        // Quand la zone défile, la carte s'arrête avant la barre de défilement
+        // au lieu de la toucher : ImGui ne sait pas mettre de marge entre les
+        // deux, et le contenu venait s'y coller.
+        // Seulement pour une carte de premier niveau : une carte imbriquée
+        // hérite déjà du retrait de sa parente.
+        var gutter = RightInset == 0f && ImGui.GetScrollMaxY() > 0f ? Theme.S(ScrollGutter) : 0f;
+        var width  = ImGui.GetContentRegionAvail().X - gutter;
         // À la toute première frame la hauteur réelle est inconnue. L'estimation
         // inclut la bannière, sans quoi celle-ci recouvrirait entièrement la carte.
         var height = Heights.TryGetValue(key, out var cached)
             ? cached
-            : Theme.S(EstimatedHeight + (banner != null ? bannerHeight : 0f));
+            : Theme.S(EstimatedHeight + (art ? bannerHeight : 0f));
 
         var min = origin;
         var max = new Vector2(origin.X + width, origin.Y + height);
@@ -124,12 +143,14 @@ internal static class Card
                       && ImGui.IsWindowHovered(ImGuiHoveredFlags.ChildWindows)
                       && ImGui.IsMouseHoveringRect(min, max);
 
+        // Translucides sur la nuit, pour laisser voir le halo. Posées sur la
+        // fenêtre, elles ne descendent jamais sous son opacité.
         var bg = background ?? (tone == CardTone.Interactive && hovered
-            ? Theme.BgRaised
-            : Theme.BgSurface);
+            ? Theme.CardFillHover
+            : Theme.CardFill);
 
         var dl = ImGui.GetWindowDrawList();
-        Surface.Panel(dl, min, max, bg, border ?? Theme.Border, highlight: banner == null);
+        Surface.Panel(dl, min, max, bg, border ?? Theme.Border, highlight: !art);
 
         // Pas de dégradé de fond ici, à dessein : la liste de dessin ne sait pas
         // remplir un rectangle arrondi en dégradé. Un rectangle inséré sous le
@@ -137,17 +158,27 @@ internal static class Card
         // déborde des arrondis, et un dégradé plus court que la carte crée une
         // arête horizontale là où il s'arrête. La teinte plate de `background`
         // suffit : elle est assez discrète pour ne pas réclamer de fondu.
-        if (banner != null) DrawBanner(dl, min, width, Theme.S(bannerHeight), banner);
+        if (banner != null)
+            DrawBanner(dl, min, width, Theme.S(bannerHeight), banner);
+        else if (sky is { } night)
+            Surface.StarrySky(dl, min, new Vector2(min.X + width, min.Y + Theme.S(bannerHeight)),
+                              Theme.S(Theme.RadiusCard), night.Top, night.Middle,
+                              // Le milieu rendu transparent, et non le fond de la
+                              // carte : ImGui interpole sans prémultiplier, et
+                              // un fond translucide blanc donnerait une bande
+                              // grise à mi-hauteur.
+                              Theme.Alpha(night.Middle, 0f),
+                              night.Glow, night.Glow2, night.Animated);
         if (accent is { } accentColor) Surface.AccentBar(dl, min, max, accentColor);
 
         ImGui.PushID(id);
 
-        if (banner != null) ImGui.Dummy(new Vector2(0f, Theme.S(bannerHeight)));
+        if (art) ImGui.Dummy(new Vector2(0f, Theme.S(bannerHeight)));
         ImGui.Dummy(new Vector2(0f, Theme.S(Theme.CardPadY)));
 
         var previousInset = RightInset;
         ImGui.Indent(Theme.S(Theme.CardPadX));
-        RightInset = previousInset + Theme.S(Theme.CardPadX);
+        RightInset = previousInset + Theme.S(Theme.CardPadX) + gutter;
 
         return new CardScope(key, origin, hovered, previousInset);
     }

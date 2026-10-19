@@ -60,7 +60,7 @@ public class PortraitZoomWindow : ThemedWindow
         ImGui.SetNextWindowPos(viewport.WorkPos + (viewport.WorkSize - window) * 0.5f);
     }
 
-    public override void Draw()
+    protected override void DrawContents()
     {
         var texture = Textures.Get(_url);
         if (texture == null)

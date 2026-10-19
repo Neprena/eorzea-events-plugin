@@ -27,6 +27,9 @@ internal sealed class AroundPage
     private string? _levelFilter;
     private string? _approachFilter;
 
+    /// <summary>Carte des filtres dépliée. Repliée au départ : on filtre rarement.</summary>
+    private bool _filtersOpen;
+
     public void Draw()
     {
         var l = Plugin.L;
@@ -42,9 +45,6 @@ internal sealed class AroundPage
             OpenSite("/rp-live");
 
         Layout.Spacer(Theme.GapS);
-
-        var myWorldOnly = _myWorldOnly;
-        if (Inputs.ToggleRow(l.AroundMyWorldOnly, ref myWorldOnly)) _myWorldOnly = myWorldOnly;
 
         DrawFilters(l);
 
@@ -91,7 +91,7 @@ internal sealed class AroundPage
         // JDR » de la carte fait le reste.
         if (entries.Any(e => !IsDeclared(e)))
         {
-            Text.Small(l.AroundRpTaggedHint, Theme.TextMuted);
+            Text.Hint(l.AroundRpTaggedHint);
             Layout.Spacer(Theme.GapS);
         }
 
@@ -131,36 +131,145 @@ internal sealed class AroundPage
     /// niveau, mode d'approche. Une pastille active filtre, une seconde
     /// pression la relâche.
     /// </summary>
+    /// <summary>
+    /// Filtres, regroupés dans une carte : le monde, puis une ligne titrée par
+    /// critère, chacune ouverte par « Peu importe ».
+    ///
+    /// Trois rangées de boutons sans titre ne disaient ni ce qu'elles
+    /// filtraient, ni comment revenir à « tout » : il fallait deviner qu'un
+    /// second clic sur le choix actif l'annulait.
+    ///
+    /// Repliée par défaut, et de nouveau à la réinitialisation : la plupart du
+    /// temps on ne filtre rien, et la carte dépliée repoussait la liste d'un
+    /// tiers de fenêtre. Repliée, son titre compte les filtres posés.
+    /// </summary>
     private void DrawFilters(Loc l)
     {
+        using var card = Card.Begin("around_filters", interactive: false);
+
+        var active = (_langFilter != null ? 1 : 0) + (_levelFilter != null ? 1 : 0)
+                   + (_approachFilter != null ? 1 : 0) + (_myWorldOnly ? 1 : 0);
+
+        var toggle  = ImGui.GetFrameHeight();
+        var reset   = active > 0 ? Btn.Measure(l.AroundFilterReset, BtnSize.Small, Icons.Refresh) + Theme.S(Theme.GapS) : 0f;
+        var header  = ImGui.GetCursorScreenPos();
+        var right   = header.X + ImGui.GetContentRegionAvail().X - Card.RightInset;
+
+        // « Réinitialiser » n'apparaît qu'une fois un filtre posé : sans filtre,
+        // il n'y aurait rien à défaire. La flèche, elle, est toujours là.
+        Layout.SectionHeader(l.AroundFilters, Icons.Filter, count: active > 0 ? active : null,
+            actions: () =>
+            {
+                if (active > 0)
+                {
+                    if (Btn.Draw(l.AroundFilterReset, BtnTone.Ghost, BtnSize.Small, Icons.Refresh, id: "around_f_reset"))
+                    {
+                        _langFilter = _levelFilter = _approachFilter = null;
+                        _myWorldOnly = false;
+                        _filtersOpen = false;
+                    }
+
+                    ImGui.SameLine(0f, Theme.S(Theme.GapS));
+                }
+
+                if (Btn.Icon(_filtersOpen ? Icons.ChevronDown : Icons.Chevron, "around_f_toggle"))
+                    _filtersOpen = !_filtersOpen;
+            },
+            actionsWidth: reset + toggle);
+
+        // Tout l'en-tête se clique, hors boutons : la flèche seule est une
+        // cible trop petite pour un geste aussi courant.
+        var after = ImGui.GetCursorScreenPos();
+        ImGui.SetCursorScreenPos(header);
+        if (ImGui.InvisibleButton("##around_f_header",
+                                  new Vector2(MathF.Max(1f, right - reset - toggle - Theme.S(Theme.GapM) - header.X),
+                                              MathF.Max(1f, after.Y - header.Y - Theme.S(Theme.GapS)))))
+            _filtersOpen = !_filtersOpen;
+        if (ImGui.IsItemHovered()) ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
+        ImGui.SetCursorScreenPos(after);
+
+        if (!_filtersOpen) return;
+
+        var myWorldOnly = _myWorldOnly;
+        if (Inputs.ToggleRow(l.AroundMyWorldOnly, ref myWorldOnly)) _myWorldOnly = myWorldOnly;
+
         Layout.Spacer(Theme.GapXs);
 
-        DrawFilterRow("lang",
-            [("fr", RpProfileView.LanguageLabel("fr")), ("en", RpProfileView.LanguageLabel("en"))],
+        // Une colonne de titres de même largeur : les pastilles démarrent
+        // toutes à la même abscisse, et les lignes se lisent comme un tableau.
+        float column;
+        using (Fonts.PushSmall())
+            column = new[] { l.AroundFilterLanguage, l.AroundFilterLevel, l.AroundFilterApproach }
+                         .Max(t => ImGui.CalcTextSize(t.ToUpperInvariant()).X) + Theme.S(Theme.GapL);
+
+        DrawFilterRow("lang", l.AroundFilterLanguage, column, l,
+            [("fr", RpProfileView.LanguageLabel("fr"), null), ("en", RpProfileView.LanguageLabel("en"), null)],
             ref _langFilter);
-        DrawFilterRow("level",
-            [("beginner",  RpProfileView.LevelLabel("beginner",  l)),
-             ("casual",    RpProfileView.LevelLabel("casual",    l)),
-             ("confirmed", RpProfileView.LevelLabel("confirmed", l))],
+        DrawFilterRow("level", l.AroundFilterLevel, column, l,
+            [Level("beginner", l), Level("casual", l), Level("confirmed", l)],
             ref _levelFilter);
-        DrawFilterRow("approach",
-            [("come_to_me", RpProfileView.ApproachLabel("come_to_me", l)),
-             ("i_approach", RpProfileView.ApproachLabel("i_approach", l)),
-             ("either",     RpProfileView.ApproachLabel("either",     l))],
+        DrawFilterRow("approach", l.AroundFilterApproach, column, l,
+            [("come_to_me", RpProfileView.ApproachLabel("come_to_me", l), null),
+             ("i_approach", RpProfileView.ApproachLabel("i_approach", l), null),
+             ("either",     RpProfileView.ApproachLabel("either",     l), null)],
             ref _approachFilter);
     }
 
-    private static void DrawFilterRow(string id, (string Key, string Label)[] options, ref string? selected)
+    /// <summary>
+    /// Niveau en nom court, la description en infobulle : « Débutant — Je
+    /// découvre le RP » sur une pastille l'étirait sur toute la ligne.
+    /// </summary>
+    private static (string Key, string Label, string? Tooltip) Level(string key, Loc l)
     {
-        for (var i = 0; i < options.Length; i++)
+        var full  = RpProfileView.LevelLabel(key, l);
+        var dash  = full.IndexOf(" — ", StringComparison.Ordinal);
+        return dash > 0 ? (key, full[..dash], full) : (key, full, null);
+    }
+
+    private static void DrawFilterRow(string id, string title, float column, Loc l,
+                                      (string Key, string Label, string? Tooltip)[] options, ref string? selected)
+    {
+        var start = ImGui.GetCursorPosX();
+        var lineH = MathF.Round(ImGui.GetTextLineHeight() + Theme.S(8f));
+
+        // Titre centré sur la hauteur des pastilles, peint et non posé comme un
+        // élément : posé, il imposait sa hauteur aux pastilles suivantes de la
+        // ligne, et seule la première s'alignait.
+        using (Fonts.PushSmall())
         {
-            if (i > 0) ImGui.SameLine(0f, Theme.S(Theme.GapXs));
-            var (key, label) = options[i];
+            var origin = ImGui.GetCursorScreenPos();
+            var label  = title.ToUpperInvariant();
+            ImGui.GetWindowDrawList().AddText(
+                new Vector2(origin.X, origin.Y + (lineH - ImGui.GetTextLineHeight()) * 0.5f),
+                ImGui.GetColorU32(Theme.TextFaint), label);
+        }
+
+        ImGui.SetCursorPosX(start + column);
+
+        var right = ImGui.GetCursorPosX() + ImGui.GetContentRegionAvail().X - Card.RightInset;
+        var gap   = Theme.S(Theme.GapXs + 2f);
+
+        void Next(string label, bool first)
+        {
+            if (first) return;
+            if (ImGui.GetItemRectMax().X - ImGui.GetWindowPos().X + gap + Inputs.PillWidth(label) <= right)
+                ImGui.SameLine(0f, gap);
+            else
+                ImGui.SetCursorPosX(start + column);
+        }
+
+        if (Inputs.Pill($"##around_f_{id}_any", l.AroundFilterAny, selected == null))
+            selected = null;
+
+        foreach (var (key, label, tooltip) in options)
+        {
+            Next(label, first: false);
             var active = selected == key;
-            if (Btn.Draw(label, active ? BtnTone.Primary : BtnTone.Ghost, BtnSize.Small,
-                         id: $"around_f_{id}_{key}"))
+            if (Inputs.Pill($"##around_f_{id}_{key}", label, active, tooltip))
                 selected = active ? null : key;
         }
+
+        Layout.Spacer(Theme.GapXs);
     }
 
     /// <summary>Une entrée sans fiche ne passe que si aucun filtre n'est posé.</summary>
@@ -221,79 +330,44 @@ internal sealed class AroundPage
 
         ImGui.BeginGroup();
 
-        Text.Body(Plugin.DisplayName(entry.Profile, entry.CharacterName));
+        // Même ordre de lecture qu'une carte d'événement : les pastilles d'état
+        // en tête, le nom en titre, un résumé en retrait, puis le lieu en
+        // pastilles. Tout était jusqu'ici du texte de même poids, et l'œil ne
+        // trouvait ni le nom ni l'endroit.
+        DrawStatusChips(entry, l, declared);
+
+        // Nom en titre, dans la couleur choisie par le joueur sur le site, à
+        // défaut dans l'or des titres.
+        var profile   = entry.Profile;
+        var nameColor = Theme.TryParseHex(profile?.AccentColor) != null
+            ? RpProfileView.Accent(profile)
+            : Theme.TitleGold;
+
+        using (Fonts.PushH2())
+            ImGui.TextColored(nameColor, Glyphs.Safe(Plugin.DisplayName(profile, entry.CharacterName)));
+
         Text.Small($"{entry.CharacterName} · {entry.Server}");
 
-        // Teintée quand le joueur est dans ma zone : c'est la seule différence
-        // visible entre une carte de la section « dans ma zone » et les autres.
-        if (entry.Zone is { Length: > 0 } zone)
-            Text.WithIcon(Icons.Location, zone,
-                          inZone ? Theme.Online : null, inZone ? Theme.Online : null, wrap: true);
-
-        // Coordonnées au format du jeu : c'est ainsi qu'on se donne rendez-vous.
-        if (Plugin.HasFreshPosition(entry))
+        // La citation accompagne le portrait dans la charge utile, envoyée pour
+        // étoffer cette liste sans second appel. En retrait, comme le résumé
+        // d'un événement, mais dans la couleur du joueur : c'est le seul rappel
+        // de son habillage dans cette liste.
+        if (profile?.Quote is { Length: > 0 } quote)
         {
-            var coords = $"X {entry.PosX!.Value:F1}  Y {entry.PosZ!.Value:F1}";
-            if (entry.InstanceId is > 0 and var instance)
-                coords += $" · {string.Format(l.AroundInstance, instance)}";
-            Text.WithIcon(Icons.Map, coords);
+            Layout.Spacer(Theme.GapXs);
+            ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + ImGui.GetContentRegionAvail().X - Card.RightInset);
+            ImGui.TextColored(Theme.Alpha(RpProfileView.Accent(profile), 0.9f), $"« {Glyphs.Safe(quote)} »");
+            ImGui.PopTextWrapPos();
         }
 
-        // La citation accompagne le portrait dans la charge utile, envoyée pour
-        // étoffer cette liste sans second appel. Elle n'était pas affichée.
-        //
-        // Elle porte la couleur d'accent du joueur, seul rappel de son habillage
-        // dans cette liste : le liseré de la carte reste réservé au statut de
-        // disponibilité, et la bannière n'est pas envoyée pour cette vue.
-        if (entry.Profile?.Quote is { Length: > 0 } quote)
-            Text.Small($"« {quote} »", RpProfileView.Accent(entry.Profile));
+        DrawPlaceChips(entry, l, inZone);
 
         // Ma note privée, tirée du registre des rencontres : c'est ici qu'on
         // décide d'aborder quelqu'un, autant se rappeler ce qu'on en sait.
-        if (EncounterRegistry.NoteFor(entry.Profile?.CharacterId) is { Length: > 0 } note)
-            Text.WithIcon(Icons.Edit, note, wrap: true);
-
-        if (entry.Profile is { } profile)
+        if (EncounterRegistry.NoteFor(profile?.CharacterId) is { Length: > 0 } note)
         {
             Layout.Spacer(Theme.GapXs);
-
-            // Statut d'équipe en tête des pastilles : savoir à qui s'adresser en
-            // jeu est précisément ce qu'on cherche dans cette liste. Le liseré de
-            // la carte n'en est pas teinté pour autant, il reste réservé à la
-            // disponibilité.
-            // Le badge nomme le site (« Équipe Eorzea Events »), il est donc long,
-            // et cette colonne est étroite : le portrait en mange déjà 128. À la
-            // largeur minimale de la fenêtre, la suite de pastilles dépassait du
-            // bord droit de la carte, où elle se faisait rogner. Chacune ne reste
-            // donc sur la ligne que si elle y tient. Chip.Row fait la même chose,
-            // mais il impose un ton unique et pas d'icône : inutilisable ici.
-            var flow = FlowRow.Fill(Theme.S(Theme.GapXs));
-
-            // Extrait servi par la route publique des disponibilités : le
-            // consentement y est déjà appliqué, `staffBadgeVisible` n'y figure pas.
-            if (RpProfileView.StaffBadge(profile, l, requireConsent: false)) flow.Started();
-
-            // Sur la carte aussi, pas seulement en tête de section : une liste se
-            // parcourt, et la mise en garde doit tenir sur la ligne qu'on lit.
-            if (!declared)
-            {
-                flow.Next(Chip.Measure(l.AroundRpTaggedChip, Icons.RpLive));
-                Chip.Draw(l.AroundRpTaggedChip, ChipTone.Warning, Icons.RpLive);
-            }
-
-            var level = RpProfileView.LevelLabel(profile.RpLevel, l);
-            flow.Next(Chip.Measure(level));
-            Chip.Draw(level, ChipTone.Neutral);
-
-            var approach = RpProfileView.ApproachLabel(profile.ApproachMode, l);
-            flow.Next(Chip.Measure(approach));
-            Chip.Draw(approach, ChipTone.Accent);
-
-            if (profile.Nsfw)
-            {
-                flow.Next(Chip.Measure(l.RpProfileNsfw, Icons.Warning));
-                Chip.Draw(l.RpProfileNsfw, ChipTone.Danger, Icons.Warning);
-            }
+            Text.WithIcon(Icons.Edit, note, wrap: true);
         }
 
         ImGui.EndGroup();
@@ -341,6 +415,97 @@ internal sealed class AroundPage
             {
                 Plugin.AddFriend(friendId, 0, entry.CharacterName);
             }
+        }
+    }
+
+    /// <summary>
+    /// Pastilles d'état, en tête de carte : disponibilité, statut d'équipe,
+    /// niveau, approche. Chacune ne reste sur la ligne que si elle y tient : la
+    /// colonne est étroite, le portrait en mange déjà 128 px.
+    /// </summary>
+    private static void DrawStatusChips(RpAvailabilityEntryDto entry, Loc l, bool declared)
+    {
+        var flow = FlowRow.Fill(Theme.S(Theme.GapXs));
+
+        // Le vert pour qui a levé la main, l'ambre pour le seul tag allumé : la
+        // mise en garde doit tenir sur la ligne qu'on lit, pas seulement en tête
+        // de section.
+        if (declared)
+        {
+            flow.Next(Chip.Measure(l.AroundAvailableChip, Icons.RpLive));
+            Chip.Draw(l.AroundAvailableChip, ChipTone.Success, Icons.RpLive);
+        }
+        else
+        {
+            flow.Next(Chip.Measure(l.AroundRpTaggedChip, Icons.RpLive));
+            Chip.Draw(l.AroundRpTaggedChip, ChipTone.Warning, Icons.RpLive);
+        }
+
+        if (entry.Profile is not { } profile)
+        {
+            Layout.Spacer(Theme.GapXs);
+            return;
+        }
+
+        // Extrait servi par la route publique des disponibilités : le
+        // consentement y est déjà appliqué, `staffBadgeVisible` n'y figure pas.
+        // Le badge nomme le site, il est long : il passe à la ligne s'il le faut.
+        if (RpProfileView.StaffBadgeLabel(profile, l, requireConsent: false) is { } staff)
+            flow.Next(Chip.Measure(staff, Icons.Shield));
+        RpProfileView.StaffBadge(profile, l, requireConsent: false);
+
+        // Niveau en nom court, sa description au survol : « Débutant — Je
+        // découvre le RP » étirait la pastille sur toute la ligne.
+        var level = RpProfileView.LevelLabel(profile.RpLevel, l);
+        var dash  = level.IndexOf(" — ", StringComparison.Ordinal);
+        var shortLevel = dash > 0 ? level[..dash] : level;
+        flow.Next(Chip.Measure(shortLevel));
+        Chip.Draw(shortLevel, ChipTone.Neutral);
+        if (dash > 0) Feedback.TooltipOnHover(level);
+
+        var approach = RpProfileView.ApproachLabel(profile.ApproachMode, l);
+        flow.Next(Chip.Measure(approach));
+        Chip.Draw(approach, ChipTone.Accent);
+
+        if (profile.Nsfw)
+        {
+            flow.Next(Chip.Measure(l.RpProfileNsfw, Icons.Warning));
+            Chip.Draw(l.RpProfileNsfw, ChipTone.Danger, Icons.Warning);
+        }
+
+        Layout.Spacer(Theme.GapXs);
+    }
+
+    /// <summary>
+    /// Où trouver la personne, en pastilles comme le lieu d'un événement : la
+    /// zone, puis les coordonnées au format du jeu, c'est ainsi qu'on se donne
+    /// rendez-vous.
+    /// </summary>
+    private static void DrawPlaceChips(RpAvailabilityEntryDto entry, Loc l, bool inZone)
+    {
+        var zone   = entry.Zone is { Length: > 0 } z ? z : null;
+        var coords = Plugin.HasFreshPosition(entry)
+            ? $"X {entry.PosX!.Value:F1}  Y {entry.PosZ!.Value:F1}"
+              + (entry.InstanceId is > 0 and var instance ? $" · {string.Format(l.AroundInstance, instance)}" : "")
+            : null;
+
+        if (zone == null && coords == null) return;
+
+        Layout.Spacer(Theme.GapS);
+        var flow = FlowRow.Fill(Theme.S(Theme.GapXs));
+
+        // En vert quand la personne est dans ma zone : c'est la seule différence
+        // visible entre une carte de la section « dans ma zone » et les autres.
+        if (zone != null)
+        {
+            flow.Next(Chip.Measure(zone, Icons.Location));
+            Chip.Draw(zone, inZone ? ChipTone.Success : ChipTone.Neutral, Icons.Location);
+        }
+
+        if (coords != null)
+        {
+            flow.Next(Chip.Measure(coords, Icons.Map));
+            Chip.Draw(coords, ChipTone.Neutral, Icons.Map);
         }
     }
 

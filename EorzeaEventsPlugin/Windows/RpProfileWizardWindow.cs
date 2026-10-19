@@ -123,7 +123,7 @@ public sealed class RpProfileWizardWindow : ThemedWindow
         IsOpen        = true;
     }
 
-    public override void Draw()
+    protected override void DrawContents()
     {
         var l = Plugin.L;
 
@@ -154,7 +154,7 @@ public sealed class RpProfileWizardWindow : ThemedWindow
 
     private void DrawIdentity(Loc l)
     {
-        Text.Small(l.RpWizardIdentityHint, Theme.TextMuted);
+        Text.Hint(l.RpWizardIdentityHint);
         Layout.Spacer(Theme.GapS);
 
         Inputs.Field("##wname", l.RpProfileRpName, ref _rpName, 80, help: l.RpWizardNameHint);
@@ -170,7 +170,7 @@ public sealed class RpProfileWizardWindow : ThemedWindow
 
     private void DrawPlay(Loc l)
     {
-        Text.Small(l.RpWizardPlayHint, Theme.TextMuted);
+        Text.Hint(l.RpWizardPlayHint);
         Layout.Spacer(Theme.GapS);
 
         Inputs.Select("##wlevel", l.RpProfileLevel, ref _level,
@@ -180,7 +180,7 @@ public sealed class RpProfileWizardWindow : ThemedWindow
                       [.. RpVocab.Approaches.Select(k => RpProfileView.ApproachLabel(k, l))]);
 
         Layout.Spacer(Theme.GapS);
-        Text.Small(l.RpProfileLanguages, Theme.TextMuted);
+        Text.Hint(l.RpProfileLanguages);
 
         var fr = _langFr;
         if (Inputs.ToggleRow("Français", ref fr)) _langFr = fr;
@@ -194,7 +194,7 @@ public sealed class RpProfileWizardWindow : ThemedWindow
 
     private void DrawThemes(Loc l)
     {
-        Text.Small(l.RpWizardThemesHint, Theme.TextMuted);
+        Text.Hint(l.RpWizardThemesHint);
         Layout.Spacer(Theme.GapS);
 
         DrawThemeRow(l.RpProfileThemes, _themes, _avoidThemes, "w_want", l);
@@ -232,20 +232,20 @@ public sealed class RpProfileWizardWindow : ThemedWindow
 
     private void DrawVisibility(Loc l)
     {
-        Text.Small(l.RpWizardVisibilityHint, Theme.TextMuted);
+        Text.Hint(l.RpWizardVisibilityHint);
         Layout.Spacer(Theme.GapS);
 
         var visible = _isPublic;
         if (Inputs.ToggleRow(l.RpProfileVisInGame, ref visible)) _isPublic = visible;
-        Text.Small(l.RpWizardVisibleHint, Theme.TextMuted);
+        Text.Hint(l.RpWizardVisibleHint);
 
         Layout.Spacer(Theme.GapS);
         var nsfw = _nsfw;
         if (Inputs.ToggleRow(l.RpProfileNsfw, ref nsfw)) _nsfw = nsfw;
-        Text.Small(l.RpWizardNsfwHint, Theme.TextMuted);
+        Text.Hint(l.RpWizardNsfwHint);
 
         Layout.Spacer(Theme.GapM);
-        Text.Small(l.RpWizardRest, Theme.TextMuted);
+        Text.Hint(l.RpWizardRest);
     }
 
     private void DrawFooter(Loc l)
@@ -276,7 +276,7 @@ public sealed class RpProfileWizardWindow : ThemedWindow
         {
             ImGui.SameLine(0f, Theme.S(Theme.GapM));
             ImGui.AlignTextToFramePadding();
-            Text.Small(_error, Theme.Danger);
+            Text.Hint(_error, Theme.Danger);
         }
     }
 

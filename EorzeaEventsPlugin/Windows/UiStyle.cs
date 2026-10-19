@@ -18,7 +18,7 @@ namespace EorzeaEventsPlugin.Windows;
 internal static class UiStyle
 {
     // ── Hiérarchie de texte ───────────────────────────────────────────────────
-    public static readonly Vector4 TextTitle   = Theme.Gold;
+    public static readonly Vector4 TextTitle   = Theme.TitleGold;
     public static readonly Vector4 TextSection = Theme.GoldHover;
     public static readonly Vector4 TextMuted   = Theme.TextMuted;
     public static readonly Vector4 TextSubtle  = Theme.TextFaint;
@@ -40,9 +40,9 @@ internal static class UiStyle
     public static readonly Vector4 ChipBgAccent = Theme.Mix(Theme.BgRaised, Theme.Accent, 0.35f);
 
     // ── Boutons ───────────────────────────────────────────────────────────────
-    public static readonly Vector4 PrimaryNormal  = Theme.Accent;
-    public static readonly Vector4 PrimaryHovered = Theme.Mix(Theme.Accent, Theme.Text, 0.18f);
-    public static readonly Vector4 PrimaryActive  = Theme.AccentActive;
+    public static readonly Vector4 PrimaryNormal  = Theme.Action;
+    public static readonly Vector4 PrimaryHovered = Theme.ActionHover;
+    public static readonly Vector4 PrimaryActive  = Theme.ActionActive;
 
     public static readonly Vector4 SuccessNormal  = Theme.Online;
     public static readonly Vector4 SuccessHovered = Theme.Mix(Theme.Online, Theme.Text,   0.18f);

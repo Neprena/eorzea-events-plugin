@@ -98,6 +98,28 @@ internal static class RpProfileView
         Theme.Mix(Theme.BgSurface, Theme.Mix(accent, accent2, 0.5f), 0.12f);
 
     /// <summary>
+    /// Ciel étoilé de l'entête, quand la fiche n'a pas de bannière : aux
+    /// couleurs choisies sur le site, ou à défaut celles de la Nuit dorée.
+    ///
+    /// Une bannière n'est jamais recouverte : elle a été choisie, souvent payée,
+    /// et c'est elle qui dit qui est le personnage. Le ciel n'en est que le
+    /// repli, et garde l'habillage même sans image.
+    /// </summary>
+    internal static CardSky HeaderSky(bool hasAccent, Vector4 accent, Vector4 accent2)
+    {
+        // Figé aussi quand Dalamud demande moins d'animations : des étoiles qui
+        // scintillent en permanence sont exactement ce que ce réglage veut éviter.
+        var animated = Plugin.Config.AnimatedProfileHeaders
+                       && !Plugin.PluginInterface.UiBuilder.ShouldUseReducedMotion;
+
+        return hasAccent
+            ? new CardSky(Theme.Mix(Theme.BgBase, accent2, 0.70f), Theme.Mix(Theme.BgBase, accent, 0.40f),
+                          Theme.Alpha(accent, 0.35f), Theme.Alpha(accent2, 0.30f), animated)
+            : new CardSky(Theme.Hex(0x1B2A5E), Theme.Hex(0x18224A),
+                          Theme.Alpha(Theme.Accent, 0.28f), Theme.Alpha(Theme.TitleGold, 0.16f), animated);
+    }
+
+    /// <summary>
     /// Libellé du statut d'équipe, ou null s'il n'y a rien à afficher.
     ///
     /// Un rôle inconnu ne donne pas de pastille, plutôt qu'une pastille au
@@ -169,8 +191,9 @@ internal static class RpProfileView
     internal const float HeaderBanner   = 160f;
 
     /// <summary>
-    /// Décalage du portrait sur la bannière. Nul sans bannière : il n'y aurait
-    /// rien à chevaucher et le portrait mordrait sur le bord de la carte.
+    /// Décalage du portrait sur la bannière, ou sur le ciel qui la remplace.
+    /// Nul sans l'une ni l'autre : il n'y aurait rien à chevaucher et le portrait
+    /// mordrait sur le bord de la carte.
     /// </summary>
     /// <summary>
     /// Écart entre la pastille de statut d'équipe et le nom qu'elle surmonte.
@@ -330,10 +353,12 @@ internal static class RpProfileView
             background:   hasAccent ? HeaderBackground(accent, accent2) : null,
             accent:       hasAccent ? accent : null,
             banner:       banner,
-            bannerHeight: HeaderBanner);
+            bannerHeight: HeaderBanner,
+            sky:          banner == null ? HeaderSky(hasAccent, accent, accent2) : null);
 
-        // Le portrait remonte sur la bannière, à la manière d'un profil Discord.
-        var overlap = HeaderOverlap(banner != null);
+        // Le portrait remonte sur la bannière, ou sur le ciel qui la remplace,
+        // à la manière d'un profil Discord.
+        var overlap = HeaderOverlap(hasBanner: true);
         if (overlap > 0f)
             ImGui.SetCursorPosY(ImGui.GetCursorPosY() - Theme.S(overlap));
 
@@ -378,7 +403,7 @@ internal static class RpProfileView
         var badge       = StaffBadgeLabel(profile, l, requireConsent: false);
 
         HeaderNameFiller(badge, displayName, profile?.RpTitle, identity, nickname,
-                         HeaderNameMinTop(cardOrigin, banner != null));
+                         HeaderNameMinTop(cardOrigin, hasBanner: true));
 
         // Statut d'équipe au-dessus du nom : c'est l'information qui change la
         // façon dont on lit tout le reste de la fiche, elle doit être vue avant
@@ -386,7 +411,7 @@ internal static class RpProfileView
         if (StaffBadge(profile, l, requireConsent: false))
             Layout.Spacer(HeaderBadgeGap);
 
-        Text.Title(displayName);
+        Text.Name(displayName);
 
         // Titre court réservé aux membres, juste sous le nom : c'est là qu'un
         // titre se lit, avant l'identité technique du personnage.

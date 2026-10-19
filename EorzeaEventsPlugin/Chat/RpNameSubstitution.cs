@@ -179,7 +179,7 @@ internal static class RpNameSubstitution
     private static ushort ResolveColor(string? accent)
     {
         if (Ui.Theme.TryParseHex(accent) is { } parsed)
-            return ChatPalette.Nearest(Ui.Theme.EnsureReadable(parsed));
+            return ChatPalette.Nearest(ChatPalette.Readable(parsed));
 
         return ChatPalette.Nearest(ChatPalette.NameDefault);
     }

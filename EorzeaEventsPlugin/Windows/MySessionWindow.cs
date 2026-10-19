@@ -474,7 +474,7 @@ public class MySessionWindow : ThemedWindow
 
     // ─── Draw ─────────────────────────────────────────────────────────────────
 
-    public override void Draw()
+    protected override void DrawContents()
     {
         var l = Plugin.L;
         WindowName = l.MySessionTitle + "##mysession";

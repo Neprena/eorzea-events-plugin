@@ -68,6 +68,30 @@ internal static class Layout
         ImGui.Dummy(new Vector2(0f, Theme.S(Theme.GapS)));
     }
 
+    /// <summary>
+    /// Sous-groupe à l'intérieur d'une section : petites capitales discrètes,
+    /// pour ne pas concurrencer l'en-tête de section au-dessus.
+    /// </summary>
+    public static void SubHeader(string text, FontAwesomeIcon? icon = null)
+    {
+        using var _ = Fonts.PushSmall();
+        var label = text.ToUpper(Plugin.L.Culture);
+        if (icon is { } value) Text.WithIcon(value, label, Theme.TextFaint, Theme.TextMuted);
+        else                   ImGui.TextColored(Theme.TextMuted, label);
+        ImGui.Dummy(new Vector2(0f, Theme.S(Theme.GapXs)));
+    }
+
+    /// <summary>
+    /// Titre d'une carte : icône d'accent et libellé en H2 clair. Distinct de
+    /// <see cref="SectionHeader"/>, qui regroupe des cartes et ne se pose pas
+    /// à l'intérieur de l'une d'elles.
+    /// </summary>
+    public static void CardHeading(string title, FontAwesomeIcon icon)
+    {
+        using (Fonts.PushH2()) Text.WithIcon(icon, title, Theme.Accent, Theme.Text, wrap: true);
+        ImGui.Dummy(new Vector2(0f, Theme.S(Theme.GapXs)));
+    }
+
     // ─── Séparateurs ──────────────────────────────────────────────────────────
 
     public static void Divider(float marginY = Theme.GapM)

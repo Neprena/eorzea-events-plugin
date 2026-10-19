@@ -41,12 +41,12 @@ public class EventDetailWindow : ThemedWindow
         IsOpen     = true;
     }
 
-    public override void Draw()
+    protected override void DrawContents()
     {
         if (_event is not { } ev) return;
         var l = Plugin.L;
 
-        DrawPoster(ev);
+        Cover.Draw(Textures.Get(ev.Image));
 
         // État et récurrence en tête : ce qui change la décision d'y aller se
         // lit avant le titre, comme sur la carte de l'agenda.
@@ -59,8 +59,7 @@ public class EventDetailWindow : ThemedWindow
         }
         if (badge) Layout.Spacer(Theme.GapXs);
 
-        using (Fonts.PushH2())
-            ImGui.TextColored(ev.Cancelled ? Theme.TextMuted : Theme.Accent, Glyphs.Safe(ev.Title));
+        Text.TitleWrapped(ev.Title, ev.Cancelled ? Theme.TextMuted : Theme.Accent);
 
         if (FormatWhen(ev) is { Length: > 0 } when)
         {
@@ -71,39 +70,16 @@ public class EventDetailWindow : ThemedWindow
         // Description entière, là où la carte n'en montrait qu'un résumé.
         if (!string.IsNullOrWhiteSpace(ev.Description))
         {
-            Layout.Spacer(Theme.GapS);
+            Layout.Divider(Theme.GapS);
             MarkdownView.Draw(ev.Description!);
         }
 
         DrawVenue(ev, l);
         DrawCounters(ev);
 
-        Layout.Spacer(Theme.GapM);
-        if (Btn.Draw(l.ViewOnline, BtnTone.Ghost, BtnSize.Medium, Icons.External, id: "eventdetail_site"))
+        Layout.Divider(Theme.GapM);
+        if (Btn.Draw(l.ViewOnline, BtnTone.Secondary, BtnSize.Medium, Icons.External, id: "eventdetail_site"))
             OpenUrl(Plugin.Config.BaseUrl.TrimEnd('/') + "/calendrier");
-    }
-
-    /// <summary>
-    /// Affiche de l'événement, en bandeau sur toute la largeur et rognée en son
-    /// centre : montrée entière, une image de couverture prendrait la moitié de
-    /// la fenêtre avant le moindre mot.
-    /// </summary>
-    private static void DrawPoster(EventDto ev)
-    {
-        if (string.IsNullOrEmpty(ev.Image)) return;
-
-        IDalamudTextureWrap? wrap = Textures.Get(ev.Image);
-        if (wrap == null) return;
-
-        var availW  = ImGui.GetContentRegionAvail().X;
-        var aspect  = wrap.Width / (float)wrap.Height;
-        var natural = availW / aspect;
-        var h       = Math.Min(natural, Theme.S(150f));
-        var keep    = natural > 0f ? h / natural : 1f;
-
-        ImGui.Image(wrap.Handle, new Vector2(availW, h),
-                    new Vector2(0f, (1f - keep) / 2f), new Vector2(1f, (1f + keep) / 2f));
-        Layout.Spacer(Theme.GapS);
     }
 
     /// <summary>Le lieu, son adresse, et de quoi s'y rendre.</summary>

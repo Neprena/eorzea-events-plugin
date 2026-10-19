@@ -64,12 +64,40 @@ public class MainWindow : ThemedWindow, IDisposable
 
     // ─────────────────────────────────────────────────────────────────────────
 
+    private static readonly WindowSizeConstraints OpenConstraints = new()
+    {
+        MinimumSize = new Vector2(780, 560),
+        MaximumSize = new Vector2(1100, 1000),
+    };
+
+    // ─── Réduction à la barre de titre ────────────────────────────────────────
+
+    /// <summary>Clé de l'animation de repli, entre 0 (ouverte) et 1 (réduite).</summary>
+    private const uint FoldKey = 0xEE5D0010;
+
+    /// <summary>La fenêtre est réduite à sa barre, ou va l'être.</summary>
+    private bool _folded;
+
+    /// <summary>Position et taille de la fenêtre ouverte, à retrouver en la restaurant.</summary>
+    private Vector2 _openPos;
+    private Vector2 _openSize;
+
+    /// <summary>Fermée réduite : la taille ouverte est à rétablir à la réouverture.</summary>
+    private bool _restoreOnOpen;
+
+    /// <summary>Drapeaux de la fenêtre ouverte, que la réduction complète puis rend.</summary>
+    private ImGuiWindowFlags _openFlags;
+
+    /// <summary>Avancement du repli à la dernière image, entre 0 et 1.</summary>
+    private float _foldAmount;
+
     private readonly AppShell     _shell;
     private readonly SettingsPage  _settings;
     private readonly RpProfilePage _rpProfile;
     private readonly AroundPage    _around = new();
     private readonly FriendsPage   _friends = new();
     private readonly EncountersPage _encounters = new();
+    private readonly NewsPage       _news = new();
 
     // Le nom de la fenêtre est la clé de persistance de imgui.ini : le changer
     // réinitialiserait position et taille chez tous les utilisateurs.
@@ -79,80 +107,96 @@ public class MainWindow : ThemedWindow, IDisposable
                ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse)
     {
         ShowCloseButton = false; // la barre de titre maison porte la fermeture
-        LogicalSizeConstraints = new WindowSizeConstraints
-        {
-            MinimumSize = new Vector2(780, 560),
-            MaximumSize = new Vector2(1100, 1000),
-        };
+        LogicalSizeConstraints = OpenConstraints;
         _config   = config;
         _settings = new SettingsPage(config);
         _rpProfile = new RpProfilePage(config);
 
         _shell = new AppShell(
         [
+            // ── Jouer : ce qui se passe maintenant, autour de soi ─────────────
             new ShellPage
             {
-                Id    = "rp",
-                Icon  = Icons.RpLive,
-                Label = () => Plugin.L.TabRp,
-                Draw  = DrawOpenRpTab,
+                Id      = "rp",
+                Icon    = Icons.RpLive,
+                Label   = () => Plugin.L.TabRp,
+                Section = () => Plugin.L.NavSectionPlay,
+                Draw    = DrawOpenRpTab,
                 // Les sessions terminées restent dans la liste jusqu'au
                 // rafraîchissement suivant : les compter laissait une pastille
                 // sur une page vide.
                 Badge = () => _sessionsList.Count(s => s.EndedAt == null),
             },
-            // Sa propre fiche vient tôt : c'est la page qu'on ouvre le plus
-            // souvent après « RP ouvert », et celle qui porte les réglages de
-            // confidentialité.
             new ShellPage
             {
-                Id    = "profile",
-                Icon  = Icons.Profile,
-                Label = () => Plugin.L.RpProfileTitle,
-                Draw  = _rpProfile.Draw,
+                Id      = "around",
+                Icon    = Icons.Around,
+                Label   = () => Plugin.L.TabAround,
+                Section = () => Plugin.L.NavSectionPlay,
+                Draw    = _around.Draw,
+                Badge   = () => Plugin.AvailableEntries.Count,
+            },
+            new ShellPage
+            {
+                Id      = "encounters",
+                Icon    = Icons.History,
+                Label   = () => Plugin.L.TabEncounters,
+                Section = () => Plugin.L.NavSectionPlay,
+                Draw    = _encounters.Draw,
+            },
+
+            // ── Communauté : sa fiche et ses liens ────────────────────────────
+            new ShellPage
+            {
+                Id      = "profile",
+                Icon    = Icons.Profile,
+                Label   = () => Plugin.L.RpProfileTitle,
+                Section = () => Plugin.L.NavSectionCommunity,
+                Draw    = _rpProfile.Draw,
                 // Les demandes reçues attendent une réponse : c'est la seule
                 // chose de la fiche qui appelle un geste, et le compteur ne suit
                 // rien d'autre.
-                Badge = () => Plugin.RelationRequestsReceived.Count,
+                Badge  = () => Plugin.RelationRequestsReceived.Count,
                 Locked = () => !Plugin.Api.HasToken,
             },
             new ShellPage
             {
-                Id    = "around",
-                Icon  = Icons.Around,
-                Label = () => Plugin.L.TabAround,
-                Draw  = _around.Draw,
-                Badge = () => Plugin.AvailableEntries.Count,
+                Id      = "friends",
+                Icon    = Icons.Friend,
+                Label   = () => Plugin.L.TabFriends,
+                Section = () => Plugin.L.NavSectionCommunity,
+                Draw    = _friends.Draw,
+                Badge   = () => _friends.VisibleCount,
+                Locked  = () => !Plugin.Api.HasToken,
+            },
+
+            // ── Agenda : ce qui est prévu ─────────────────────────────────────
+            new ShellPage
+            {
+                Id      = "events",
+                Icon    = Icons.Events,
+                Label   = () => Plugin.L.TabEvents,
+                Section = () => Plugin.L.NavSectionAgenda,
+                Draw    = DrawEventsTab,
             },
             new ShellPage
             {
-                Id    = "friends",
-                Icon  = Icons.Friend,
-                Label = () => Plugin.L.TabFriends,
-                Draw  = _friends.Draw,
-                Badge = () => Plugin.Friends.Count,
-                Locked = () => !Plugin.Api.HasToken,
+                Id      = "venues",
+                Icon    = Icons.Venues,
+                Label   = () => Plugin.L.TabEstabs,
+                Section = () => Plugin.L.NavSectionAgenda,
+                Draw    = DrawEstabTab,
             },
+            // Ancrées en bas avec les réglages : elles ne servent pas à jouer,
+            // et la pastille suffit à signaler une parution.
             new ShellPage
             {
-                Id    = "encounters",
-                Icon  = Icons.History,
-                Label = () => Plugin.L.TabEncounters,
-                Draw  = _encounters.Draw,
-            },
-            new ShellPage
-            {
-                Id    = "events",
-                Icon  = Icons.Events,
-                Label = () => Plugin.L.TabEvents,
-                Draw  = DrawEventsTab,
-            },
-            new ShellPage
-            {
-                Id    = "venues",
-                Icon  = Icons.Venues,
-                Label = () => Plugin.L.TabEstabs,
-                Draw  = DrawEstabTab,
+                Id     = "news",
+                Icon   = Icons.News,
+                Label  = () => Plugin.L.TabNews,
+                Draw   = _news.Draw,
+                Badge  = () => _news.UnreadCount,
+                Pinned = true,
             },
 #if DEBUG
             new ShellPage
@@ -172,7 +216,10 @@ public class MainWindow : ThemedWindow, IDisposable
                 Draw   = _settings.Draw,
                 Pinned = true,
             },
-        ], initialId: "rp");
+        ], initialId: "rp")
+        {
+            Banner = activeId => _news.DrawBanners(activeId == "news"),
+        };
     }
 
     /// <summary>
@@ -250,8 +297,12 @@ public class MainWindow : ThemedWindow, IDisposable
 
     // ─── Draw ─────────────────────────────────────────────────────────────────
 
-    public override void Draw()
+    protected override void DrawContents()
     {
+        // Relevé des actualités : la pastille et le bandeau épinglé ne se
+        // voient que fenêtre ouverte, inutile de les tenir à jour ailleurs.
+        _news.Tick();
+
         // Les écrans bloquants court-circuitent la navigation, mais conservent
         // la barre de titre : sans elle, la fenêtre ne serait ni déplaçable ni
         // refermable.
@@ -260,8 +311,179 @@ public class MainWindow : ThemedWindow, IDisposable
           : Plugin.Api.HasToken && Plugin.Api.IsTokenRevoked ? DrawTokenInvalidScreen
           : null;
 
-        _shell.Draw(out var close, fullScreen);
-        if (close) IsOpen = false;
+        // Retenues pour la frame suivante : c'est avant Begin, dans PreDraw, que
+        // la réduction pose taille et position.
+        _lastPos  = ImGui.GetWindowPos();
+        _lastSize = ImGui.GetWindowSize();
+
+        // Un écran bloquant (version obsolète, jeton révoqué) doit se voir :
+        // réduite, la fenêtre n'en montrerait que la barre.
+        if (fullScreen != null && _folded) ToggleFold();
+
+        switch (_shell.Draw(_folded, fullScreen))
+        {
+            case TitleAction.Close:
+                IsOpen = false;
+                break;
+
+            case TitleAction.ToggleFold:
+                ToggleFold();
+                break;
+
+            case TitleAction.OpenAround:
+                ToggleFold();
+                _shell.Navigate("around");
+                break;
+        }
+    }
+
+    // ─── Réduction à la barre de titre ────────────────────────────────────────
+
+    /// <summary>
+    /// Taille et position de la réduction, posées avant <c>Begin</c>.
+    ///
+    /// Les imposer depuis le rendu ne marche pas : ImGui déplace alors le
+    /// contenu mais pas le fond déjà peint ni le rognage, et la barre se
+    /// dessinait décalée à chaque image de l'animation. Ici, la fenêtre naît
+    /// directement à la bonne place.
+    ///
+    /// Pendant la réduction, elle doit aussi pouvoir descendre sous sa taille
+    /// minimale ; les contraintes ne reviennent qu'une fois rouverte en entier.
+    /// </summary>
+    public override void PreDraw()
+    {
+        var folding = _folded || _foldAmount > 0f || _restoreOnOpen;
+
+        if (folding)
+        {
+            LogicalSizeConstraints = null;
+            SizeConstraints        = null;
+        }
+        else
+        {
+            LogicalSizeConstraints = OpenConstraints;
+        }
+
+        // La police d'abord : la largeur de la barre réduite se mesure avec.
+        base.PreDraw();
+
+        if (_restoreOnOpen)
+        {
+            _restoreOnOpen = false;
+            ImGui.SetNextWindowPos(_openPos);
+            ImGui.SetNextWindowSize(_openSize);
+            return;
+        }
+
+        var amount = Motion.Approach(FoldKey, _folded ? 1f : 0f, Motion.Emphasised);
+
+        if (amount == _foldAmount && amount is 0f or 1f)
+        {
+            if (amount == 1f) FitFoldedBar();
+            return;
+        }
+
+        _foldAmount = amount;
+
+        var folded = new Vector2(TitleBar.FoldedWidth(), Theme.S(Theme.TitleBarHeight));
+        var size   = Vector2.Lerp(_openSize, folded, amount);
+        var right  = _openPos.X + _openSize.X;
+
+        // Des pixels entiers : ImGui tronque positions et tailles, et des
+        // fractions feraient dériver la fenêtre d'un pixel à chaque repli.
+        size = new Vector2(MathF.Round(size.X), MathF.Round(size.Y));
+        ImGui.SetNextWindowSize(size);
+        ImGui.SetNextWindowPos(new Vector2(MathF.Round(right - size.X), MathF.Round(_openPos.Y)));
+
+        // Rouverte en entier : la fenêtre retrouve son redimensionnement et
+        // l'enregistrement de sa géométrie.
+        if (amount == 0f) Flags = _openFlags;
+    }
+
+    /// <summary>Position et taille à la dernière image, relevées pendant le rendu.</summary>
+    private Vector2 _lastPos;
+    private Vector2 _lastSize;
+
+    /// <summary>
+    /// Réduit la fenêtre à sa barre de titre, ou la restaure. Le coin haut droit
+    /// reste fixe dans les deux sens : les boutons de la barre ne bougent pas
+    /// sous la souris, on peut donc réduire puis restaurer sans viser à nouveau.
+    /// </summary>
+    private void ToggleFold()
+    {
+        var position = ImGui.GetWindowPos();
+        var size     = ImGui.GetWindowSize();
+
+        if (!_folded)
+        {
+            // Réduite à nouveau avant d'avoir fini de se rouvrir : la taille
+            // mesurée n'est qu'une étape de l'animation, la vraie est déjà connue.
+            if (_foldAmount == 0f)
+            {
+                _openSize  = size;
+                _openFlags = Flags;
+            }
+
+            _openPos = new Vector2(position.X + size.X - _openSize.X, position.Y);
+
+            // Sans redimensionnement, et sans enregistrement : imgui.ini doit
+            // garder la taille ouverte, sinon la fenêtre se rouvrirait réduite
+            // après un redémarrage du jeu.
+            Flags   = _openFlags | ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoSavedSettings;
+            _folded = true;
+            return;
+        }
+
+        // La barre a pu être déplacée une fois réduite : la fenêtre se rouvre
+        // sous son coin haut droit actuel, sans déborder de l'écran.
+        _openPos = OpenPositionUnder(position, size);
+        _folded  = false;
+    }
+
+    /// <summary>
+    /// Position de la fenêtre ouverte sous le coin haut droit d'une barre,
+    /// ramenée dans l'espace utile de l'écran : une barre tirée contre le bord
+    /// gauche ferait sinon rouvrir la fenêtre à moitié hors champ.
+    /// </summary>
+    private Vector2 OpenPositionUnder(Vector2 barPos, Vector2 barSize)
+    {
+        var viewport = ImGui.GetMainViewport();
+        var wanted   = new Vector2(barPos.X + barSize.X - _openSize.X, barPos.Y);
+        var max      = viewport.WorkPos + viewport.WorkSize - _openSize;
+
+        return new Vector2(Math.Clamp(wanted.X, viewport.WorkPos.X, MathF.Max(viewport.WorkPos.X, max.X)),
+                           Math.Clamp(wanted.Y, viewport.WorkPos.Y, MathF.Max(viewport.WorkPos.Y, max.Y)));
+    }
+
+    /// <summary>
+    /// Réajuste la barre réduite quand son contenu change de largeur : un
+    /// compteur qui passe de 9 à 12, une langue changée. Le bord droit reste en
+    /// place, comme pour le repli.
+    /// </summary>
+    private void FitFoldedBar()
+    {
+        var want = TitleBar.FoldedWidth();
+        if (_lastSize == Vector2.Zero || MathF.Abs(_lastSize.X - want) < 0.5f) return;
+
+        ImGui.SetNextWindowSize(new Vector2(want, _lastSize.Y));
+        ImGui.SetNextWindowPos(new Vector2(_lastPos.X + _lastSize.X - want, _lastPos.Y));
+    }
+
+    /// <summary>
+    /// Fermée réduite, la fenêtre se rouvre en grand : la barre seule ne se
+    /// comprend que si l'on vient de la réduire soi-même. Elle se rouvre sous
+    /// le coin de la barre, comme un dépli, et non là où on l'avait réduite.
+    /// </summary>
+    public override void OnClose()
+    {
+        if (!_folded) return;
+
+        _openPos       = OpenPositionUnder(_lastPos, _lastSize);
+        _folded        = false;
+        _restoreOnOpen = true;
+        _foldAmount    = 0f;
+        Flags          = _openFlags;
+        Motion.Set(FoldKey, 0f);
     }
 
     // ─── Tab: RP Ouvert ───────────────────────────────────────────────────────
@@ -352,30 +574,39 @@ public class MainWindow : ThemedWindow, IDisposable
 
         Layout.Spacer(Theme.GapXs);
 
-        // Actions de la page, alignées à droite comme sur « Autour de moi ».
-        var gap    = Theme.S(Theme.GapM);
-        var offset = ImGui.GetContentRegionAvail().X
-                   - Btn.Measure(l.Refresh) - Btn.Measure(l.ViewOnline, Icons.External) - gap;
-        if (offset > 0f) ImGui.SetCursorPosX(ImGui.GetCursorPosX() + offset);
+        // ── Scènes ouvertes ───────────────────────────────────────────────────
+        // Les actions de la liste se rangent dans son en-tête : posées seules
+        // au-dessus, elles flottaient sans dire à quoi elles s'appliquaient.
+        var gap     = Theme.S(Theme.GapS);
+        var actionW = Btn.Measure(l.Refresh, Icons.Refresh) + gap + Btn.Measure(l.ViewOnline, Icons.External);
+        var count   = _sessionsList.Count(s => s.EndedAt == null);
 
-        if (Btn.Draw(l.Refresh, BtnTone.Ghost, BtnSize.Medium, id: "rp_refresh"))
-            FetchSessions();
-        ImGui.SameLine(0f, gap);
-        if (Btn.Draw(l.ViewOnline, BtnTone.Ghost, BtnSize.Medium, Icons.External, id: "rp_online"))
-            OpenUrl(_config.BaseUrl + "/rp-live");
+        Layout.SectionHeader(l.RpSectionScenes, Icons.RpLive, count > 0 ? count : null,
+                             actions: () =>
+                             {
+                                 if (Btn.Draw(l.Refresh, BtnTone.Secondary, BtnSize.Medium, Icons.Refresh, id: "rp_refresh"))
+                                     FetchSessions();
+                                 ImGui.SameLine(0f, gap);
+                                 if (Btn.Draw(l.ViewOnline, BtnTone.Secondary, BtnSize.Medium, Icons.External, id: "rp_online"))
+                                     OpenUrl(_config.BaseUrl + "/rp-live");
+                             },
+                             actionsWidth: actionW);
 
-        Layout.Spacer(Theme.GapS);
         DrawSessionsList(l);
 
-        Layout.Spacer(Theme.GapM);
-        DrawAvailabilityCard(l);
+        // ── Mon RP ────────────────────────────────────────────────────────────
+        // Une vraie coupure : ce qui suit ne liste plus les scènes des autres,
+        // il règle ce que l'on montre soi-même.
+        Layout.Spacer(Theme.GapXl);
+        Layout.SectionHeader(l.RpSectionMine, Icons.Character);
 
-        Layout.Spacer(Theme.GapS);
+        DrawAvailabilityCard(l);
         DrawMySessionCard(l);
     }
 
     /// <summary>
-    /// Scènes ouvertes, les proches d'abord.
+    /// Scènes ouvertes, les proches d'abord : ma zone, puis mon monde, puis
+    /// le reste.
     ///
     /// Sans zone de défilement à hauteur figée : elle réservait dix lignes au bas
     /// de la page quoi qu'il arrive, laissant un vide sous une liste courte et un
@@ -404,49 +635,63 @@ public class MainWindow : ThemedWindow, IDisposable
         var currentWorld = Plugin.ObjectTable.LocalPlayer?.CurrentWorld.Value.Name.ToString();
         var currentZone  = GetCurrentZoneName();
 
-        List<RpSessionDto> nearby = [];
-        List<RpSessionDto> others = [];
+        // Trois groupes et non deux : une scène de mon monde mais d'une autre
+        // zone tombait dans « Autres serveurs », ce qui était faux.
+        List<RpSessionDto> nearby  = [];
+        List<RpSessionDto> myWorld = [];
+        List<RpSessionDto> others  = [];
         foreach (var s in active)
         {
-            if (currentWorld != null && currentZone != null
-                && s.Server == currentWorld && s.Location == currentZone)
-                nearby.Add(s);
-            else
-                others.Add(s);
+            if (currentWorld != null && s.Server == currentWorld)
+            {
+                if (currentZone != null && s.Location == currentZone) nearby.Add(s);
+                else                                                   myWorld.Add(s);
+            }
+            else others.Add(s);
         }
 
-        if (nearby.Count > 0)
+        var first = true;
+        void Group(string label, FontAwesomeIcon icon, List<RpSessionDto> sessions)
         {
-            Layout.SectionHeader(string.Format(l.RpInYourZone, currentZone), Icons.Around);
-            foreach (var s in nearby) DrawSessionEntry(s);
-            if (others.Count > 0) Layout.Spacer(Theme.GapS);
+            if (sessions.Count == 0) return;
+            if (!first) Layout.Spacer(Theme.GapS);
+            first = false;
+
+            Layout.SubHeader(label, icon);
+            foreach (var s in sessions) DrawSessionEntry(s);
         }
 
-        if (others.Count > 0)
-        {
-            Layout.SectionHeader(l.RpOtherServers, Icons.RpLive);
-            foreach (var s in others) DrawSessionEntry(s);
-        }
+        Group(string.Format(l.RpInYourZone, currentZone), Icons.Around, nearby);
+        Group(string.Format(l.RpOnWorld, currentWorld), Icons.World, myWorld);
+        Group(l.RpOtherServers, Icons.World, others);
     }
 
+    /// <summary>
+    /// Disponibilité pour du RP spontané. L'interrupteur se pose dans l'en-tête,
+    /// en face du titre : seul sur sa ligne au milieu de la carte, il ne se
+    /// lisait pas comme le réglage principal de celle-ci.
+    /// </summary>
     private void DrawAvailabilityCard(Loc l)
     {
         using var card = Card.Begin("rp_availability", interactive: false);
 
-        Layout.SectionHeader(l.RpAvailableTitle, Icons.Around);
+        var player     = Plugin.ObjectTable.LocalPlayer;
+        var charLinked = player != null
+            && Plugin.Config.FindCharacterToken(player.Name.TextValue, (int)player.HomeWorld.RowId) != null;
+
+        DrawAvailabilityHeading(l, charLinked);
 
         if (Plugin.LoginPromptPending)
         {
-            UiPrimitives.DrawAlert(UiStyle.StatusOpen, l.RpAvailableActiveStatus, l.RpLoginPrompt, () =>
+            Feedback.Alert(Theme.Online, Icons.Around, l.RpAvailableActiveStatus, l.RpLoginPrompt, () =>
             {
-                if (UiPrimitives.ColorButton(l.RpLoginStay + "##stay", Vector2.Zero,
-                    UiStyle.SuccessNormal, UiStyle.SuccessHovered, UiStyle.SuccessActive))
+                if (Btn.Draw(l.RpLoginStay, BtnTone.Success, BtnSize.Small, Icons.Check, id: "stay"))
                 {
                     Plugin.DismissLoginPrompt();
                     Plugin.SetRpAvailability(true);
                 }
-                ImGui.SameLine(0, 6);
-                if (ImGui.Button(l.RpLoginDisable + "##disable", Vector2.Zero))
+                ImGui.SameLine(0f, Theme.S(Theme.GapS));
+                if (Btn.Draw(l.RpLoginDisable, BtnTone.Secondary, BtnSize.Small, id: "disable"))
                 {
                     Plugin.DismissLoginPrompt();
                     Plugin.SetRpAvailability(false);
@@ -455,16 +700,12 @@ public class MainWindow : ThemedWindow, IDisposable
             Layout.Spacer(Theme.GapS);
         }
 
-        Text.Wrapped(l.RpAvailableDesc, Theme.TextMuted);
+        Text.Hint(l.RpAvailableDesc);
         Layout.Spacer(Theme.GapS);
-
-        var player     = Plugin.ObjectTable.LocalPlayer;
-        var charLinked = player != null
-            && Plugin.Config.FindCharacterToken(player.Name.TextValue, (int)player.HomeWorld.RowId) != null;
 
         if (!charLinked)
         {
-            Text.Wrapped(l.RpAvailableNoToken, Theme.Gold);
+            Text.Hint(l.RpAvailableNoToken, Theme.Gold);
             Layout.Spacer(Theme.GapXs);
             if (Btn.Draw(l.LinkThisCharacter, BtnTone.Primary, BtnSize.Medium, id: "rp_link"))
                 Plugin.OpenSetup(migration: Plugin.Config.CharacterTokens.Count == 0
@@ -472,13 +713,54 @@ public class MainWindow : ThemedWindow, IDisposable
             return;
         }
 
-        var available = Plugin.CurrentCharacterAvailabilityWanted;
-        if (Inputs.ToggleRow(l.RpAvailableEnable, ref available))
-            Plugin.SetRpAvailability(available);
-
-        Layout.Spacer(Theme.GapS);
-        if (Btn.Draw(l.RpProfileSetup, BtnTone.Ghost, BtnSize.Medium, id: "rp_wizard"))
+        if (Btn.Draw(l.RpProfileSetup, BtnTone.Secondary, BtnSize.Medium, Icons.Profile, id: "rp_wizard"))
             Plugin.OpenRpProfileWizard();
+    }
+
+    /// <summary>
+    /// Titre de la carte à gauche, l'interrupteur et « Je suis disponible »
+    /// à droite, tous centrés sur la hauteur de l'interrupteur. Le libellé
+    /// passe au vert quand la disponibilité est allumée.
+    /// </summary>
+    private static void DrawAvailabilityHeading(Loc l, bool charLinked)
+    {
+        var top   = ImGui.GetCursorPosY();
+        var frame = ImGui.GetFrameHeight();
+
+        using (Fonts.PushH2())
+        {
+            ImGui.SetCursorPosY(top + (frame - ImGui.GetTextLineHeight()) * 0.5f);
+            Text.WithIcon(Icons.Around, l.RpAvailableTitle, Theme.Accent, Theme.Text);
+        }
+
+        if (charLinked)
+        {
+            var available = Plugin.CurrentCharacterAvailabilityWanted;
+            var toggleW   = frame * 0.82f * 1.85f;
+            var gap       = Theme.S(Theme.GapS);
+            var labelW    = ImGui.CalcTextSize(l.RpAvailableEnable).X;
+
+            // Interrupteur puis libellé, dans l'ordre de toutes les lignes de
+            // réglage du plugin.
+            ImGui.SameLine();
+            Layout.RightAlign(toggleW + gap + labelW);
+            ImGui.SetCursorPosY(top);
+            var changed = Inputs.Toggle("##rp_available", ref available);
+
+            ImGui.SameLine(0f, gap);
+            ImGui.SetCursorPosY(top + (frame - ImGui.GetTextLineHeight()) * 0.5f);
+            ImGui.TextColored(available ? Theme.Online : Theme.TextMuted, l.RpAvailableEnable);
+            if (ImGui.IsItemHovered())
+            {
+                ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
+                if (ImGui.IsItemClicked()) { available = !available; changed = true; }
+            }
+
+            if (changed) Plugin.SetRpAvailability(available);
+        }
+
+        ImGui.SetCursorPosY(top + frame);
+        ImGui.Dummy(new Vector2(0f, Theme.S(Theme.GapXs)));
     }
 
     private void DrawMySessionCard(Loc l)
@@ -489,7 +771,7 @@ public class MainWindow : ThemedWindow, IDisposable
 
         using var card = Card.Begin("rp_mysession", interactive: false);
 
-        Layout.SectionHeader(l.MySessionTitle, Icons.RpLive);
+        Layout.CardHeading(l.MySessionTitle, Icons.RpLive);
 
         if (Plugin.HasActiveSession)
         {
@@ -504,105 +786,106 @@ public class MainWindow : ThemedWindow, IDisposable
             Plugin.OpenMySession();
     }
 
+    /// <summary>
+    /// Carte d'une scène ouverte, au format des cartes d'événement : titre,
+    /// une ligne par information avec son icône, description, puis les actions
+    /// en rangée au pied de la carte.
+    ///
+    /// Les boutons étaient posés au bout des lignes, l'un calé sur la largeur
+    /// de la fenêtre et non sur celle de la carte : il la faisait déborder à
+    /// droite, et l'autre, collé au nom, sortait décalé en hauteur.
+    /// </summary>
     private void DrawSessionEntry(RpSessionDto s)
     {
         var l = Plugin.L;
 
-        UiPrimitives.DrawCard(() =>
+        using var card = Card.Begin($"session_{s.Id}", interactive: false);
+
+        Text.CardTitle(s.Title, Theme.TitleGold);
+        Layout.Spacer(Theme.GapXs);
+
+        // ── Où ────────────────────────────────────────────────────────────────
+        // Zone, monde et instance d'abord ; puis l'adresse précise : la parcelle
+        // dans un quartier résidentiel, les coordonnées sur la carte ailleurs,
+        // comme sur la page RP live du site. Sans elles, « Kugane » ne disait
+        // pas où chercher.
+        var where = s.InstanceId is > 0
+            ? $"{s.Location}  ·  {s.Server}  ·  {string.Format(l.AroundInstance, s.InstanceId)}"
+            : $"{s.Location}  ·  {s.Server}";
+        Text.WithIcon(Icons.Location, where, Theme.TextFaint, Theme.Text, wrap: true);
+
+        if (s.Ward.HasValue)
         {
-            // Titre (or chaud)
-            ImGui.TextColored(UiStyle.TextTitle, Glyphs.Safe(s.Title));
+            var ward = string.Format(l.HousingWard, s.Ward) + (s.Wing == true ? $" ({l.HousingAnnex})" : "");
+            var housingInfo = s.Room.HasValue ? $"{ward}  ·  {l.FieldRoom} {s.Room}"
+                            : s.Plot.HasValue ? $"{ward}  ·  {l.FieldPlot} {s.Plot}"
+                            : ward;
+            Text.WithIcon(Icons.Housing, housingInfo, Theme.TextFaint, Theme.Text);
+        }
+        else if (s.PosX is { } x && s.PosZ is { } z)
+        {
+            Text.WithIcon(Icons.Map, $"X {x:0.0}  ·  Y {z:0.0}", Theme.TextFaint, Theme.Text);
+        }
 
-            // Zone • Serveur + bouton carte aligné à droite
-            UiPrimitives.DrawIcon(Icons.Location);
-            ImGui.SameLine(0, 4);
-            // Le nombre de joueurs sur place vient du serveur, qui le calcule à
-            // chaque appel : c'est l'information qui décide d'y aller ou non.
-            var place = s.NearbyCount > 0
-                ? $"{s.Location}  •  {s.Server}  •  {string.Format(l.OnSiteCount, s.NearbyCount)}"
-                : $"{s.Location}  •  {s.Server}";
-            ImGui.TextColored(UiStyle.TextMuted, Glyphs.Safe(place));
-            if (s.TerritoryId.HasValue && s.MapId.HasValue && s.PosX.HasValue && s.PosZ.HasValue)
-            {
-                var btnX = ImGui.GetWindowWidth()
-                    - ImGui.GetStyle().WindowPadding.X
-                    - UiStyle.CardPadH
-                    - UiStyle.SmallButton.X;
-                ImGui.SameLine(btnX);
-                if (UiPrimitives.ColorButton($"{l.Map}##map_{s.Id}", UiStyle.SmallButton,
-                    UiStyle.SecondaryNormal, UiStyle.SecondaryHovered, UiStyle.SecondaryActive))
-                    Plugin.Framework.RunOnFrameworkThread(() => OpenOnMap(s));
-            }
+        // Point de rendez-vous : hors logement, c'est le seul repère pour
+        // retrouver l'auteur, il ne doit pas se perdre dans la description.
+        if (!string.IsNullOrEmpty(s.MeetingPoint))
+            Text.WithIcon(Icons.Venues, s.MeetingPoint!, Theme.TextFaint, Theme.TextMuted, wrap: true);
 
-            // Personnage, avec accès à sa fiche quand elle est publiée. Une
-            // session annoncée sous un nom libre depuis le site n'a pas de
-            // personnage lié : rien ne garantirait que l'auteur est bien lui.
-            if (!string.IsNullOrEmpty(s.CharacterName))
-            {
-                UiPrimitives.DrawIcon(Icons.Character);
-                ImGui.SameLine(0, 4);
-                ImGui.TextColored(UiStyle.TextMuted, Glyphs.Safe(s.CharacterName));
+        // ── Qui ───────────────────────────────────────────────────────────────
+        // Le personnage, et combien de joueurs sont déjà sur place : c'est ce
+        // qui décide d'y aller ou non. Une session annoncée sous un nom libre
+        // depuis le site n'a pas de personnage lié : rien ne garantirait que
+        // l'auteur est bien lui.
+        var who = s.CharacterName is { Length: > 0 } author ? author : null;
+        if (s.NearbyCount > 0)
+            who = who == null ? string.Format(l.OnSiteCount, s.NearbyCount)
+                              : $"{who}  ·  {string.Format(l.OnSiteCount, s.NearbyCount)}";
+        if (who != null)
+            Text.WithIcon(Icons.Character, who, Theme.TextFaint, Theme.TextMuted, wrap: true);
 
-                if (!string.IsNullOrEmpty(s.CharacterId) && s.CharacterHasWebPage)
-                {
-                    ImGui.SameLine(0, 8);
-                    if (UiPrimitives.ColorButton($"{l.MenuViewRpProfile}##prof_{s.Id}", UiStyle.SmallButton,
-                        UiStyle.SecondaryNormal, UiStyle.SecondaryHovered, UiStyle.SecondaryActive))
-                        Plugin.OpenRpProfileViewer(s.CharacterId!, s.CharacterName!, s.Server);
-                }
-            }
+        // Emplacement déclaré : le dire, sinon l'absence de bouton carte et le
+        // comptage à zéro passeraient pour une panne du plugin.
+        if (string.Equals(s.Source, "WEB", StringComparison.OrdinalIgnoreCase))
+        {
+            Text.WithIcon(Icons.Info, l.DeclaredPosition, Theme.TextFaint, Theme.TextFaint);
+            Feedback.TooltipOnHover(l.DeclaredPositionHint);
+        }
 
-            // Emplacement déclaré : le dire, sinon l'absence de bouton carte et
-            // le comptage à zéro passeraient pour une panne du plugin.
-            if (string.Equals(s.Source, "WEB", StringComparison.OrdinalIgnoreCase))
-            {
-                UiPrimitives.DrawIcon(Icons.Info);
-                ImGui.SameLine(0, 4);
-                ImGui.TextColored(UiStyle.TextSubtle, l.DeclaredPosition);
-                if (ImGui.IsItemHovered()) ImGui.SetTooltip(l.DeclaredPositionHint);
-            }
+        if (!string.IsNullOrEmpty(s.Description))
+        {
+            Layout.Spacer(Theme.GapXs);
+            Text.Wrapped(s.Description!, Theme.TextMuted);
+        }
 
-            // Point de rendez-vous : hors logement, c'est le seul repère pour
-            // retrouver l'auteur, il ne doit pas se perdre dans la description.
-            if (!string.IsNullOrEmpty(s.MeetingPoint))
-            {
-                UiPrimitives.DrawIcon(Icons.Location);
-                ImGui.SameLine(0, 4);
-                ImGui.PushTextWrapPos(0);
-                ImGui.TextColored(UiStyle.TextMuted, Glyphs.Safe(s.MeetingPoint));
-                ImGui.PopTextWrapPos();
-            }
+        // ── Actions ───────────────────────────────────────────────────────────
+        var canMap     = s.TerritoryId.HasValue && s.MapId.HasValue && s.PosX.HasValue && s.PosZ.HasValue;
+        var canProfile = !string.IsNullOrEmpty(s.CharacterId) && s.CharacterHasWebPage;
+        var canResume  = !Plugin.HasActiveSession && Plugin.MySessionIds.Contains(s.Id);
+        if (!canMap && !canProfile && !canResume) return;
 
-            // Housing
-            if (s.Ward.HasValue)
-            {
-                var housingInfo = s.Room.HasValue
-                    ? string.Format(l.HousingWardRoom, s.Ward, s.Room)
-                    : s.Plot.HasValue
-                        ? string.Format(l.HousingWardPlot, s.Ward, s.Plot)
-                        : string.Format(l.HousingWard, s.Ward);
-                UiPrimitives.DrawIcon(Icons.Housing);
-                ImGui.SameLine(0, 4);
-                ImGui.TextColored(UiStyle.TextMuted, housingInfo);
-            }
+        Layout.Spacer(Theme.GapS);
+        var flow = FlowRow.Fill(Theme.S(Theme.GapS));
 
-            // Description
-            if (!string.IsNullOrEmpty(s.Description))
-            {
-                ImGui.PushTextWrapPos(0);
-                ImGui.TextColored(UiStyle.TextSubtle, Glyphs.Safe(s.Description));
-                ImGui.PopTextWrapPos();
-            }
-
-            // Bouton "Reprendre" si session orpheline
-            if (!Plugin.HasActiveSession && Plugin.MySessionIds.Contains(s.Id))
-            {
-                ImGui.Spacing();
-                if (UiPrimitives.ColorButton($"{l.RpResume}##claim_{s.Id}", UiStyle.PrimaryButton,
-                    UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive))
-                    Plugin.ClaimSession(s);
-            }
-        });
+        // Session orpheline : la reprendre est l'action attendue, elle passe en tête.
+        if (canResume)
+        {
+            flow.Next(Btn.Measure(l.RpResume));
+            if (Btn.Draw(l.RpResume, BtnTone.Primary, BtnSize.Medium, id: $"claim_{s.Id}"))
+                Plugin.ClaimSession(s);
+        }
+        if (canMap)
+        {
+            flow.Next(Btn.Measure(l.Map, Icons.Map));
+            if (Btn.Draw(l.Map, BtnTone.Secondary, BtnSize.Medium, Icons.Map, id: $"map_{s.Id}"))
+                Plugin.Framework.RunOnFrameworkThread(() => OpenOnMap(s));
+        }
+        if (canProfile)
+        {
+            flow.Next(Btn.Measure(l.MenuViewRpProfile, Icons.Profile));
+            if (Btn.Draw(l.MenuViewRpProfile, BtnTone.Secondary, BtnSize.Medium, Icons.Profile, id: $"prof_{s.Id}"))
+                Plugin.OpenRpProfileViewer(s.CharacterId!, s.CharacterName!, s.Server);
+        }
     }
 
     // ─── Tab: Événements ──────────────────────────────────────────────────────
@@ -864,12 +1147,16 @@ public class MainWindow : ThemedWindow, IDisposable
                 ImGui.Spacing();
             }
 
-            // Titre de l'événement : niveau de titre, pas du corps de texte.
+            // Titre de l'événement : même style que le nom d'un lieu ou le
+            // titre d'une actualité, d'une carte à l'autre.
             var displayColor = ev.Cancelled ? UiStyle.TextSubtle : titleColor;
-            using (Fonts.PushH2())
+            if (ev.Cancelled)
             {
-                if (ev.Cancelled) Text.Strikethrough(ev.Title, displayColor);
-                else              ImGui.TextColored(displayColor, Glyphs.Safe(ev.Title));
+                using (Fonts.PushH2()) Text.Strikethrough(ev.Title, displayColor);
+            }
+            else
+            {
+                Text.CardTitle(ev.Title, displayColor);
             }
 
             // Résumé de la description, visible sans avoir à déplier.
@@ -923,12 +1210,15 @@ public class MainWindow : ThemedWindow, IDisposable
     /// Carte d'événement. L'affiche propre à l'événement sert de bannière quand
     /// elle existe ; à défaut la carte reste sobre, la bannière du lieu étant
     /// déjà visible dans l'onglet des établissements.
+    ///
+    /// 140 px et non plus 84 : recadrée en bandeau, une affiche ne montrait
+    /// guère plus qu'une rayure, et l'on ne reconnaissait pas l'événement.
     /// </summary>
     private void DrawEventCard(EventDto ev, System.Action content)
     {
         using var card = Card.Begin($"event_{ev.Id}", CardTone.Interactive,
                                     banner: Textures.Get(ev.Image),
-                                    bannerHeight: 84f);
+                                    bannerHeight: 140f);
         content();
     }
 
@@ -1063,7 +1353,7 @@ public class MainWindow : ThemedWindow, IDisposable
                     ? Theme.EnsureReadable(custom)
                     : Theme.Accent;
 
-                Text.Title(e.Name, accent);
+                Text.CardTitle(e.Name, accent);
 
                 if (e.IsFeatured)
                 {

@@ -20,9 +20,7 @@ internal sealed class EncountersPage
 {
     private const int MaxNote = 200;
 
-    private string  _search = string.Empty;
-    private string? _confirmingId;
-    private bool    _confirmingClear;
+    private string _search = string.Empty;
 
     /// <summary>Note en cours d'édition, enregistrée à la validation seulement.</summary>
     private string? _editingNoteId;
@@ -65,7 +63,7 @@ internal sealed class EncountersPage
 
         Layout.SectionHeader(string.Format(l.EncountersCount, shown.Count), Icons.History,
                              actions: DrawClearAll,
-                             actionsWidth: Btn.Measure(l.EncountersClearAllArm, Icons.Trash));
+                             actionsWidth: Btn.MeasureHold(l.EncountersClearAll, Icons.Trash, BtnSize.Small));
 
         if (shown.Count == 0)
         {
@@ -81,28 +79,17 @@ internal sealed class EncountersPage
         Layout.Spacer(Theme.GapXl);
     }
 
-    /// <summary>Effacement en deux clics, comme toute suppression du plugin.</summary>
+    /// <summary>
+    /// Effacement à maintenir, comme toute suppression du plugin. Plus long
+    /// qu'ailleurs : il emporte toutes les notes d'un coup, sans retour.
+    /// </summary>
     private void DrawClearAll()
     {
-        var l     = Plugin.L;
-        var armed = _confirmingClear;
+        if (!Btn.Hold(Plugin.L.EncountersClearAll, "enc_clear", Icons.Trash, seconds: 1.5f)) return;
 
-        if (Btn.Draw(armed ? l.EncountersClearAllArm : l.EncountersClearAll,
-                     armed ? BtnTone.Danger : BtnTone.Ghost, BtnSize.Small, Icons.Trash,
-                     id: "enc_clear"))
-        {
-            if (armed)
-            {
-                EncounterRegistry.Clear();
-                _confirmingClear = false;
-                _confirmingId    = null;
-                _editingNoteId   = null;
-                _scrollToId      = null;
-            }
-            else _confirmingClear = true;
-        }
-
-        if (armed && !ImGui.IsItemHovered()) _confirmingClear = false;
+        EncounterRegistry.Clear();
+        _editingNoteId = null;
+        _scrollToId    = null;
     }
 
     private static bool Matches(RpEncounter e, string query) =>
@@ -114,7 +101,6 @@ internal sealed class EncountersPage
     {
         var online = Plugin.FindAvailableEntryByCharacterId(e.CharacterId) != null;
         var friend = Plugin.IsFriend(e.CharacterId);
-        var accent = Theme.EnsureReadable(Theme.TryParseHex(e.AccentColor) ?? Theme.Accent);
 
         using var card = Card.Begin($"enc_{e.CharacterId}", interactive: false,
                                     accent: online ? Theme.Online : null);
@@ -132,18 +118,20 @@ internal sealed class EncountersPage
 
         ImGui.BeginGroup();
 
-        Text.Body(e.RpName is { Length: > 0 } rpName ? rpName : e.Name, accent);
-        Text.Small($"{e.Name} · {e.World}");
-        Text.Small(WhenLine(e, l));
-        if (e.Visits > 1) Text.Small(string.Format(l.EncounterVisits, e.Visits));
+        // Même ordre de lecture qu'« Autour de moi » et qu'un événement : les
+        // pastilles d'état en tête, le nom en titre, puis quand et où en
+        // pastilles. Tout était du petit texte de même poids.
+        DrawStatusChips(e, online, friend, l);
 
-        if (online || friend)
-        {
-            Layout.Spacer(Theme.GapXs);
-            if (online) Chip.Draw(l.EncounterOnline, ChipTone.Success);
-            if (online && friend) ImGui.SameLine(0f, Theme.S(Theme.GapXs));
-            if (friend) Chip.Draw(l.RpFriendChip, ChipTone.Accent, Icons.Friend);
-        }
+        // Nom en titre, dans la couleur choisie par le joueur sur le site, à
+        // défaut dans l'or des titres.
+        var color = Theme.TryParseHex(e.AccentColor) is { } custom ? Theme.EnsureReadable(custom) : Theme.TitleGold;
+        using (Fonts.PushH2())
+            ImGui.TextColored(color, Glyphs.Safe(e.RpName is { Length: > 0 } rpName ? rpName : e.Name));
+
+        Text.Small($"{e.Name} · {e.World}");
+
+        DrawWhenChips(e, l);
 
         if (_editingNoteId != e.CharacterId && e.Note is { Length: > 0 } note)
         {
@@ -159,13 +147,65 @@ internal sealed class EncountersPage
         else                                 DrawActions(e, friend, l);
     }
 
+    /// <summary>En ligne, ami RP, nombre de rencontres : ce qui distingue une entrée des autres.</summary>
+    private static void DrawStatusChips(RpEncounter e, bool online, bool friend, Loc l)
+    {
+        var visits = e.Visits > 1 ? string.Format(l.EncounterVisits, e.Visits) : null;
+        if (!online && !friend && visits == null) return;
+
+        var flow = FlowRow.Fill(Theme.S(Theme.GapXs));
+
+        if (online)
+        {
+            flow.Next(Chip.Measure(l.EncounterOnline, Icons.RpLive));
+            Chip.Draw(l.EncounterOnline, ChipTone.Success, Icons.RpLive);
+        }
+
+        if (friend)
+        {
+            flow.Next(Chip.Measure(l.RpFriendChip, Icons.Friend));
+            Chip.Draw(l.RpFriendChip, ChipTone.Accent, Icons.Friend);
+        }
+
+        if (visits != null)
+        {
+            flow.Next(Chip.Measure(visits, Icons.History));
+            Chip.Draw(visits, ChipTone.Neutral, Icons.History);
+        }
+
+        Layout.Spacer(Theme.GapXs);
+    }
+
+    /// <summary>
+    /// Quand et où, en pastilles comme le lieu d'un événement : le moment, puis
+    /// la zone du dernier aperçu quand il y en a une.
+    /// </summary>
+    private static void DrawWhenChips(RpEncounter e, Loc l)
+    {
+        var when = WhenLine(e, l, withZone: false);
+        var zone = e.LastSeenAt != null && e.LastZone is { Length: > 0 } z ? z : null;
+
+        Layout.Spacer(Theme.GapS);
+        var flow = FlowRow.Fill(Theme.S(Theme.GapXs));
+
+        flow.Next(Chip.Measure(when, Icons.Clock));
+        Chip.Draw(when, ChipTone.Neutral, Icons.Clock);
+
+        if (zone != null)
+        {
+            flow.Next(Chip.Measure(zone, Icons.Location));
+            Chip.Draw(zone, ChipTone.Neutral, Icons.Location);
+        }
+    }
+
     /// <summary>« Vu il y a … · zone », ou « Fiche consultée il y a … » sans aperçu.</summary>
-    private static string WhenLine(RpEncounter e, Loc l)
+    /// <param name="withZone">Faux quand la zone s'affiche à part, dans sa propre pastille.</param>
+    private static string WhenLine(RpEncounter e, Loc l, bool withZone = true)
     {
         if (e.LastSeenAt is { } seen)
         {
             var when = Relative(seen, l);
-            return e.LastZone is { Length: > 0 } zone
+            return withZone && e.LastZone is { Length: > 0 } zone
                 ? string.Format(l.EncounterSeen, when, zone)
                 : string.Format(l.EncounterSeenNoZone, when);
         }
@@ -204,7 +244,9 @@ internal sealed class EncountersPage
 
     private void DrawActions(RpEncounter e, bool friend, Loc l)
     {
-        if (Btn.Draw(l.MenuViewRpProfile, BtnTone.Ghost, BtnSize.Small, Icons.Character,
+        // L'action principale de la carte, dans l'or des actions, comme
+        // « Profil RP » dans « Autour de moi ».
+        if (Btn.Draw(l.MenuViewRpProfile, BtnTone.Primary, BtnSize.Small, Icons.Character,
                      id: $"enc_prof_{e.CharacterId}"))
             Plugin.OpenRpProfileViewer(e.CharacterId, e.Name, e.World);
 
@@ -226,17 +268,9 @@ internal sealed class EncountersPage
 
         ImGui.SameLine(0f, Theme.S(Theme.GapS));
 
-        // Oubli en deux temps : le premier clic arme, le second exécute, et
-        // quitter le bouton désarme. Même geste que partout ailleurs.
-        var armed = _confirmingId == e.CharacterId;
-        if (Btn.Draw(armed ? l.EncounterForgetArm : l.EncounterForget,
-                     armed ? BtnTone.Danger : BtnTone.Ghost, BtnSize.Small, Icons.Trash,
-                     id: $"enc_del_{e.CharacterId}"))
-        {
-            if (armed) { EncounterRegistry.Forget(e.CharacterId); _confirmingId = null; }
-            else _confirmingId = e.CharacterId;
-        }
-
-        if (armed && !ImGui.IsItemHovered()) _confirmingId = null;
+        // Oubli à maintenir, même geste que partout ailleurs : lâcher avant
+        // que le bouton soit plein annule.
+        if (Btn.Hold(l.EncounterForget, $"enc_del_{e.CharacterId}", Icons.Trash))
+            EncounterRegistry.Forget(e.CharacterId);
     }
 }

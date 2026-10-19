@@ -24,11 +24,25 @@ internal static class ChatPalette
     /// </summary>
     public const ushort Off = 0;
 
-    /// <summary>Teintes retenues par défaut pour chaque convention d'écriture.</summary>
+    /// <summary>
+    /// Teintes retenues par défaut pour chaque convention d'écriture.
+    ///
+    /// Écrites en dur, et non lues dans le thème : « automatique » doit donner
+    /// la même couleur de chat d'une version à l'autre. Elles venaient de
+    /// l'ancien thème ; le passer à la Nuit dorée aurait changé, sans prévenir,
+    /// les couleurs de tous les joueurs qui n'en avaient pas choisi.
+    /// </summary>
     public static Vector4 EmoteDefault  => Ui.Theme.Gold;
-    public static Vector4 OocDefault    => Ui.Theme.TextFaint;
-    public static Vector4 SpeechDefault => Ui.Theme.Link;
-    public static Vector4 NameDefault   => Ui.Theme.Accent;
+    public static Vector4 OocDefault    => Ui.Theme.Hex(0x808896);
+    public static Vector4 SpeechDefault => Ui.Theme.Hex(0x7DD3FC);
+    public static Vector4 NameDefault   => Ui.Theme.Hex(0x22D3EE);
+
+    /// <summary>
+    /// Version de <see cref="Ui.Theme.EnsureReadable"/> pour le chat et les
+    /// plaques : éclaircie vers l'ancien blanc de l'interface, pour la même
+    /// raison de stabilité.
+    /// </summary>
+    public static Vector4 Readable(Vector4 color) => Ui.Theme.EnsureReadable(color, toward: Ui.Theme.Hex(0xE8EAEF));
 
     /// <summary>
     /// Clé effective d'un réglage : celle choisie, ou la plus proche de la

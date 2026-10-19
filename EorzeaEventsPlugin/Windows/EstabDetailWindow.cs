@@ -68,184 +68,154 @@ public class EstabDetailWindow : ThemedWindow, IDisposable
         IsOpen      = true;
     }
 
-    public override void Draw()
+    protected override void DrawContents()
     {
         if (_estab == null) return;
         var l = Plugin.L;
 
-        // ── Bannière ──────────────────────────────────────────────────────────
-        // Le cache partagé la garde d'une ouverture à l'autre : rouvrir une
-        // fiche déjà consultée n'entraîne plus de retéléchargement.
-        var wrap = Textures.Get(_estab.Banner);
-        if (wrap != null) DrawBanner(wrap);
-
-        // ── Nom ───────────────────────────────────────────────────────────────
-        Text.Title(_estab.Name, Theme.Accent);
+        // Le cache partagé garde la bannière d'une ouverture à l'autre : rouvrir
+        // une fiche déjà consultée n'entraîne plus de retéléchargement.
+        Cover.Draw(Textures.Get(_estab.Banner));
 
         // L'avertissement de contenu figurait sur la carte de la liste et
         // disparaissait ici, sur l'écran le plus détaillé : c'est précisément
-        // celui où il doit rester.
-        // Mêmes puces que la carte de la liste, qui ne signale que le semi-RP :
-        // le RP complet est l'attendu, il n'a pas de libellé.
+        // celui où il doit rester. Mêmes puces que la carte, qui ne signale que
+        // le semi-RP : le RP complet est l'attendu, il n'a pas de libellé.
+        // En tête, comme sur les autres fiches : ce qui change la décision d'y
+        // aller se lit avant le nom.
+        var badge = false;
         if (_estab.RpType == "semi_rp")
         {
             Chip.Draw(l.EstabSemiRp, ChipTone.Warning);
             if (_estab.IsNsfw) ImGui.SameLine(0f, Theme.S(Theme.GapXs));
+            badge = true;
         }
+        if (_estab.IsNsfw) { Chip.Draw("18+", ChipTone.Danger); badge = true; }
+        if (badge) Layout.Spacer(Theme.GapXs);
 
-        if (_estab.IsNsfw) Chip.Draw("18+", ChipTone.Danger);
+        // Teinté de la couleur choisie par le gérant, comme sur sa carte.
+        var accent = Theme.TryParseHex(_estab.AccentColor) is { } custom
+            ? Theme.EnsureReadable(custom)
+            : Theme.Accent;
+        Text.TitleWrapped(_estab.Name, accent);
 
-        ImGui.Spacing();
+        DrawLocation(l);
 
-        // ── Description ───────────────────────────────────────────────────────
         if (!string.IsNullOrEmpty(_estab.Description))
         {
-            MarkdownView.Draw(_estab.Description, Theme.TextMuted);
-            ImGui.Spacing();
+            Layout.Divider(Theme.GapS);
+            MarkdownView.Draw(_estab.Description);
         }
 
-        ImGui.Separator();
-        ImGui.Spacing();
+        DrawSyncshells(l);
 
-        // ── Localisation ──────────────────────────────────────────────────────
-        bool hasLocation = !string.IsNullOrEmpty(_estab.Datacenter)
-                        || !string.IsNullOrEmpty(_estab.Server)
-                        || !string.IsNullOrEmpty(_estab.District)
-                        || _estab.Ward.HasValue;
-        if (hasLocation)
-        {
-            bool inline = false;
-            if (!string.IsNullOrEmpty(_estab.Datacenter))
-            { UiPrimitives.DrawChip(_estab.Datacenter!); ImGui.SameLine(0, 4); inline = true; }
-            if (!string.IsNullOrEmpty(_estab.Server))
-            { UiPrimitives.DrawChip(_estab.Server!); ImGui.SameLine(0, 4); inline = true; }
-            if (!string.IsNullOrEmpty(_estab.District))
-            { UiPrimitives.DrawChip(DistrictLabel(_estab.District!)); ImGui.SameLine(0, 4); inline = true; }
-            if (_estab.Ward.HasValue)
-            { UiPrimitives.DrawChip(string.Format(l.HousingWard, _estab.Ward)); ImGui.SameLine(0, 4); inline = true; }
-            if (_estab.Plot.HasValue)
-            { UiPrimitives.DrawChip(string.Format("{0} {1}", l.FieldPlot, _estab.Plot)); ImGui.SameLine(0, 4); inline = true; }
-            if (_estab.ApartmentNumber.HasValue)
-            { UiPrimitives.DrawChip(string.Format("{0} {1}", l.FieldRoom, _estab.ApartmentNumber)); ImGui.SameLine(0, 4); inline = true; }
-            if (_estab.Wing)
-            { UiPrimitives.DrawChip(l.HousingAnnex); inline = false; }
-            if (inline) ImGui.NewLine();
-            ImGui.Spacing();
-        }
+        // ── Actions ───────────────────────────────────────────────────────────
+        Layout.Divider(Theme.GapM);
 
-        // ── Boutons d'action ──────────────────────────────────────────────────
+        var first = true;
         if (!string.IsNullOrEmpty(_estab.DiscordInvite))
         {
-            if (UiPrimitives.ColorButton(l.EstabDiscord + "##discord", UiStyle.MediumButton,
-                UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive))
+            if (Btn.Draw(l.EstabDiscord, BtnTone.Primary, BtnSize.Medium, Icons.Language, id: "estab_discord"))
                 OpenUrl(NormalizeDiscordInvite(_estab.DiscordInvite!));
-            ImGui.SameLine(0, 4);
+            first = false;
         }
         if (!string.IsNullOrEmpty(_estab.Slug))
         {
-            if (UiPrimitives.ColorButton(l.EstabOpenSite + "##site", UiStyle.MediumButton,
-                UiStyle.SecondaryNormal, UiStyle.SecondaryHovered, UiStyle.SecondaryActive))
+            if (!first) ImGui.SameLine(0f, Theme.S(Theme.GapS));
+            if (Btn.Draw(l.EstabOpenSite, BtnTone.Secondary, BtnSize.Medium, Icons.External, id: "estab_site"))
                 OpenUrl(_config.BaseUrl + "/etablissements/" + _estab.Slug);
+            first = false;
         }
 
         // La fiche complète est la seule à connaître l'aile et le numéro
         // d'appartement, donc le seul endroit où un voyage vers un appartement
         // peut être proposé sans deviner.
-        TravelButton.Draw(_estab, $"estab_{_estab.Id}", sameLine: true);
+        TravelButton.Draw(_estab, $"estab_{_estab.Id}", sameLine: !first);
+    }
 
-        ImGui.Spacing();
+    /// <summary>Adresse en pastilles, sous le nom : où se trouve le lieu.</summary>
+    private void DrawLocation(Loc l)
+    {
+        var parts = new List<(string Text, Dalamud.Interface.FontAwesomeIcon? Icon)>();
+        if (!string.IsNullOrEmpty(_estab!.Datacenter)) parts.Add((_estab.Datacenter!, null));
+        if (!string.IsNullOrEmpty(_estab.Server))      parts.Add((_estab.Server!, Icons.World));
+        if (!string.IsNullOrEmpty(_estab.District))    parts.Add((DistrictLabel(_estab.District!), Icons.Location));
+        if (_estab.Ward.HasValue)            parts.Add((string.Format(l.HousingWard, _estab.Ward), Icons.Housing));
+        if (_estab.Plot.HasValue)            parts.Add(($"{l.FieldPlot} {_estab.Plot}", null));
+        if (_estab.ApartmentNumber.HasValue) parts.Add(($"{l.FieldRoom} {_estab.ApartmentNumber}", null));
+        if (_estab.Wing)                     parts.Add((l.HousingAnnex, null));
+        if (parts.Count == 0) return;
 
-        // ── Syncshells ────────────────────────────────────────────────────────
-        List<SyncshellEntryDto>? syncshells = null;
-        try { syncshells = JsonSerializer.Deserialize<List<SyncshellEntryDto>>(_estab.Syncshells); } catch { }
-        if (syncshells?.Count > 0)
+        Layout.Spacer(Theme.GapXs);
+        var flow = FlowRow.Fill(Theme.S(Theme.GapXs));
+        foreach (var (text, icon) in parts)
         {
-            ImGui.Separator();
-            ImGui.Spacing();
-            ImGui.TextColored(UiStyle.TextSection, l.EstabSyncshells.ToUpper());
-            ImGui.Spacing();
+            flow.Next(Chip.Measure(text, icon));
+            Chip.Draw(text, ChipTone.Neutral, icon);
+        }
+    }
 
-            bool copyExpired = DateTime.UtcNow >= _copiedUntil;
+    /// <summary>Codes de synchronisation, à copier pour rejoindre le lieu.</summary>
+    private void DrawSyncshells(Loc l)
+    {
+        List<SyncshellEntryDto>? syncshells = null;
+        try { syncshells = JsonSerializer.Deserialize<List<SyncshellEntryDto>>(_estab!.Syncshells); } catch { }
+        if (syncshells is not { Count: > 0 }) return;
 
-            for (int i = 0; i < syncshells.Count; i++)
+        Layout.Spacer(Theme.GapM);
+        Layout.SectionHeader(l.EstabSyncshells, Icons.Copy);
+
+        var copyExpired = DateTime.UtcNow >= _copiedUntil;
+        var gap         = Theme.S(Theme.GapXs);
+
+        for (var i = 0; i < syncshells.Count; i++)
+        {
+            var s = syncshells[i];
+
+            ImGui.AlignTextToFramePadding();
+            ImGui.TextColored(Theme.TextMuted, SyncshellLabel(s));
+            ImGui.SameLine(0f, Theme.S(Theme.GapM));
+            ImGui.AlignTextToFramePadding();
+            ImGui.TextColored(Theme.Text, s.Id);
+            ImGui.SameLine(0f, gap);
+
+            var idKey = $"id_{i}";
+            if (Btn.Draw(!copyExpired && _copiedKey == idKey ? l.EstabCopied : "ID",
+                         BtnTone.Ghost, BtnSize.Small, Icons.Copy, id: $"cpid_{i}"))
+                Copy(s.Id, idKey);
+
+            if (!string.IsNullOrEmpty(s.Password))
             {
-                var s     = syncshells[i];
-                var label = SyncshellLabel(s);
+                var revealed = _revealed.Contains(i);
+                var pwKey    = $"pw_{i}";
 
-                // Label du type (Snowcloak, Glamourer, etc.)
-                ImGui.TextColored(UiStyle.TextMuted, label);
-                ImGui.SameLine(0, 8);
+                ImGui.SameLine(0f, Theme.S(Theme.GapL));
+                ImGui.AlignTextToFramePadding();
+                ImGui.TextColored(Theme.TextFaint, l.EstabPassword + " :");
+                ImGui.SameLine(0f, gap);
+                ImGui.AlignTextToFramePadding();
+                ImGui.TextColored(revealed ? Theme.Text : Theme.TextFaint,
+                                  revealed ? s.Password : new string('•', Math.Min(s.Password.Length, 12)));
+                ImGui.SameLine(0f, gap);
 
-                // ID avec bouton copier
-                var idKey     = $"id_{i}";
-                bool idCopied = !copyExpired && _copiedKey == idKey;
-                ImGui.Text(s.Id);
-                ImGui.SameLine(0, 6);
-                if (ImGui.SmallButton((idCopied ? l.EstabCopied : "ID") + "##cpid_" + i))
+                if (Btn.Draw(revealed ? l.Hide : l.EstabReveal, BtnTone.Ghost, BtnSize.Small,
+                             revealed ? Icons.Hide : Icons.Show, id: $"rev_{i}"))
                 {
-                    ImGui.SetClipboardText(s.Id);
-                    _copiedKey   = idKey;
-                    _copiedUntil = DateTime.UtcNow.AddSeconds(2);
+                    if (revealed) _revealed.Remove(i); else _revealed.Add(i);
                 }
-
-                // Mot de passe (si présent)
-                if (!string.IsNullOrEmpty(s.Password))
-                {
-                    bool revealed = _revealed.Contains(i);
-                    var pwKey     = $"pw_{i}";
-                    bool pwCopied = !copyExpired && _copiedKey == pwKey;
-
-                    ImGui.SameLine(0, 12);
-                    ImGui.TextColored(UiStyle.TextSubtle, l.EstabPassword + ":");
-                    ImGui.SameLine(0, 4);
-
-                    if (revealed)
-                        ImGui.Text(s.Password);
-                    else
-                        ImGui.TextColored(UiStyle.TextSubtle, new string('•', Math.Min(s.Password.Length, 12)));
-
-                    ImGui.SameLine(0, 6);
-                    if (ImGui.SmallButton((revealed ? l.Hide : l.EstabReveal) + "##rev_" + i))
-                    {
-                        if (revealed) _revealed.Remove(i); else _revealed.Add(i);
-                    }
-                    ImGui.SameLine(0, 4);
-                    if (ImGui.SmallButton((pwCopied ? l.EstabCopied : "MdP") + "##cppw_" + i))
-                    {
-                        ImGui.SetClipboardText(s.Password);
-                        _copiedKey   = pwKey;
-                        _copiedUntil = DateTime.UtcNow.AddSeconds(2);
-                    }
-                }
-
-                ImGui.Dummy(new Vector2(0, 2));
+                ImGui.SameLine(0f, gap);
+                if (Btn.Draw(!copyExpired && _copiedKey == pwKey ? l.EstabCopied : "MdP",
+                             BtnTone.Ghost, BtnSize.Small, Icons.Copy, id: $"cppw_{i}"))
+                    Copy(s.Password, pwKey);
             }
         }
     }
 
-    private void DrawBanner(IDalamudTextureWrap wrap)
+    private void Copy(string value, string key)
     {
-        const float MaxH  = 160f;
-        var avail         = ImGui.GetContentRegionAvail().X;
-        var imgAspect     = wrap.Width / (float)wrap.Height;
-        var cardAspect    = avail / MaxH;
-
-        float u0, v0, u1, v1;
-        if (imgAspect >= cardAspect)
-        {
-            var uRange = cardAspect / imgAspect;
-            u0 = (1f - uRange) / 2f; u1 = 1f - u0;
-            v0 = 0f; v1 = 1f;
-        }
-        else
-        {
-            var vRange = imgAspect / cardAspect;
-            v0 = (1f - vRange) / 2f; v1 = 1f - v0;
-            u0 = 0f; u1 = 1f;
-        }
-
-        ImGui.Image(wrap.Handle, new Vector2(avail, MaxH), new Vector2(u0, v0), new Vector2(u1, v1));
-        ImGui.Spacing();
+        ImGui.SetClipboardText(value);
+        _copiedKey   = key;
+        _copiedUntil = DateTime.UtcNow.AddSeconds(2);
     }
 
     private static string SyncshellLabel(SyncshellEntryDto s) => s.Type switch

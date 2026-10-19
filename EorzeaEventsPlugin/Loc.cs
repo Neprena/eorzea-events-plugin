@@ -1,7 +1,12 @@
 namespace EorzeaEventsPlugin;
 
-/// <summary>All user-facing strings for FR and EN.</summary>
-internal sealed class Loc
+/// <summary>
+/// Tous les textes de l'interface. Le français et l'anglais vivent ici ;
+/// l'italien, l'allemand et l'espagnol dans Loc.It.cs, Loc.De.cs et
+/// Loc.Es.cs. Chaque propriété étant obligatoire, une langue à laquelle il
+/// manque un texte ne compile pas.
+/// </summary>
+internal sealed partial class Loc
 {
     // ── Tabs ──────────────────────────────────────────────────────────────────
     public required string TabRp       { get; init; }
@@ -9,6 +14,21 @@ internal sealed class Loc
     public required string TabEstabs   { get; init; }
     public required string TabDebug    { get; init; }
     public required string TabSettings { get; init; }
+
+    // ── Actualités et message de l'équipe ─────────────────────────────────────
+    public required string TabNews             { get; init; }
+    public required string NewsPinnedKicker    { get; init; }
+    public required string NewsEmpty           { get; init; }
+    public required string NewsRead            { get; init; }
+    public required string NewsPinned          { get; init; }
+    public required string NewsAllOnSite       { get; init; }
+    public required string NewsCatAnnouncement { get; init; }
+    public required string NewsCatMaintenance  { get; init; }
+    public required string NewsCatUpdate       { get; init; }
+    public required string NewsCatRecruitment  { get; init; }
+    public required string BannerDismiss       { get; init; }
+    public required string AlertTitle          { get; init; }
+    public required string AlertChat           { get; init; }   // {0} = message
 
     // ── Common ────────────────────────────────────────────────────────────────
     public required string Loading    { get; init; }
@@ -33,12 +53,38 @@ internal sealed class Loc
     public required string Auto       { get; init; }
     public required string Processing { get; init; }
 
+    // ── Nuit dorée : coque, navigation, apparence ─────────────────────────────
+    public required string HoldToConfirm          { get; init; }
+    public required string HoldInProgress         { get; init; }
+    public required string Undo                   { get; init; }
+    public required string NavSectionPlay         { get; init; }
+    public required string NavSectionCommunity    { get; init; }
+    public required string NavSectionAgenda       { get; init; }
+    public required string SidebarHandleHint      { get; init; }
+    public required string StatusLinked           { get; init; }
+    public required string WindowFold             { get; init; }
+    public required string WindowRestore          { get; init; }
+    public required string FoldAvailable          { get; init; }
+    public required string FoldAvailableHint      { get; init; }
+    public required string FoldAroundHint         { get; init; }   // {0} = nombre
+    public required string RpFriendRemovedToast   { get; init; }   // {0} = nom
+    public required string CfgAppearanceHeader    { get; init; }
+    public required string CfgWindowOpacity       { get; init; }
+    public required string CfgWindowOpacityHint   { get; init; }
+    public required string CfgWindowBlur          { get; init; }
+    public required string CfgWindowBlurHint      { get; init; }
+    public required string CfgAnimatedHeaders     { get; init; }
+    public required string CfgAnimatedHeadersHint { get; init; }
+
     // ── RP Session tab ────────────────────────────────────────────────────────
     public required string RpNoSession         { get; init; }
     public required string RpSessionsActive    { get; init; }   // {0} session(s)
     public required string RpBeFirst           { get; init; }
     public required string RpInYourZone        { get; init; }   // ✦  Dans votre zone ({0})
     public required string RpOtherServers      { get; init; }
+    public required string RpSectionScenes     { get; init; }
+    public required string RpSectionMine       { get; init; }
+    public required string RpOnWorld           { get; init; }   // {0} = monde
     public required string RpYourSessionActive { get; init; }
     public required string RpManageSession     { get; init; }
     public required string RpNewSession        { get; init; }
@@ -94,18 +140,40 @@ internal sealed class Loc
     public required string RecurrenceWeeklyOn { get; init; }   // {0} = jours
     public required string RecurrenceMonthly  { get; init; }
 
-    /// <summary>Vrai pour le jeu de chaînes françaises. Sert au formatage des dates.</summary>
+    public required string CfgLangIt            { get; init; }
+    public required string CfgLangDe            { get; init; }
+    public required string CfgLangEs            { get; init; }
+
+    /// <summary>Vrai pour le jeu de chaînes françaises.</summary>
     public bool IsFrench => ReferenceEquals(this, Fr);
+
+    /// <summary>Code ISO de la langue : « fr », « en », « it », « de » ou « es ».</summary>
+    public string Code =>
+        ReferenceEquals(this, Fr) ? "fr"
+      : ReferenceEquals(this, It) ? "it"
+      : ReferenceEquals(this, De) ? "de"
+      : ReferenceEquals(this, Es) ? "es"
+      : "en";
 
     /// <summary>
     /// Culture de formatage des dates, alignée sur la langue du plugin plutôt
     /// que sur celle du système : un joueur en plugin français doit lire
     /// « mercredi 5 août », quelle que soit la locale de sa machine.
     /// </summary>
-    public System.Globalization.CultureInfo Culture => IsFrench ? FrCulture : EnCulture;
+    public System.Globalization.CultureInfo Culture => Code switch
+    {
+        "fr" => FrCulture,
+        "it" => ItCulture,
+        "de" => DeCulture,
+        "es" => EsCulture,
+        _    => EnCulture,
+    };
 
     private static readonly System.Globalization.CultureInfo FrCulture = new("fr-FR");
     private static readonly System.Globalization.CultureInfo EnCulture = new("en-GB");
+    private static readonly System.Globalization.CultureInfo ItCulture = new("it-IT");
+    private static readonly System.Globalization.CultureInfo DeCulture = new("de-DE");
+    private static readonly System.Globalization.CultureInfo EsCulture = new("es-ES");
     public required string EstabSyncshells { get; init; }
     public required string EstabPassword   { get; init; }
     public required string EstabReveal     { get; init; }
@@ -219,6 +287,14 @@ internal sealed class Loc
     public required string SetupSkip            { get; init; }
     public required string NoCharacterLinked    { get; init; }
     public required string LinkThisCharacter    { get; init; }
+    public required string SetupLinkPendingHint { get; init; }
+    public required string SetupLinkReopen      { get; init; }
+    public required string SetupLinkExpired     { get; init; }
+    public required string SetupLinkFailed      { get; init; }
+    public required string SetupLinkRetry       { get; init; }
+    public required string SetupRelinkCharacter { get; init; }
+    public required string SetupAlreadyLinked   { get; init; }
+    public required string SetupMigrationSkip   { get; init; }
     public required string RpProfileNoTokenBody { get; init; }
     public required string SetupGuestButton     { get; init; }
     public required string SetupGuestHint       { get; init; }
@@ -340,7 +416,6 @@ internal sealed class Loc
     public required string RpProfileGlanceAdd      { get; init; }
     public required string RpProfileGlanceSlot     { get; init; }  // {0} = rang
     public required string RpProfileGlanceRemove   { get; init; }
-    public required string RpProfileGlanceRemoveArm { get; init; }
     public required Dictionary<string, string> RpGlanceIconLabels { get; init; }
 
     // ── Instant présent ───────────────────────────────────────────────────────
@@ -626,7 +701,6 @@ internal sealed class Loc
     public required string RpFriendRenamed     { get; init; }
     public required string RpFriendNote        { get; init; }
     public required string RpFriendRemove      { get; init; }
-    public required string RpFriendRemoveArm   { get; init; }
     public required string TabFriends          { get; init; }
     public required string RpFriendsTitle      { get; init; }
     public required string RpFriendsNoticeBody { get; init; }
@@ -703,10 +777,17 @@ internal sealed class Loc
     public required string AroundCount       { get; init; }   // {0} joueur(s)
     public required string AroundRpTaggedHint  { get; init; }
     public required string AroundRpTaggedChip  { get; init; }
+    public required string AroundAvailableChip { get; init; }
     public required string AroundEmpty       { get; init; }
     public required string AroundNoMatch     { get; init; }
     public required string AroundSearchHint  { get; init; }
     public required string AroundMyWorldOnly { get; init; }
+    public required string AroundFilters        { get; init; }
+    public required string AroundFilterAny      { get; init; }
+    public required string AroundFilterLanguage { get; init; }
+    public required string AroundFilterLevel    { get; init; }
+    public required string AroundFilterApproach { get; init; }
+    public required string AroundFilterReset    { get; init; }
 
     // ── Rencontres ────────────────────────────────────────────────────────────
     public required string CfgEncounters     { get; init; }
@@ -717,7 +798,6 @@ internal sealed class Loc
     public required string EncountersCount       { get; init; }   // {0} personnage(s)
     public required string EncountersSearchHint  { get; init; }
     public required string EncountersClearAll    { get; init; }
-    public required string EncountersClearAllArm { get; init; }
     public required string EncounterSeen         { get; init; }   // {0} = il y a…, {1} = zone
     public required string EncounterSeenNoZone   { get; init; }   // {0} = il y a…
     public required string EncounterOpened       { get; init; }   // {0} = il y a…
@@ -725,7 +805,6 @@ internal sealed class Loc
     public required string EncounterVisits       { get; init; }   // {0} = nombre
     public required string EncounterOnline       { get; init; }
     public required string EncounterForget       { get; init; }
-    public required string EncounterForgetArm    { get; init; }
     public required string TimeJustNow           { get; init; }
     public required string TimeMinutesAgo        { get; init; }   // {0} = minutes
     public required string TimeHoursAgo          { get; init; }   // {0} = heures
@@ -782,7 +861,6 @@ internal sealed class Loc
     public required string RpProfileSlotDirty        { get; init; }
     public required string RpProfileSlotDuplicate    { get; init; }
     public required string RpProfileSlotDelete       { get; init; }
-    public required string RpProfileSlotDeleteConfirm { get; init; }
     public required string RpProfileSlotErr          { get; init; }
     public required string RpProfileSlotErrQuota     { get; init; }
     public required string RpProfileSlotErrLast      { get; init; }
@@ -832,7 +910,6 @@ internal sealed class Loc
     public required string RpRelationYourKind      { get; init; }
     public required string RpRelationAccept        { get; init; }
     public required string RpRelationDecline       { get; init; }
-    public required string RpRelationDeclineArm    { get; init; }
     public required string RpRelationAccepted      { get; init; }
     public required string RpRelationDeclined      { get; init; }
     public required string RpRelationGone          { get; init; }
@@ -841,7 +918,6 @@ internal sealed class Loc
     public required string RpRelationSave          { get; init; }
     public required string RpRelationSaved         { get; init; }
     public required string RpRelationRemove        { get; init; }
-    public required string RpRelationRemoveArm     { get; init; }
     public required string RpRelationRemoved       { get; init; }
     public required string RpRelationBreakWarning  { get; init; }
     public required string RpRelationRequests      { get; init; }
@@ -849,7 +925,6 @@ internal sealed class Loc
     public required string RpRelationSentPending   { get; init; }
     public required string RpRelationSentAccepted  { get; init; }
     public required string RpRelationCancel        { get; init; }
-    public required string RpRelationCancelArm     { get; init; }
     public required string RpProfileRelationLinked { get; init; }
     public required string RpRelationEdit          { get; init; }
     public required string RpRelationSaveFirst     { get; init; }
@@ -863,6 +938,19 @@ internal sealed class Loc
         TabEstabs   = "Lieux",
         TabDebug    = "Debug",
         TabSettings = "Paramètres",
+        TabNews             = "Actualités",
+        NewsPinnedKicker    = "Actualité épinglée",
+        NewsEmpty           = "Aucune actualité pour le moment.",
+        NewsRead            = "Lire",
+        NewsPinned          = "Épinglée",
+        NewsAllOnSite       = "Toutes les actualités sur le site",
+        NewsCatAnnouncement = "Annonce",
+        NewsCatMaintenance  = "Maintenance",
+        NewsCatUpdate       = "Nouveauté",
+        NewsCatRecruitment  = "Appel à contribution",
+        BannerDismiss       = "Fermer",
+        AlertTitle          = "Message de l'équipe",
+        AlertChat           = "Message de l'équipe : {0}",
 
         Loading    = "Chargement...",
         Refresh    = "Actualiser",
@@ -887,11 +975,37 @@ internal sealed class Loc
         Auto       = "Auto",
         Processing = "Traitement...",
 
+        // Nuit dorée
+        HoldToConfirm          = "Maintenir pour confirmer",
+        HoldInProgress         = "Maintenir…",
+        Undo                   = "Annuler",
+        NavSectionPlay         = "Jouer",
+        NavSectionCommunity    = "Communauté",
+        NavSectionAgenda       = "Agenda",
+        SidebarHandleHint      = "Glisser pour ajuster la largeur, double-cliquer pour replier ou déplier.",
+        StatusLinked           = "Compte lié",
+        WindowFold             = "Réduire à la barre de titre",
+        WindowRestore          = "Restaurer la fenêtre",
+        FoldAvailable          = "Dispo RP",
+        FoldAvailableHint      = "Me déclarer disponible pour du RP, ou ne plus l'être.",
+        FoldAroundHint         = "{0} joueur(s) disponible(s) pour du RP",
+        RpFriendRemovedToast   = "{0} ne fait plus partie de vos amis RP",
+        CfgAppearanceHeader    = "Apparence",
+        CfgWindowOpacity       = "Opacité des fenêtres",
+        CfgWindowOpacityHint   = "Plus le fond est transparent, plus le décor flouté se voit. Trop bas, il gêne la lecture.",
+        CfgWindowBlur          = "Flou de l'arrière-plan",
+        CfgWindowBlurHint      = "Flou du décor derrière les fenêtres. 0 % le coupe.",
+        CfgAnimatedHeaders     = "Animer le ciel des fiches RP",
+        CfgAnimatedHeadersHint = "Étoiles qui scintillent et poussières qui dérivent, sur les fiches sans bannière.",
+
         RpNoSession         = "Aucune session active en ce moment",
         RpSessionsActive    = "{0} session(s) en cours",
         RpBeFirst           = "Soyez le premier à en démarrer une !",
         RpInYourZone        = "Dans votre zone ({0})",
         RpOtherServers      = "Autres serveurs",
+        RpSectionScenes     = "Scènes ouvertes",
+        RpSectionMine       = "Mon RP",
+        RpOnWorld           = "Sur {0}",
         RpYourSessionActive = "Votre session est en cours.",
         RpManageSession     = "Gérer ma session",
         RpNewSession        = "Nouvelle session de RP ouvert",
@@ -1058,6 +1172,14 @@ internal sealed class Loc
         SetupSkip          = "Passer",
         NoCharacterLinked  = "Aucun personnage lié",
         LinkThisCharacter  = "Lier ce personnage",
+        SetupLinkPendingHint = "Une page de confirmation est ouverte dans votre navigateur. Connectez-vous au site si nécessaire, puis cliquez sur « Confirmer ».",
+        SetupLinkReopen    = "Rouvrir la page de confirmation",
+        SetupLinkExpired   = "Session expirée. Relancez la procédure.",
+        SetupLinkFailed    = "Échec de la liaison. Relancez la procédure.",
+        SetupLinkRetry     = "Réessayer",
+        SetupRelinkCharacter = "Lier à nouveau ce personnage",
+        SetupAlreadyLinked = "Ce personnage est déjà lié. Vous pouvez fermer cet assistant, ou le lier à nouveau pour générer un nouveau token.",
+        SetupMigrationSkip = "Ignorer pour l'instant",
         RpProfileNoTokenBody = "Liez ce personnage pour créer sa fiche RP, la publier et recevoir des demandes de relation.",
         SetupGuestButton   = "Continuer sans compte",
         SetupGuestHint     = "Vous pourrez lier un personnage plus tard depuis les paramètres.",
@@ -1097,6 +1219,9 @@ internal sealed class Loc
         CfgLangAuto         = "Automatique (langue du jeu)",
         CfgLangFr           = "Français",
         CfgLangEn           = "English",
+        CfgLangIt           = "Italiano",
+        CfgLangDe           = "Deutsch",
+        CfgLangEs           = "Español",
         CfgDtrHeader        = "Barre de statut",
         CfgDtrRp            = "Le compteur de sessions RP ouvertes (R)",
         CfgDtrEvents        = "Le compteur d'événements en cours (E)",
@@ -1167,7 +1292,6 @@ internal sealed class Loc
         RpProfileGlanceAdd      = "Ajouter un détail",
         RpProfileGlanceSlot     = "Détail {0}",
         RpProfileGlanceRemove   = "Retirer",
-        RpProfileGlanceRemoveArm = "Confirmer le retrait",
         RpGlanceIconLabels = new()
         {
             ["sword"] = "Épée", ["shield"] = "Bouclier", ["book"] = "Livre",
@@ -1448,7 +1572,6 @@ internal sealed class Loc
         RpFriendRenamed     = "ajouté sous {0}",
         RpFriendNote        = "Note privée",
         RpFriendRemove      = "Retirer",
-        RpFriendRemoveArm   = "Confirmer le retrait",
         TabFriends          = "Amis RP",
         RpFriendsTitle      = "Qui voit vos sections « amis »",
         RpFriendsNoticeBody = "Cette liste ouvre l'accès aux sections de VOTRE fiche réglées sur « Mes amis RP ». Elle ne vous donne accès à rien, et personne n'est prévenu d'y figurer.",
@@ -1514,10 +1637,17 @@ internal sealed class Loc
         AroundCount       = "{0} joueur(s) disponible(s)",
         AroundRpTaggedHint  = "Ces joueurs ont le tag Jeu de rôle actif et une fiche visible. Ils ne se sont pas déclarés disponibles : à aborder avec le tact qu'on aurait en jeu.",
         AroundRpTaggedChip  = "Tag JDR",
+        AroundAvailableChip = "Disponible",
         AroundEmpty       = "Personne de disponible pour le moment",
         AroundNoMatch     = "Aucun joueur ne correspond",
         AroundSearchHint  = "Rechercher un personnage",
         AroundMyWorldOnly = "Mon monde uniquement",
+        AroundFilters        = "Filtres",
+        AroundFilterAny      = "Peu importe",
+        AroundFilterLanguage = "Langue",
+        AroundFilterLevel    = "Niveau",
+        AroundFilterApproach = "Approche",
+        AroundFilterReset    = "Réinitialiser",
 
         CfgEncounters     = "Mémoriser les rencontres",
         CfgEncountersHint = "Garde en local les personnages à fiche visible croisés en jeu, pour retrouver leur fiche plus tard et leur attacher une note privée. Rien ne quitte ce PC. Coupé, ce qui est déjà mémorisé reste jusqu'à « Tout effacer ».",
@@ -1527,7 +1657,6 @@ internal sealed class Loc
         EncountersCount       = "{0} personnage(s) croisé(s)",
         EncountersSearchHint  = "Rechercher un nom, un nom RP ou une note",
         EncountersClearAll    = "Tout effacer",
-        EncountersClearAllArm = "Confirmer l'effacement",
         EncounterSeen         = "Vu {0} · {1}",
         EncounterSeenNoZone   = "Vu {0}",
         EncounterOpened       = "Fiche consultée {0}",
@@ -1535,7 +1664,6 @@ internal sealed class Loc
         EncounterVisits       = "{0} rencontres",
         EncounterOnline       = "En ligne",
         EncounterForget       = "Oublier",
-        EncounterForgetArm    = "Confirmer",
         TimeJustNow           = "à l'instant",
         TimeMinutesAgo        = "il y a {0} min",
         TimeHoursAgo          = "il y a {0} h",
@@ -1585,7 +1713,6 @@ internal sealed class Loc
         RpProfileSlotDirty        = "Enregistrez vos modifications avant de changer de fiche.",
         RpProfileSlotDuplicate    = "Dupliquer",
         RpProfileSlotDelete       = "Supprimer",
-        RpProfileSlotDeleteConfirm = "Confirmer la suppression",
         RpProfileSlotErr          = "Action impossible pour le moment.",
         RpProfileSlotErrQuota     = "Ce personnage tient déjà toutes les fiches auxquelles il a droit.",
         RpProfileSlotErrLast      = "La dernière fiche d'un personnage ne se supprime pas.",
@@ -1630,7 +1757,6 @@ internal sealed class Loc
         RpRelationYourKind      = "Le lien tel que vous le voyez",
         RpRelationAccept        = "Accepter",
         RpRelationDecline       = "Ignorer",
-        RpRelationDeclineArm    = "Confirmer",
         RpRelationAccepted      = "Relation acceptée : elle figure désormais sur vos deux fiches.",
         RpRelationDeclined      = "Demande ignorée.",
         RpRelationGone          = "Cette demande n'existe plus.",
@@ -1639,7 +1765,6 @@ internal sealed class Loc
         RpRelationSave          = "Enregistrer",
         RpRelationSaved         = "Relation mise à jour.",
         RpRelationRemove        = "Retirer",
-        RpRelationRemoveArm     = "Confirmer le retrait",
         RpRelationRemoved       = "Relation retirée.",
         RpRelationBreakWarning  = "Cette relation vient d'une demande acceptée : la retirer l'efface aussi de la fiche d'en face.",
         RpRelationRequests      = "Demandes de relation",
@@ -1647,7 +1772,6 @@ internal sealed class Loc
         RpRelationSentPending   = "Sans réponse",
         RpRelationSentAccepted  = "Acceptée",
         RpRelationCancel        = "Retirer ma demande",
-        RpRelationCancelArm     = "Confirmer le retrait",
         RpProfileRelationLinked = "Liée",
         RpRelationEdit          = "Modifier",
         RpRelationSaveFirst     = "Enregistrez vos modifications avant de toucher à une relation liée.",
@@ -1662,6 +1786,19 @@ internal sealed class Loc
         TabEstabs   = "Venues",
         TabDebug    = "Debug",
         TabSettings = "Settings",
+        TabNews             = "News",
+        NewsPinnedKicker    = "Pinned news",
+        NewsEmpty           = "No news yet.",
+        NewsRead            = "Read",
+        NewsPinned          = "Pinned",
+        NewsAllOnSite       = "All news on the website",
+        NewsCatAnnouncement = "Announcement",
+        NewsCatMaintenance  = "Maintenance",
+        NewsCatUpdate       = "Update",
+        NewsCatRecruitment  = "Call for help",
+        BannerDismiss       = "Dismiss",
+        AlertTitle          = "Team message",
+        AlertChat           = "Team message: {0}",
 
         Loading    = "Loading...",
         Refresh    = "Refresh",
@@ -1686,11 +1823,37 @@ internal sealed class Loc
         Auto       = "Auto",
         Processing = "Processing...",
 
+        // Nuit dorée
+        HoldToConfirm          = "Hold to confirm",
+        HoldInProgress         = "Hold…",
+        Undo                   = "Undo",
+        NavSectionPlay         = "Play",
+        NavSectionCommunity    = "Community",
+        NavSectionAgenda       = "Calendar",
+        SidebarHandleHint      = "Drag to resize, double-click to collapse or expand.",
+        StatusLinked           = "Account linked",
+        WindowFold             = "Collapse to the title bar",
+        WindowRestore          = "Restore the window",
+        FoldAvailable          = "Open to RP",
+        FoldAvailableHint      = "Declare myself available for RP, or stop being so.",
+        FoldAroundHint         = "{0} player(s) available for RP",
+        RpFriendRemovedToast   = "{0} is no longer one of your RP friends",
+        CfgAppearanceHeader    = "Appearance",
+        CfgWindowOpacity       = "Window opacity",
+        CfgWindowOpacityHint   = "The more transparent the background, the more of the blurred scenery shows. Too low, it gets in the way of reading.",
+        CfgWindowBlur          = "Background blur",
+        CfgWindowBlurHint      = "Blur of the scenery behind the windows. 0% turns it off.",
+        CfgAnimatedHeaders     = "Animate the sky on RP profiles",
+        CfgAnimatedHeadersHint = "Twinkling stars and drifting motes, on profiles without a banner.",
+
         RpNoSession         = "No active sessions right now",
         RpSessionsActive    = "{0} active session(s)",
         RpBeFirst           = "Be the first to start one!",
         RpInYourZone        = "In your zone ({0})",
         RpOtherServers      = "Other servers",
+        RpSectionScenes     = "Open scenes",
+        RpSectionMine       = "My RP",
+        RpOnWorld           = "On {0}",
         RpYourSessionActive = "Your session is active.",
         RpManageSession     = "Manage my session",
         RpNewSession        = "New open RP session",
@@ -1857,6 +2020,14 @@ internal sealed class Loc
         SetupSkip          = "Skip",
         NoCharacterLinked  = "No character linked",
         LinkThisCharacter  = "Link this character",
+        SetupLinkPendingHint = "A confirmation page has opened in your browser. Log in to the website if needed, then click \"Confirm\".",
+        SetupLinkReopen    = "Reopen the confirmation page",
+        SetupLinkExpired   = "Session expired. Please start again.",
+        SetupLinkFailed    = "Linking failed. Please start again.",
+        SetupLinkRetry     = "Try again",
+        SetupRelinkCharacter = "Link this character again",
+        SetupAlreadyLinked = "This character is already linked. You can close this assistant, or link it again to generate a new token.",
+        SetupMigrationSkip = "Skip for now",
         RpProfileNoTokenBody = "Link this character to build its RP profile, publish it and receive relationship requests.",
         SetupGuestButton   = "Continue without an account",
         SetupGuestHint     = "You can link a character later from the settings.",
@@ -1894,8 +2065,11 @@ internal sealed class Loc
         CfgAutoRefreshPos   = "Update my position automatically (every 5 min)",
         CfgLangHeader       = "Language",
         CfgLangAuto         = "Auto (game language)",
-        CfgLangFr           = "Francais",
+        CfgLangFr           = "Français",
         CfgLangEn           = "English",
+        CfgLangIt           = "Italiano",
+        CfgLangDe           = "Deutsch",
+        CfgLangEs           = "Español",
         CfgDtrHeader        = "Server info bar",
         CfgDtrRp            = "The open RP session counter (R)",
         CfgDtrEvents        = "The ongoing event counter (E)",
@@ -1966,7 +2140,6 @@ internal sealed class Loc
         RpProfileGlanceAdd      = "Add a detail",
         RpProfileGlanceSlot     = "Detail {0}",
         RpProfileGlanceRemove   = "Remove",
-        RpProfileGlanceRemoveArm = "Confirm removal",
         RpGlanceIconLabels = new()
         {
             ["sword"] = "Sword", ["shield"] = "Shield", ["book"] = "Book",
@@ -2247,7 +2420,6 @@ internal sealed class Loc
         RpFriendRenamed     = "added as {0}",
         RpFriendNote        = "Private note",
         RpFriendRemove      = "Remove",
-        RpFriendRemoveArm   = "Confirm removal",
         TabFriends          = "RP friends",
         RpFriendsTitle      = "Who sees your friends-only sections",
         RpFriendsNoticeBody = "This list opens the sections of YOUR profile set to \"My RP friends\". It gives you access to nothing, and nobody is told they are on it.",
@@ -2315,10 +2487,17 @@ internal sealed class Loc
         AroundCount       = "{0} player(s) available",
         AroundRpTaggedHint  = "These players have the Role-playing tag on and a visible profile. They have not declared themselves available: approach them with the tact you would use in game.",
         AroundRpTaggedChip  = "RP tag",
+        AroundAvailableChip = "Available",
         AroundEmpty       = "Nobody available right now",
         AroundNoMatch     = "No player matches",
         AroundSearchHint  = "Search for a character",
         AroundMyWorldOnly = "My world only",
+        AroundFilters        = "Filters",
+        AroundFilterAny      = "Any",
+        AroundFilterLanguage = "Language",
+        AroundFilterLevel    = "Level",
+        AroundFilterApproach = "Approach",
+        AroundFilterReset    = "Reset",
 
         CfgEncounters     = "Remember encounters",
         CfgEncountersHint = "Keeps a local record of the characters with a visible profile you met in game, so you can find their profile again later and attach a private note. Nothing leaves this PC. When off, what is already recorded stays until \"Clear all\".",
@@ -2328,7 +2507,6 @@ internal sealed class Loc
         EncountersCount       = "{0} character(s) met",
         EncountersSearchHint  = "Search a name, an RP name or a note",
         EncountersClearAll    = "Clear all",
-        EncountersClearAllArm = "Confirm clearing",
         EncounterSeen         = "Seen {0} · {1}",
         EncounterSeenNoZone   = "Seen {0}",
         EncounterOpened       = "Profile opened {0}",
@@ -2336,7 +2514,6 @@ internal sealed class Loc
         EncounterVisits       = "{0} encounters",
         EncounterOnline       = "Online",
         EncounterForget       = "Forget",
-        EncounterForgetArm    = "Confirm",
         TimeJustNow           = "just now",
         TimeMinutesAgo        = "{0} min ago",
         TimeHoursAgo          = "{0} h ago",
@@ -2386,7 +2563,6 @@ internal sealed class Loc
         RpProfileSlotDirty        = "Save your changes before switching profiles.",
         RpProfileSlotDuplicate    = "Duplicate",
         RpProfileSlotDelete       = "Delete",
-        RpProfileSlotDeleteConfirm = "Confirm deletion",
         RpProfileSlotErr          = "That action failed for now.",
         RpProfileSlotErrQuota     = "This character already holds as many profiles as allowed.",
         RpProfileSlotErrLast      = "The last profile of a character cannot be deleted.",
@@ -2431,7 +2607,6 @@ internal sealed class Loc
         RpRelationYourKind      = "The tie as you see it",
         RpRelationAccept        = "Accept",
         RpRelationDecline       = "Ignore",
-        RpRelationDeclineArm    = "Confirm",
         RpRelationAccepted      = "Relationship accepted: it now appears on both profiles.",
         RpRelationDeclined      = "Request ignored.",
         RpRelationGone          = "That request no longer exists.",
@@ -2440,7 +2615,6 @@ internal sealed class Loc
         RpRelationSave          = "Save",
         RpRelationSaved         = "Relationship updated.",
         RpRelationRemove        = "Remove",
-        RpRelationRemoveArm     = "Confirm removal",
         RpRelationRemoved       = "Relationship removed.",
         RpRelationBreakWarning  = "This relationship comes from an accepted request: removing it also removes it from the other profile.",
         RpRelationRequests      = "Relationship requests",
@@ -2448,7 +2622,6 @@ internal sealed class Loc
         RpRelationSentPending   = "No answer yet",
         RpRelationSentAccepted  = "Accepted",
         RpRelationCancel        = "Withdraw my request",
-        RpRelationCancelArm     = "Confirm withdrawal",
         RpProfileRelationLinked = "Linked",
         RpRelationEdit          = "Edit",
         RpRelationSaveFirst     = "Save your changes before editing a linked relationship.",

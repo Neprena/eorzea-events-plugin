@@ -11,6 +11,8 @@ internal sealed record ReleaseNote(
     string TitleFr, string TitleEn,
     string BodyFr,  string BodyEn)
 {
+    // Les notes ne sont rédigées qu'en français et en anglais : l'italien,
+    // l'allemand et l'espagnol lisent la version anglaise.
     public string Title => Plugin.L.IsFrench ? TitleFr : TitleEn;
     public string Body  => Plugin.L.IsFrench ? BodyFr  : BodyEn;
 }
@@ -62,6 +64,42 @@ internal static class ReleaseNotes
     /// </summary>
     public static readonly ReleaseNote[] All =
     [
+        new(
+            Version: "2.15.0",
+            TitleFr: "La Nuit dorée",
+            TitleEn: "The Golden Night",
+            BodyFr: """
+                    - **Nouveauté :** La page « Actualités », en bas de la barre latérale, affiche les nouvelles du site. « Lire » ouvre l'article complet avec ses images ; une pastille compte les nouvelles depuis votre dernière visite. L'actualité épinglée apparaît aussi en haut de la fenêtre principale.
+                    - **Nouveauté :** L'équipe d'Eorzea Events peut vous transmettre des messages d'incident ou de maintenance, même sans personnage lié. Ils arrivent par notification Dalamud, aussi dans le chat s'ils sont importants, et au centre de l'écran s'ils sont critiques. Ils restent en bandeau en haut de la fenêtre principale jusqu'à ce que vous les fermiez.
+                    - **Nouveauté :** Les fenêtres adoptent un habillage bleu nuit et doré, avec un fond plus transparent. Réglez l'opacité et le flou dans « Paramètres › Divers › Apparence ». Les fiches RP sans bannière affichent un ciel étoilé dont vous pouvez désactiver l'animation.
+                    - **Nouveauté :** L'interface est disponible en italien, en allemand et en espagnol dans « Paramètres › Divers › Langue ». Les notes de version restent en anglais dans ces trois langues.
+                    - **Nouveauté :** La barre latérale regroupe les pages sous « Jouer », « Communauté » et « Agenda ». Faites glisser son bord droit pour ajuster sa largeur ou la replier en icônes ; un double-clic sur ce bord permet aussi de la replier ou de la déplier.
+                    - **Nouveauté :** « Réduire à la barre de titre » réduit la fenêtre principale à sa barre supérieure. Si vous jouez avec un personnage lié, « Dispo RP » permet d'y changer votre disponibilité. Cliquez sur le compteur de personnages pour rouvrir « Autour de moi ».
+                    - **Amélioration :** Maintenez le bouton jusqu'à son remplissage pour confirmer une suppression ou un retrait, et pour refuser ou annuler une demande de relation ; relâchez avant la fin pour annuler le geste. Après un retrait dans « Amis RP », une notification propose « Annuler » pendant sept secondes.
+                    - **Amélioration :** Dans « Autour de moi », ouvrez « Filtres » pour n'afficher que votre monde et filtrer par langue, niveau et approche ; « Réinitialiser » retire tous les filtres. Les cartes d'« Autour de moi » et de « Rencontres » mettent en évidence les noms, les statuts et les lieux ; dans « Rencontres », « Voir la fiche RP » devient le bouton principal.
+                    - **Amélioration :** Dans « RP Ouvert », les scènes sont regroupées par zone, monde et autres serveurs ; votre disponibilité et votre session se règlent dans « Mon RP ». Les cartes de scène indiquent les coordonnées, l'instance et l'annexe résidentielle lorsqu'elles s'appliquent, avec leurs boutons regroupés en bas.
+                    - **Amélioration :** Les fiches d'événement, de lieu et d'actualité présentent l'image en tête et les boutons en bas. Dans les descriptions, les intertitres sont plus grands et dorés, et les émojis en début de ligne sont remplacés par des icônes.
+                    - **Amélioration :** L'interrupteur d'un réglage se place désormais à gauche de son libellé, et cliquer sur le libellé ou sur la description bascule aussi l'interrupteur. Les descriptions et les textes d'aide utilisent la taille du texte courant.
+                    - **Correction :** Les lignes vides dans les descriptions d'événements, de lieux et de fiches RP séparent correctement les paragraphes.
+                    - **Correction :** Les liens vers les pages du site s'ouvrent correctement depuis les descriptions.
+                    - **Correction :** Dans « RP Ouvert », « Autres serveurs » n'inclut plus les scènes de votre monde situées dans une autre zone.
+                    """,
+            BodyEn: """
+                    - **New:** The "News" page, at the bottom of the sidebar, displays news from the website. "Read" opens the full article with its images; a badge counts news published since your last visit. The pinned news item also appears at the top of the main window.
+                    - **New:** The Eorzea Events team can send you incident or maintenance messages, even without a linked character. They arrive as Dalamud notifications, also in the chat when they are important, and in the middle of the screen when they are critical. They stay as a banner at the top of the main window until you dismiss them.
+                    - **New:** Windows now use a midnight-blue and gold theme with a more transparent background. Adjust opacity and blur under "Settings › Misc › Appearance". RP profiles without a banner display a starry sky whose animation you can turn off.
+                    - **New:** The interface is available in Italian, German and Spanish under "Settings › Misc › Language". Release notes remain in English in those three languages.
+                    - **New:** The sidebar groups pages under "Play", "Community" and "Calendar". Drag its right edge to adjust its width or collapse it into icons; double-clicking that edge also collapses or expands it.
+                    - **New:** "Collapse to the title bar" shrinks the main window to its top bar. When playing with a linked character, use "Open to RP" to change your availability there. Click the character counter to reopen "Around me".
+                    - **Improvement:** Hold the button until it fills to confirm a deletion or removal, and to decline or cancel a relationship request; release early to cancel the gesture. After a removal in "RP friends", a notification offers "Undo" for seven seconds.
+                    - **Improvement:** In "Around me", open "Filters" to show only your world and filter by language, level and approach; "Reset" clears all filters. Cards in "Around me" and "Encounters" highlight names, statuses and locations; in "Encounters", "View RP profile" becomes the primary button.
+                    - **Improvement:** In "Open RP", scenes are grouped by zone, world and other servers; your availability and session are managed under "My RP". Scene cards show coordinates, the instance and the residential annex where applicable, with their buttons grouped at the bottom.
+                    - **Improvement:** Event, venue and news windows display their image at the top and buttons at the bottom. In descriptions, subheadings are larger and gold, and leading emoji are replaced by icons.
+                    - **Improvement:** A setting's switch now sits to the left of its label, and clicking the label or the description also toggles it. Descriptions and help texts use the regular text size.
+                    - **Fix:** Blank lines in event, venue and RP profile descriptions correctly separate paragraphs.
+                    - **Fix:** Links to website pages open correctly from descriptions.
+                    - **Fix:** In "Open RP", "Other servers" no longer includes scenes on your world in another zone.
+                    """),
         new(
             Version: "2.14.1",
             TitleFr: "Le bon chemin vers vos réglages",

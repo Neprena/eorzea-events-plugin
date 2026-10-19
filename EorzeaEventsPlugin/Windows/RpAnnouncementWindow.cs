@@ -31,7 +31,7 @@ public class RpAnnouncementWindow : ThemedWindow
         WindowName = $"{Plugin.L.AnnouncementTitle}##rpannouncement";
     }
 
-    public override void Draw()
+    protected override void DrawContents()
     {
         var l = Plugin.L;
 

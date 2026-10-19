@@ -16,8 +16,9 @@ Plugin Dalamud pour [eorzea.events](https://eorzea.events) — gérez vos sessio
 - 🏠 **Lieux** — recherchez les établissements RP par nom, serveur ou quartier
 - 🔔 **Notifications** — alerte écran native, bulle Dalamud ou message chat quand une session RP démarre près de vous (filtrable par monde et par langue)
 - 📊 **Barre d'info serveur (DTR)** — indicateurs RP, événements et disponibilité directement dans la barre d'info de Dalamud
+- 📰 **Actualités** — lisez les actualités du site sans quitter le jeu, l'actualité épinglée en tête, et recevez les messages urgents de l'équipe
 - 👥 **Multi-personnages** — un token distinct par personnage, couplage automatique via le navigateur
-- 🌐 **Bilingue** — interface disponible en français et en anglais (détection automatique depuis le client FFXIV)
+- 🌐 **Multilingue** — interface en français, anglais, allemand, italien et espagnol (détection automatique depuis le client FFXIV)
 
 ### Installation
 
@@ -72,8 +73,9 @@ Dalamud plugin for [eorzea.events](https://eorzea.events) — manage your open R
 - 🏠 **Venues** — search RP establishments by name, server or ward
 - 🔔 **Notifications** — native screen alert, Dalamud bubble or chat message when an RP session starts near you (filterable by world and language)
 - 📊 **Server Info Bar (DTR)** — RP, events and availability indicators right in Dalamud's info bar
+- 📰 **News** — read the website's news without leaving the game, pinned news first, and receive urgent messages from the team
 - 👥 **Multi-character** — a separate token per character, with automatic browser-based linking
-- 🌐 **Bilingual** — interface available in French and English (auto-detected from your FFXIV client language)
+- 🌐 **Multilingual** — interface in French, English, German, Italian and Spanish (auto-detected from your FFXIV client language)
 
 ### Installation
 

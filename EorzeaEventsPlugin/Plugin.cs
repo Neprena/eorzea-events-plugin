@@ -57,11 +57,25 @@ public sealed class Plugin : IDalamudPlugin
         get
         {
             var lang = Config.Language;
+
+            // Le client du jeu n'existe qu'en japonais, anglais, allemand et
+            // français : l'italien et l'espagnol ne se choisissent qu'à la main.
             if (lang == PluginLanguage.Auto)
-                lang = ClientState.ClientLanguage == Dalamud.Game.ClientLanguage.French
-                    ? PluginLanguage.French
-                    : PluginLanguage.English;
-            return lang == PluginLanguage.French ? Loc.Fr : Loc.En;
+                lang = ClientState.ClientLanguage switch
+                {
+                    Dalamud.Game.ClientLanguage.French => PluginLanguage.French,
+                    Dalamud.Game.ClientLanguage.German => PluginLanguage.German,
+                    _                                  => PluginLanguage.English,
+                };
+
+            return lang switch
+            {
+                PluginLanguage.French  => Loc.Fr,
+                PluginLanguage.Italian => Loc.It,
+                PluginLanguage.German  => Loc.De,
+                PluginLanguage.Spanish => Loc.Es,
+                _                      => Loc.En,
+            };
         }
     }
 
@@ -89,6 +103,7 @@ public sealed class Plugin : IDalamudPlugin
     private static   SetupWindow?       _setupWindow;
     private static   EstabDetailWindow? _estabDetailWindow;
     private static   EventDetailWindow? _eventDetailWindow;
+    private static   NewsDetailWindow?  _newsDetailWindow;
     private static   RpProfileWindow?      _rpProfileWindow;
     private static   RpAnnouncementWindow? _announcementWindow;
     private static   WhatsNewWindow?       _whatsNewWindow;
@@ -211,6 +226,12 @@ public sealed class Plugin : IDalamudPlugin
     /// niveau / mode d'approche retenu pour les nameplates.
     /// </summary>
     internal static IReadOnlyList<Api.RpAvailabilityEntryDto> AvailableEntries { get; private set; } = [];
+
+    /// <summary>
+    /// Alerte de l'équipe en cours, telle que servie par le relevé agrégé.
+    /// null hors incident. Lue par le bandeau de la fenêtre principale.
+    /// </summary>
+    internal static Api.PluginAlertDto? CurrentAlert { get; private set; }
 
     // Prompt "rester disponible ?" affiché au prochain rendu de l'onglet RP
     internal static bool LoginPromptPending { get; private set; } = false;
@@ -740,6 +761,7 @@ public sealed class Plugin : IDalamudPlugin
         _setupWindow       = new SetupWindow(Config);
         _estabDetailWindow = new EstabDetailWindow(Config);
         _eventDetailWindow = new EventDetailWindow();
+        _newsDetailWindow  = new NewsDetailWindow();
         _rpProfileWindow    = new RpProfileWindow();
         _announcementWindow = new RpAnnouncementWindow(Config);
         _whatsNewWindow     = new WhatsNewWindow(Config);
@@ -753,6 +775,7 @@ public sealed class Plugin : IDalamudPlugin
         _windowSystem.AddWindow(_setupWindow);
         _windowSystem.AddWindow(_estabDetailWindow);
         _windowSystem.AddWindow(_eventDetailWindow);
+        _windowSystem.AddWindow(_newsDetailWindow);
         _windowSystem.AddWindow(_rpProfileWindow);
         _windowSystem.AddWindow(_announcementWindow);
         _windowSystem.AddWindow(_whatsNewWindow);
@@ -896,6 +919,10 @@ public sealed class Plugin : IDalamudPlugin
     /// <summary>Détail d'un événement : description entière, horaires, lieu.</summary>
     internal static void OpenEventDetail(EorzeaEventsPlugin.Api.EventDto ev)
         { _eventDetailWindow?.Open(ev); }
+
+    /// <summary>Lecture d'une actualité : couverture, texte entier, images.</summary>
+    internal static void OpenNewsDetail(EorzeaEventsPlugin.Api.NewsItemDto item)
+        { _newsDetailWindow?.Open(item); }
     internal static void OpenMySession()
     {
         if (IsBlocked)
@@ -1639,12 +1666,39 @@ public sealed class Plugin : IDalamudPlugin
         });
     }
 
-    /// <summary>Referme sa fiche à un personnage.</summary>
-    internal static void RemoveFriend(string characterId, string label)
+    /// <summary>Le plugin se décharge : plus de retour dans le chat ni de rafraîchissement.</summary>
+    private static bool _unloading;
+
+    /// <summary>
+    /// Écritures lancées pendant le déchargement, attendues ensemble avant de
+    /// libérer le client réseau.
+    /// </summary>
+    private static readonly List<Task> UnloadWrites = [];
+
+    /// <summary>
+    /// Referme sa fiche à un personnage.
+    /// </summary>
+    /// <param name="token">
+    /// Jeton du personnage qui a demandé le retrait, figé au moment du geste.
+    /// Null : celui du client, pour un retrait immédiat.
+    /// </param>
+    internal static void RemoveFriend(string characterId, string label, string? token = null)
     {
+        Task<bool> Send() => token is { Length: > 0 }
+            ? Api.RemoveRpFriendAsync(characterId, token)
+            : Api.RemoveRpFriendAsync(characterId);
+
+        // Au déchargement, la requête part seule, sans retour dans le chat :
+        // Dispose les attend toutes ensemble avant de libérer le client réseau.
+        if (_unloading)
+        {
+            UnloadWrites.Add(Task.Run(Send));
+            return;
+        }
+
         Task.Run(async () =>
         {
-            var ok = await Api.RemoveRpFriendAsync(characterId);
+            var ok = await Send();
             await Framework.RunOnFrameworkThread(() =>
             {
                 if (ok) ChatGui.Print(string.Format(L.RpFriendRemoved, label));
@@ -1873,6 +1927,11 @@ public sealed class Plugin : IDalamudPlugin
         if (_wasLoggedIn && !loggedIn) EncounterRegistry.FlushIfDue(now, force: true);
         _wasLoggedIn = loggedIn;
         EncounterRegistry.FlushIfDue(now);
+
+        // Échéance des notifications, dont dépendent les gestes différés comme
+        // le retrait d'un ami : ici et non au rendu, pour qu'une fenêtre fermée
+        // ne les suspende pas.
+        Ui.Components.Snackbar.Update();
 
         if (IsBlocked)
         {
@@ -2171,6 +2230,7 @@ public sealed class Plugin : IDalamudPlugin
                 // cesserait de les servir, et la réponse changerait, si elles
                 // avaient expiré.
                 _availabilitiesReceivedAt = DateTime.UtcNow;
+                NotifyPendingAlert();
                 return;
             }
             if (result.Data is not { } data) return;
@@ -2178,10 +2238,75 @@ public sealed class Plugin : IDalamudPlugin
             ProcessSessions(data.Sessions, currentWorld);
             ProcessEvents(data.Events);
             ApplyAvailabilities(data.Availabilities);
+            CurrentAlert = data.Alert;
+            NotifyPendingAlert();
         }
         catch { /* silencieux */ }
         finally { _syncInFlight = false; }
     }
+
+    /// <summary>
+    /// Notifie l'alerte de l'équipe, une seule fois par identifiant.
+    ///
+    /// Appelé à chaque relevé, 304 compris : une alerte reçue sur l'écran de
+    /// titre ne peut s'écrire nulle part, elle attend donc la connexion d'un
+    /// personnage, alors que le serveur, lui, ne la renverra plus.
+    ///
+    /// L'intensité suit le niveau choisi par l'équipe : une information se
+    /// contente d'une bulle, un avertissement s'écrit aussi dans le chat, un
+    /// incident critique s'affiche en plus au centre de l'écran.
+    /// </summary>
+    private void NotifyPendingAlert()
+    {
+        if (CurrentAlert is not { } alert || alert.Id == Config.LastNotifiedAlertId) return;
+        if (!ClientState.IsLoggedIn) return;
+
+        Config.LastNotifiedAlertId = alert.Id;
+        Config.Save();
+
+        // Le bandeau de la fenêtre rend le Markdown ; le chat, la bulle et
+        // l'alerte écran n'en sont pas capables, ils reçoivent le texte aplati.
+        var markdown = alert.MessageFor(L.Code);
+        var critical = alert.Level == "critical";
+        var info     = alert.Level == "info";
+
+        if (critical) ToastGui.ShowError(AlertPlainText(markdown, 160));
+
+        var notification = NotificationMgr.AddNotification(new Notification
+        {
+            Title           = L.AlertTitle,
+            Content         = AlertPlainText(markdown, 400),
+            Type            = critical ? NotificationType.Error
+                            : info     ? NotificationType.Info
+                            :            NotificationType.Warning,
+            InitialDuration = TimeSpan.FromSeconds(critical ? 30 : 12),
+        });
+
+        notification.Click += _ =>
+        {
+            if (_mainWindow != null) _mainWindow.IsOpen = true;
+            notification.DismissNow();
+        };
+
+        if (info) return;
+
+        ChatGui.Print(new SeStringBuilder()
+            .AddUiForeground(17) // jaune
+            .AddText("[Eorzea Events] ")
+            .AddUiForegroundOff()
+            .AddText(string.Format(L.AlertChat, AlertPlainText(markdown, 1000)))
+            .Build());
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex MarkdownLink =
+        new(@"!?\[([^\]]*)\]\([^)]*\)", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>
+    /// Message d'alerte sans sa syntaxe Markdown, sur une ligne : un lien garde
+    /// son texte, qu'aucune de ces surfaces ne saurait rendre cliquable.
+    /// </summary>
+    private static string AlertPlainText(string markdown, int maxLength) =>
+        Ui.Glyphs.Summarize(MarkdownLink.Replace(markdown, "$1"), maxLength);
 
     private async Task CheckNewSessionsAsync(string? currentWorld)
     {
@@ -2227,15 +2352,14 @@ public sealed class Plugin : IDalamudPlugin
                 var isNearby = currentWorld != null && CurrentZone != null
                     && session.Server == currentWorld && session.Location == CurrentZone;
 
-                // Filtre langue (si activé, ignore les sessions dont la locale ne correspond pas)
-                if (Config.NotifyRpLanguageFilter)
+                // Filtre langue (si activé, ignore les sessions dont la locale ne
+                // correspond pas). Le site ne connaît que « fr » et « en » : en
+                // italien, allemand ou espagnol, le filtre masquerait tout, il
+                // ne s'applique donc pas.
+                if (Config.NotifyRpLanguageFilter && L.Code is "fr" or "en")
                 {
                     var sessionLang = session.Author?.Locale;
-                    if (sessionLang != null)
-                    {
-                        var pluginLang = L == Loc.Fr ? "fr" : "en";
-                        if (sessionLang != pluginLang) continue;
-                    }
+                    if (sessionLang != null && sessionLang != L.Code) continue;
                 }
 
                 // Filtre « mon monde ». Sans objet pour une session de ma zone,
@@ -2608,7 +2732,7 @@ public sealed class Plugin : IDalamudPlugin
                     if (string.IsNullOrEmpty(title)) title = null;
 
                     ushort? color = Ui.Theme.TryParseHex(p.AccentColor) is { } parsed
-                        ? Chat.ChatPalette.Nearest(Ui.Theme.EnsureReadable(parsed))
+                        ? Chat.ChatPalette.Nearest(Chat.ChatPalette.Readable(parsed))
                         : null;
 
                     return (Key: (e.CharacterName, e.Server.ToLowerInvariant()),
@@ -3210,6 +3334,15 @@ public sealed class Plugin : IDalamudPlugin
 
     public void Dispose()
     {
+        // Avant tout le reste, client réseau compris : un retrait encore
+        // annulable au moment du déchargement doit partir quand même.
+        _unloading = true;
+        Ui.Components.Snackbar.Flush();
+
+        // Pas de retour vers le thread du jeu dans ces tâches : les attendre
+        // ici ne peut pas se bloquer, au pire on abandonne au bout du délai.
+        if (UnloadWrites.Count > 0) Task.WaitAll([.. UnloadWrites], TimeSpan.FromSeconds(2));
+
         ClientState.TerritoryChanged            -= OnTerritoryChanged;
         Framework.Update                        -= OnFrameworkUpdate;
         NamePlateGui.OnNamePlateUpdate          -= OnNamePlateUpdate;

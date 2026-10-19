@@ -93,7 +93,7 @@ internal sealed class WhatsNewWindow : ThemedWindow
             note => ReleaseNotes.IsUnseen(note.Version, _config.LastSeenVersion));
     }
 
-    public override void Draw()
+    protected override void DrawContents()
     {
         var l = Plugin.L;
 

@@ -2,7 +2,11 @@ using Dalamud.Configuration;
 
 namespace EorzeaEventsPlugin;
 
-public enum PluginLanguage { Auto, French, English }
+/// <summary>
+/// Langue de l'interface. Les nouvelles langues s'ajoutent à la fin : la valeur
+/// est enregistrée en nombre dans la configuration des joueurs.
+/// </summary>
+public enum PluginLanguage { Auto, French, English, Italian, German, Spanish }
 
 /// <summary>
 /// Touche à maintenir pour faire apparaître l'infobulle de ciblage. Sert à qui
@@ -306,6 +310,33 @@ public class Configuration : IPluginConfiguration
     /// <summary>Langue de l'interface du plugin (Auto = détection depuis le client FFXIV).</summary>
     public PluginLanguage Language { get; set; } = PluginLanguage.Auto;
 
+    // ── Apparence ────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Opacité du fond des fenêtres, entre 0,4 et 1. Le défaut a été réglé en
+    /// jeu avec le flou à 10 % : le décor flouté reste lisible derrière le texte.
+    /// Sans flou, mieux vaut remonter l'opacité.
+    /// </summary>
+    public float WindowOpacity { get; set; } = 0.60f;
+
+    /// <summary>
+    /// Intensité du flou derrière les fenêtres, entre 0 (coupé) et 1. Propre au
+    /// plugin : celui de Dalamud dépend du style choisi, et vaut zéro dans bien
+    /// des styles personnalisés. Faible par défaut : réglé en jeu, 10 % suffit
+    /// à brouiller le décor sans l'éteindre.
+    /// </summary>
+    public float WindowBlur { get; set; } = 0.10f;
+
+
+    /// <summary>Largeur de la colonne de navigation dépliée, en pixels à 100 % d'échelle.</summary>
+    public float SidebarWidth { get; set; } = 196f;
+
+    /// <summary>Colonne de navigation repliée en icônes.</summary>
+    public bool SidebarCollapsed { get; set; } = false;
+
+    /// <summary>Étoiles qui scintillent et poussières qui dérivent dans l'en-tête des fiches.</summary>
+    public bool AnimatedProfileHeaders { get; set; } = true;
+
     /// <summary>
     /// Proposer le bouton « Y aller » quand Lifestream est installé. Reste sans
     /// effet en son absence : le bouton ne s'affiche pas pour autant.
@@ -509,6 +540,28 @@ public class Configuration : IPluginConfiguration
 
     /// <summary>Ouvrir la fenêtre des nouveautés au premier lancement après une mise à jour.</summary>
     public bool AutoOpenWhatsNew { get; set; } = true;
+
+    // ─── Actualités et alertes de l'équipe ───────────────────────────────────
+
+    /// <summary>
+    /// Dernière alerte de l'équipe déjà notifiée. Retenue d'une session à
+    /// l'autre : sans elle, chaque relance du jeu renotifierait un incident
+    /// toujours en cours.
+    /// </summary>
+    public string? LastNotifiedAlertId { get; set; }
+
+    /// <summary>Alerte dont le bandeau a été fermé. Une nouvelle alerte le rouvre.</summary>
+    public string? DismissedAlertId { get; set; }
+
+    /// <summary>Actualité épinglée dont le bandeau a été fermé. Une autre épinglée le rouvre.</summary>
+    public string? DismissedPinnedNewsId { get; set; }
+
+    /// <summary>
+    /// Date de publication de l'actualité la plus récente déjà vue. null =
+    /// jamais relevée : le premier relevé la fixe sur la plus récente, plutôt
+    /// que d'annoncer comme nouvelles toutes les actualités d'un coup.
+    /// </summary>
+    public DateTime? NewsSeenUpTo { get; set; }
 
     // ─── Ancien état, commun à tout le compte ────────────────────────────────
     //

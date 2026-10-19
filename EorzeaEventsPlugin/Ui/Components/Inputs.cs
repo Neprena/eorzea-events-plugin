@@ -63,7 +63,7 @@ internal static class Inputs
         var alpha = disabled ? 0.45f : 1f;
 
         dl.AddRectFilled(min, max, ImGui.GetColorU32(Theme.Alpha(track, alpha)), radius);
-        dl.AddRect(min, max, ImGui.GetColorU32(Theme.Alpha(Theme.Border, alpha)), radius);
+        dl.AddRect(min, max, ImGui.GetColorU32(Theme.Faded(Theme.Border, alpha)), radius);
 
         var knobX = min.X + radius + t * (width - height);
         dl.AddCircleFilled(new Vector2(knobX, top + radius), radius - Theme.S(2.5f),
@@ -141,41 +141,121 @@ internal static class Inputs
     }
 
     /// <summary>
-    /// Ligne de réglage : libellé et description à gauche, interrupteur aligné
-    /// à droite.
+    /// Pastille de filtre : une option parmi d'autres, le choix actif en
+    /// cristal, comme l'entrée active de la colonne. L'or reste à l'action
+    /// principale de l'écran : un filtre choisi n'en est pas une.
     /// </summary>
+    public static bool Pill(string id, string label, bool active, string? tooltip = null)
+    {
+        var padX   = Theme.S(11f);
+        var height = MathF.Round(ImGui.GetTextLineHeight() + Theme.S(8f));
+        var size   = new Vector2(ImGui.CalcTextSize(label).X + padX * 2f, height);
+        var min    = ImGui.GetCursorScreenPos();
+        var max    = min + size;
+
+        var clicked = ImGui.InvisibleButton(id, size);
+        var hovered = ImGui.IsItemHovered();
+        if (hovered) ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
+
+        var dl = ImGui.GetWindowDrawList();
+        var r  = height * 0.5f;
+
+        var light = Motion.Approach(ImGui.GetID($"{id}_light"), hovered ? 1f : 0f, Motion.Fast);
+        var fill  = active ? Theme.Alpha(Theme.Accent, 0.16f + 0.06f * light)
+                           : Theme.Alpha(Theme.Text, 0.06f * light);
+
+        dl.AddRectFilled(min, max, ImGui.GetColorU32(fill), r);
+        dl.AddRect(min, max, ImGui.GetColorU32(active ? Theme.Alpha(Theme.Accent, 0.75f)
+                                                      : Theme.Alpha(Theme.Text, 0.14f)),
+                   r, ImDrawFlags.None, 1f);
+
+        var textSize = ImGui.CalcTextSize(label);
+        dl.AddText(min + (size - textSize) * 0.5f, ImGui.GetColorU32(active ? Theme.Text : Theme.TextMuted), label);
+
+        if (hovered && tooltip != null) Feedback.Tooltip(tooltip);
+
+        return clicked;
+    }
+
+    /// <summary>Largeur d'une pastille, pour savoir si elle tient sur la ligne.</summary>
+    public static float PillWidth(string label) => ImGui.CalcTextSize(label).X + Theme.S(22f);
+
+    /// <summary>
+    /// Ligne de réglage : interrupteur à gauche, libellé juste à côté,
+    /// description dessous. Cliquer le libellé bascule aussi l'interrupteur.
+    ///
+    /// L'interrupteur était calé au bord droit, le libellé au bord gauche : sur
+    /// une carte large, rien ne les reliait, et l'on passait à côté du réglage.
+    /// </summary>
+    /// <param name="below">
+    /// Contenu posé sous la description, aligné sur le libellé : un bouton
+    /// d'essai, par exemple. Il ne bascule pas l'interrupteur.
+    /// </param>
     public static bool ToggleRow(string label, ref bool value,
                                  string? description = null,
                                  FontAwesomeIcon? icon = null,
-                                 bool disabled = false)
+                                 bool disabled = false,
+                                 Action? below = null)
     {
-        var toggleWidth = ImGui.GetFrameHeight() * 0.82f * 1.85f;
+        // La description entre dans l'identifiant : deux réglages peuvent porter
+        // le même libellé (l'alerte écran des sessions et celle des événements),
+        // et un identifiant partagé faisait trembler leurs deux curseurs.
+        var top     = ImGui.GetCursorPosY();
+        var changed = Toggle($"##toggle_{label}_{description}", ref value, disabled: disabled);
+
+        ImGui.SameLine(0f, Theme.S(Theme.GapM));
+        ImGui.SetCursorPosY(top);
+
+        var wrapAt = ImGui.GetCursorPosX() + ImGui.GetContentRegionAvail().X - Card.RightInset;
 
         ImGui.BeginGroup();
+        ImGui.PushTextWrapPos(wrapAt);
 
+        // Ligne du libellé à la hauteur d'un cadre, comme l'interrupteur.
+        ImGui.AlignTextToFramePadding();
         if (icon is { } glyph)
         {
             Text.Icon(glyph, Theme.TextMuted);
             ImGui.SameLine(0f, Theme.S(Theme.GapS));
         }
-
         ImGui.TextColored(disabled ? Theme.TextFaint : Theme.Text, label);
+        var clicked = ClickedText(disabled);
 
+        // Taille du corps et gris lisible : en petit et pâle, on passait à côté.
         if (description != null)
         {
-            using var font = Fonts.PushSmall();
-            ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + ImGui.GetContentRegionAvail().X
-                                  - toggleWidth - Theme.S(Theme.GapL));
-            ImGui.TextColored(Theme.TextFaint, description);
-            ImGui.PopTextWrapPos();
+            ImGui.TextColored(disabled ? Theme.TextFaint : Theme.TextMuted, description);
+            clicked |= ClickedText(disabled);
+        }
+
+        ImGui.PopTextWrapPos();
+
+        if (below != null)
+        {
+            ImGui.Dummy(new Vector2(0f, Theme.S(Theme.GapXs)));
+            below();
         }
 
         ImGui.EndGroup();
 
-        ImGui.SameLine();
-        Layout.RightAlign(toggleWidth);
+        if (clicked)
+        {
+            value   = !value;
+            changed = true;
+        }
 
-        return Toggle($"##toggle_{label}", ref value, disabled: disabled);
+        return changed;
+    }
+
+    /// <summary>
+    /// Le texte qui vient d'être écrit a été cliqué. Seuls le libellé et la
+    /// description basculent l'interrupteur, pas un bouton posé dessous.
+    /// </summary>
+    private static bool ClickedText(bool disabled)
+    {
+        if (disabled || !ImGui.IsItemHovered()) return false;
+        ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
+        return ImGui.IsItemClicked();
     }
 
     // ─── Champ de texte ───────────────────────────────────────────────────────

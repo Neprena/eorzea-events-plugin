@@ -97,6 +97,7 @@ internal sealed class SettingsPage(Configuration config)
                 break;
 
             case TabMisc:
+                DrawAppearance(l);
                 DrawLanguage(l);
                 DrawAbout(l);
 #if DEBUG
@@ -132,7 +133,7 @@ internal sealed class SettingsPage(Configuration config)
             Text.WithIcon(Icons.Clock,
                 string.Format(l.CfgLinkPending, $"{link.CharacterName}@{link.WorldName}"),
                 Theme.Idle, Theme.Idle);
-            Text.Small(l.CfgLinkPendingHint);
+            Text.Hint(l.CfgLinkPendingHint);
             Layout.Spacer(Theme.GapS);
 
             if (Btn.Draw(l.CfgLinkReopen, BtnTone.Secondary, BtnSize.Medium, Icons.External))
@@ -146,7 +147,7 @@ internal sealed class SettingsPage(Configuration config)
         var player = Plugin.ObjectTable.LocalPlayer;
         if (player == null)
         {
-            Text.Small(l.CfgLinkNeedLogin);
+            Text.Hint(l.CfgLinkNeedLogin);
         }
         else
         {
@@ -177,15 +178,27 @@ internal sealed class SettingsPage(Configuration config)
         {
             var entry = config.CharacterTokens[i];
 
+            // Avatar, nom et corbeille centrés sur la hauteur du bouton : collé
+            // en haut, l'avatar décalait la ligne, et sans écart entre elles les
+            // corbeilles se touchaient d'une ligne à l'autre.
+            if (i > 0) Layout.Spacer(Theme.GapXs);
+            var top   = ImGui.GetCursorPosY();
+            var frame = ImGui.GetFrameHeight();
+
+            ImGui.SetCursorPosY(top + (frame - Theme.S(24f)) * 0.5f);
             Layout.Avatar(entry.CharacterName, 24f);
             ImGui.SameLine(0f, Theme.S(Theme.GapS));
 
+            ImGui.SetCursorPosY(top);
             ImGui.AlignTextToFramePadding();
             Text.Body($"{entry.CharacterName}@{entry.WorldName}");
 
             ImGui.SameLine();
-            Layout.RightAlign(ImGui.GetFrameHeight());
-            if (Btn.Icon(Icons.Trash, $"forget_{i}", BtnTone.Ghost, l.CfgLinkForget))
+            Layout.RightAlign(frame);
+            ImGui.SetCursorPosY(top);
+            // À maintenir : le jeton d'un personnage ne se délivre qu'une fois,
+            // l'oublier ici oblige à refaire toute la liaison.
+            if (Btn.HoldIcon(Icons.Trash, $"forget_{i}", l.CfgLinkForget))
                 forget = i;
         }
 
@@ -211,7 +224,7 @@ internal sealed class SettingsPage(Configuration config)
         if (missing.Count == 0) return;
 
         Layout.Divider(Theme.GapS);
-        Text.Small(l.CfgOtherCharacters);
+        Text.Hint(l.CfgOtherCharacters);
         Layout.Spacer(Theme.GapXs);
 
         foreach (var character in missing)
@@ -407,7 +420,7 @@ internal sealed class SettingsPage(Configuration config)
                 () => config.RpTooltipOnHover, v => config.RpTooltipOnHover = v);
 
             Layout.Spacer(Theme.GapS);
-            Text.Small(l.CfgRpTooltipModifier);
+            Text.Hint(l.CfgRpTooltipModifier);
 
             var keys = new[] { l.CfgRpTooltipModNone, l.CfgRpTooltipModCtrl, l.CfgRpTooltipModAlt };
             var key  = (int)config.RpTooltipModifier;
@@ -419,7 +432,7 @@ internal sealed class SettingsPage(Configuration config)
                 config.Save();
             }
 
-            Text.Small(l.CfgRpTooltipModifierHint, Theme.TextFaint);
+            Text.Hint(l.CfgRpTooltipModifierHint);
 
             Layout.Spacer(Theme.GapS);
 
@@ -429,7 +442,7 @@ internal sealed class SettingsPage(Configuration config)
                 () => config.ShowNsfwProfiles, v => config.ShowNsfwProfiles = v);
 
             Layout.Spacer(Theme.GapS);
-            Text.Small(l.CfgRpTooltipContent);
+            Text.Hint(l.CfgRpTooltipContent);
 
             Row(l.CfgRpTooltipNickname, null,
                 () => config.RpTooltipShowNickname, v => config.RpTooltipShowNickname = v);
@@ -521,7 +534,7 @@ internal sealed class SettingsPage(Configuration config)
         // qu'aux fiches sans accent revenait à proposer un réglage sans effet
         // visible.
         if (on && config.ChatRpNames)
-            Text.Small(l.CfgChatRpNameAccent, Theme.TextFaint);
+            Text.Hint(l.CfgChatRpNameAccent);
 
         // Le détail des canaux et les jetons de saisie ne servent qu'une fois le
         // module en marche : les afficher éteints allongerait la carte sans rien
@@ -531,8 +544,8 @@ internal sealed class SettingsPage(Configuration config)
 
         Layout.Divider(Theme.GapS);
 
-        Text.Small(l.CfgChatChannels);
-        Text.Small(l.CfgChatChannelsHint, Theme.TextFaint);
+        Text.Hint(l.CfgChatChannels);
+        Text.Hint(l.CfgChatChannelsHint);
         Layout.Spacer(Theme.GapXs);
 
         Row(l.CfgChatChanSay,         null, () => config.ChatChannelSay,         v => config.ChatChannelSay = v);
@@ -546,8 +559,8 @@ internal sealed class SettingsPage(Configuration config)
 
         Layout.Divider(Theme.GapS);
 
-        Text.Small(l.CfgChatTokens);
-        Text.Small(l.CfgChatTokensHint, Theme.TextFaint);
+        Text.Hint(l.CfgChatTokens);
+        Text.Hint(l.CfgChatTokensHint);
     }
 
     /// <summary>
@@ -582,7 +595,7 @@ internal sealed class SettingsPage(Configuration config)
                               Func<uint> getCustom, Action<uint> setCustom)
     {
         Layout.Spacer(Theme.GapXs);
-        Text.Small(Plugin.L.CfgChatColor, Theme.TextFaint);
+        Text.Hint(Plugin.L.CfgChatColor);
 
         var current = get();
         var custom  = Chat.ChatPalette.Decode(getCustom());
@@ -751,7 +764,7 @@ internal sealed class SettingsPage(Configuration config)
         Swatch($"##chatcolshown_{id}", rendered, false, preview, l.CfgChatColorRendered);
 
         Layout.Spacer(Theme.GapXs);
-        Text.Small(l.CfgChatColorHint, Theme.TextFaint);
+        Text.Hint(l.CfgChatColorHint);
     }
 
     /// <summary>Pastille de couleur, cerclée quand elle est celle retenue.</summary>
@@ -784,7 +797,7 @@ internal sealed class SettingsPage(Configuration config)
         // Une seule entrée « EorzeaEvents » dans la barre ; chaque interrupteur
         // en montre ou cache un morceau, et l'entrée disparaît si les trois sont
         // coupés.
-        Text.Small(l.CfgDtrHint, Theme.TextMuted);
+        Text.Hint(l.CfgDtrHint);
         Layout.Spacer(Theme.GapXs);
 
         // Dans l'ordre où la barre les affiche.
@@ -797,13 +810,74 @@ internal sealed class SettingsPage(Configuration config)
 
     // ─── Langue ───────────────────────────────────────────────────────────────
 
+    // ─── Apparence ────────────────────────────────────────────────────────────
+
+    /// <summary>L'opacité a changé et attend le relâchement de la souris pour être enregistrée.</summary>
+    private bool _opacityDirty;
+
+    private void DrawAppearance(Loc l)
+    {
+        using var card = Card.Begin("set_appearance", interactive: false);
+
+        Layout.SectionHeader(l.CfgAppearanceHeader, Icons.Show);
+
+        Text.Body(l.CfgWindowOpacity);
+        Text.Hint(l.CfgWindowOpacityHint);
+        Layout.Spacer(Theme.GapXs);
+
+        // En pourcents, de 40 à 100 : en deçà, même flouté, le décor du jeu
+        // prend le pas sur le texte. Le rendu suit le curseur en direct.
+        var percent = (int)MathF.Round(Math.Clamp(config.WindowOpacity, 0.4f, 1f) * 100f);
+        ImGui.SetNextItemWidth(Card.FullWidth);
+        if (Inputs.Slider("##window_opacity", ref percent, 40, 100, "%"))
+        {
+            config.WindowOpacity = percent / 100f;
+            _opacityDirty        = true;
+        }
+
+        // Enregistré au relâchement : le curseur rend la main à chaque image
+        // tant qu'on le tire, et la configuration s'écrirait autant de fois.
+        if (_opacityDirty && !ImGui.IsMouseDown(ImGuiMouseButton.Left))
+        {
+            _opacityDirty = false;
+            config.Save();
+        }
+
+        Layout.Spacer(Theme.GapS);
+
+        Text.Body(l.CfgWindowBlur);
+        Text.Hint(l.CfgWindowBlurHint);
+        Layout.Spacer(Theme.GapXs);
+
+        var blur = (int)MathF.Round(Math.Clamp(config.WindowBlur, 0f, 1f) * 100f);
+        ImGui.SetNextItemWidth(Card.FullWidth);
+        if (Inputs.Slider("##window_blur", ref blur, 0, 100, "%"))
+        {
+            config.WindowBlur = blur / 100f;
+            _opacityDirty     = true;
+        }
+
+        // Même enregistrement au relâchement que l'opacité, juste au-dessus.
+        if (_opacityDirty && !ImGui.IsMouseDown(ImGuiMouseButton.Left))
+        {
+            _opacityDirty = false;
+            config.Save();
+        }
+
+        Layout.Spacer(Theme.GapS);
+
+        Row(l.CfgAnimatedHeaders, l.CfgAnimatedHeadersHint,
+            () => config.AnimatedProfileHeaders, v => config.AnimatedProfileHeaders = v);
+    }
+
     private void DrawLanguage(Loc l)
     {
         using var card = Card.Begin("set_language", interactive: false);
 
         Layout.SectionHeader(l.CfgLangHeader, Icons.Language);
 
-        var options = new[] { l.CfgLangAuto, l.CfgLangFr, l.CfgLangEn };
+        // Dans l'ordre de l'énumération, qui est aussi celui de l'enregistrement.
+        var options = new[] { l.CfgLangAuto, l.CfgLangFr, l.CfgLangEn, l.CfgLangIt, l.CfgLangDe, l.CfgLangEs };
         var current = (int)config.Language;
 
         ImGui.SetNextItemWidth(Card.FullWidth);
@@ -888,19 +962,21 @@ internal sealed class SettingsPage(Configuration config)
                      bool disabled = false)
     {
         var value   = get();
-        var changed = Inputs.ToggleRow(label, ref value, description, disabled: disabled);
+
+        // Sous la description et non à droite de l'interrupteur : la
+        // description occupe désormais cette largeur.
+        Action? below = test == null ? null : () =>
+        {
+            if (Btn.Draw(Plugin.L.CfgTest, BtnTone.Secondary, BtnSize.Small, Icons.Notification, id: $"test_{label}"))
+                test();
+        };
+
+        var changed = Inputs.ToggleRow(label, ref value, description, disabled: disabled, below: below);
 
         if (changed)
         {
             set(value);
             config.Save();
-        }
-
-        if (test != null)
-        {
-            ImGui.SameLine(0f, Theme.S(Theme.GapM));
-            if (Btn.Draw(Plugin.L.CfgTest, BtnTone.Ghost, BtnSize.Small, id: $"test_{label}"))
-                test();
         }
 
         return changed;

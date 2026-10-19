@@ -43,7 +43,7 @@ public class SetupWindow : ThemedWindow
             _banner = Plugin.TextureProvider.GetFromFile(bannerFile);
     }
 
-    public override void Draw()
+    protected override void DrawContents()
     {
         // Auto-advance vers Done : nouveau perso OU re-link d'un perso existant.
         if (_step == 1 && (_config.CharacterTokens.Count > _initialCount
@@ -213,9 +213,7 @@ public class SetupWindow : ThemedWindow
             ImGui.PushTextWrapPos(0);
             ImGui.TextColored(UiStyle.TextMuted, Glyphs.Safe($"{link!.CharacterName} @ {link.WorldName}"));
             ImGui.Spacing();
-            ImGui.TextColored(UiStyle.TextSubtle,
-                "Une page de confirmation est ouverte dans votre navigateur. " +
-                "Connectez-vous au site si nécessaire puis cliquez « Confirmer ».");
+            ImGui.TextColored(UiStyle.TextSubtle, l.SetupLinkPendingHint);
             if (!string.IsNullOrEmpty(link.ErrorMessage))
             {
                 ImGui.Spacing();
@@ -223,7 +221,7 @@ public class SetupWindow : ThemedWindow
             }
             ImGui.PopTextWrapPos();
             ImGui.Spacing();
-            if (UiPrimitives.ColorButton("Rouvrir la page de confirmation", new Vector2(-1, 0),
+            if (UiPrimitives.ColorButton(l.SetupLinkReopen, new Vector2(-1, 0),
                 UiStyle.SecondaryNormal, UiStyle.SecondaryHovered, UiStyle.SecondaryActive))
             {
                 try { Dalamud.Utility.Util.OpenLink(link.LinkUrl); } catch { /* ignore */ }
@@ -234,11 +232,11 @@ public class SetupWindow : ThemedWindow
             ImGui.PushTextWrapPos(0);
             ImGui.TextColored(new Vector4(1f, 0.6f, 0.2f, 1f),
                 link.Status == "expired"
-                    ? "Session expirée. Relancez la procédure."
-                    : "✗  Échec du couplage. Relancez la procédure.");
+                    ? l.SetupLinkExpired
+                    : $"✗  {l.SetupLinkFailed}");
             ImGui.PopTextWrapPos();
             ImGui.Spacing();
-            if (UiPrimitives.ColorButton("Réessayer", new Vector2(-1, 0),
+            if (UiPrimitives.ColorButton(l.SetupLinkRetry, new Vector2(-1, 0),
                 UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive))
             {
                 _initialCount = _config.CharacterTokens.Count;
@@ -256,7 +254,7 @@ public class SetupWindow : ThemedWindow
                 ImGui.TextColored(new Vector4(1f, 0.5f, 0.5f, 1f), l.SetupErrPrefix);
                 ImGui.Spacing();
                 ImGui.BeginDisabled();
-                UiPrimitives.ColorButton("Lier ce personnage", new Vector2(-1, 0),
+                UiPrimitives.ColorButton(l.LinkThisCharacter, new Vector2(-1, 0),
                     UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive);
                 ImGui.EndDisabled();
             }
@@ -275,11 +273,11 @@ public class SetupWindow : ThemedWindow
                 {
                     ImGui.Spacing();
                     ImGui.TextColored(UiStyle.StatusOpen,
-                        "✓ Ce personnage est déjà lié. Vous pouvez fermer cet assistant ou re-lier pour générer un nouveau token.");
+                        $"✓ {l.SetupAlreadyLinked}");
                 }
 
                 ImGui.Spacing();
-                var label = existing != null ? "Re-lier ce personnage" : "Lier ce personnage";
+                var label = existing != null ? l.SetupRelinkCharacter : l.LinkThisCharacter;
                 if (UiPrimitives.ColorButton(label, new Vector2(-1, 0),
                     UiStyle.PrimaryNormal, UiStyle.PrimaryHovered, UiStyle.PrimaryActive))
                 {
@@ -295,7 +293,7 @@ public class SetupWindow : ThemedWindow
 
         if (_isMigration)
         {
-            if (ImGui.Button("Ignorer pour l'instant##migskip", UiStyle.SmallButton))
+            if (ImGui.Button($"{l.SetupMigrationSkip}##migskip", UiStyle.SmallButton))
             {
                 _config.MigrationNoticeSeen = true;
                 _config.Save();

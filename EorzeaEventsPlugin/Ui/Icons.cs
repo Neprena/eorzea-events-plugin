@@ -25,6 +25,7 @@ internal static class Icons
     public const FontAwesomeIcon History  = FontAwesomeIcon.History;
     public const FontAwesomeIcon Settings = FontAwesomeIcon.Cog;
     public const FontAwesomeIcon Debug    = FontAwesomeIcon.Bug;
+    public const FontAwesomeIcon News     = FontAwesomeIcon.Newspaper;
 
     // ─── Onglets des réglages ─────────────────────────────────────────────────
     public const FontAwesomeIcon Notification = FontAwesomeIcon.Bell;
@@ -35,6 +36,10 @@ internal static class Icons
     public const FontAwesomeIcon Location  = FontAwesomeIcon.MapMarkerAlt;
     public const FontAwesomeIcon Character = FontAwesomeIcon.User;
     public const FontAwesomeIcon Locked    = FontAwesomeIcon.Lock;
+
+    /// <summary>Réduire la fenêtre principale à sa barre de titre, puis la restaurer.</summary>
+    public const FontAwesomeIcon Fold      = FontAwesomeIcon.WindowMinimize;
+    public const FontAwesomeIcon Unfold    = FontAwesomeIcon.WindowRestore;
     public const FontAwesomeIcon Housing   = FontAwesomeIcon.Home;
     public const FontAwesomeIcon Map       = FontAwesomeIcon.Map;
     public const FontAwesomeIcon World     = FontAwesomeIcon.Globe;
@@ -45,9 +50,11 @@ internal static class Icons
 
     // ─── Actions ──────────────────────────────────────────────────────────────
     public const FontAwesomeIcon Search   = FontAwesomeIcon.Search;
+    public const FontAwesomeIcon Filter   = FontAwesomeIcon.Filter;
     public const FontAwesomeIcon Refresh  = FontAwesomeIcon.SyncAlt;
     public const FontAwesomeIcon External = FontAwesomeIcon.ExternalLinkAlt;
     public const FontAwesomeIcon Close    = FontAwesomeIcon.Times;
+    public const FontAwesomeIcon Pin      = FontAwesomeIcon.Thumbtack;
     // Barre d'outils de l'éditeur de texte, aux symboles d'un traitement de
     // texte : ce sont ceux que tout le monde reconnaît sans les lire.
     public const FontAwesomeIcon Bold       = FontAwesomeIcon.Bold;
@@ -72,6 +79,7 @@ internal static class Icons
     public const FontAwesomeIcon Sparkle = FontAwesomeIcon.Star;
     public const FontAwesomeIcon Diamond = FontAwesomeIcon.Gem;
     public const FontAwesomeIcon Chevron = FontAwesomeIcon.ChevronRight;
+    public const FontAwesomeIcon ChevronDown = FontAwesomeIcon.ChevronDown;
 
     /// <summary>Statut d'équipe : modération ou administration.</summary>
     public const FontAwesomeIcon Shield  = FontAwesomeIcon.ShieldAlt;
@@ -170,8 +178,8 @@ internal static class Icons
         RpLive, Around, Events, Venues, Profile, History, Settings, Debug,
         Location, Character, Housing, Map, World, Clock, Recurring, Language,
         Search, Refresh, External, Close, Hide, Show, Copy, Edit, Plus, Trash, Travel,
-        Warning, Info, Check, Blocked, Sparkle, Diamond, Chevron, Shield,
-        Friend, FriendAdd,
+        Warning, Info, Check, Blocked, Sparkle, Diamond, Chevron, ChevronDown, Shield,
+        Friend, FriendAdd, Locked, Fold, Unfold, Filter,
         Bold, Italic, Heading, BulletList, Quote,
         ChangeNew, ChangeImproved, ChangeFixed, ChangeSecurity, ChangeThanks,
 

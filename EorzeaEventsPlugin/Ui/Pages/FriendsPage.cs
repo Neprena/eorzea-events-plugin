@@ -18,8 +18,32 @@ namespace EorzeaEventsPlugin.Ui.Pages;
 /// </summary>
 internal sealed class FriendsPage
 {
-    private string  _search       = string.Empty;
-    private string? _confirmingId;
+    private string _search = string.Empty;
+
+    /// <summary>
+    /// Retraits demandés mais encore annulables : la ligne disparaît tout de
+    /// suite, la requête ne part qu'à l'échéance de la notification. Annuler ne
+    /// demande donc aucun aller-retour, et la note de l'ami n'est jamais perdue.
+    /// </summary>
+    private readonly HashSet<string> _pendingRemoval = [];
+
+    /// <summary>
+    /// Retraits envoyés, avec leur heure d'envoi. L'ami reste masqué tant
+    /// que la liste le contient encore, le temps de l'aller-retour : sans quoi
+    /// n'importe quel rafraîchissement arrivé entre-temps le ferait réapparaître.
+    /// Passé <see cref="CommitGrace"/>, le serveur a répondu ; s'il a refusé,
+    /// l'ami revient, comme il se doit.
+    /// </summary>
+    private readonly Dictionary<string, DateTime> _committedRemoval = [];
+
+    private static readonly TimeSpan CommitGrace = TimeSpan.FromSeconds(15);
+
+    /// <summary>Amis affichés, retraits en cours exclus. Sert aussi au compteur de la barre latérale.</summary>
+    public int VisibleCount => Plugin.Friends.Count(f => !IsHidden(f.CharacterId));
+
+    private bool IsHidden(string id) =>
+        _pendingRemoval.Contains(id)
+        || (_committedRemoval.TryGetValue(id, out var at) && DateTime.UtcNow - at < CommitGrace);
 
     /// <summary>Note en cours d'édition, pour n'envoyer qu'à la validation.</summary>
     private string? _editingNoteId;
@@ -48,7 +72,7 @@ internal sealed class FriendsPage
 
         Feedback.Alert(Theme.Accent, Icons.Info, l.RpFriendsTitle, l.RpFriendsNoticeBody);
 
-        var friends = Plugin.Friends;
+        var friends = Plugin.Friends.Where(f => !IsHidden(f.CharacterId)).ToList();
         if (friends.Count == 0)
         {
             Feedback.EmptyState(Icons.Friend, l.RpFriendsEmpty);
@@ -117,6 +141,29 @@ internal sealed class FriendsPage
         else                                      DrawNoteAndActions(friend, l);
     }
 
+    private void RequestRemoval(Api.RpFriendDto friend)
+    {
+        var id   = friend.CharacterId;
+        var name = friend.Name;
+
+        // Figé maintenant : la requête part plus tard, peut-être après une
+        // déconnexion ou un changement de personnage.
+        var token = Plugin.Api.CurrentToken;
+
+        _pendingRemoval.Add(id);
+
+        Snackbar.Show(
+            string.Format(Plugin.L.RpFriendRemovedToast, name),
+            Plugin.L.Undo,
+            onAction: () => _pendingRemoval.Remove(id),
+            onExpire: () =>
+            {
+                _pendingRemoval.Remove(id);
+                _committedRemoval[id] = DateTime.UtcNow;
+                Plugin.RemoveFriend(id, name, token);
+            });
+    }
+
     private void DrawNoteEditor(Api.RpFriendDto friend, Loc l)
     {
         Inputs.Field($"##note_{friend.CharacterId}", l.RpFriendNote, ref _noteDraft, 120);
@@ -158,25 +205,8 @@ internal sealed class FriendsPage
 
         ImGui.SameLine(0f, Theme.S(Theme.GapS));
 
-        // Retrait en deux temps : le premier clic arme, le second exécute, et
-        // quitter le bouton désarme. Même geste que partout ailleurs.
-        var armed = _confirmingId == friend.CharacterId;
-
-        if (Btn.Draw(armed ? l.RpFriendRemoveArm : l.RpFriendRemove,
-                     armed ? BtnTone.Danger : BtnTone.Ghost,
-                     BtnSize.Small, Icons.Trash, id: $"friend_del_{friend.CharacterId}"))
-        {
-            if (armed)
-            {
-                Plugin.RemoveFriend(friend.CharacterId, friend.Name);
-                _confirmingId = null;
-            }
-            else
-            {
-                _confirmingId = friend.CharacterId;
-            }
-        }
-
-        if (armed && !ImGui.IsItemHovered()) _confirmingId = null;
+        // Retrait à maintenir, puis annulable le temps de la notification.
+        if (Btn.Hold(l.RpFriendRemove, $"friend_del_{friend.CharacterId}", Icons.Trash))
+            RequestRemoval(friend);
     }
 }

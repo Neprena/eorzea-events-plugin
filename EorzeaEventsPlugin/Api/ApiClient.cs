@@ -1034,6 +1034,14 @@ public class CreateSessionRequest
     [JsonPropertyName("acknowledgeVenueNotice")] public bool AcknowledgeVenueNotice { get; set; } = false;
 }
 
+/// <summary>
+/// Refus rédigé par le serveur, dans le champ <c>error</c> de sa réponse : son
+/// message est fait pour être lu tel quel. Tout autre échec (code sans corps
+/// lisible, réseau coupé) n'a pas de texte à montrer, l'appelant le remplace par
+/// celui de <see cref="Ui.Components.ServerNotice.Explain"/>.
+/// </summary>
+public class ServerMessageException(string message) : Exception(message);
+
 public class ActiveEventConflictException : Exception
 {
     public string EstablishmentName { get; }
@@ -1121,6 +1129,46 @@ public class UpdateSessionRequest
     [JsonPropertyName("silent")]        public bool?   Silent        { get; set; }
 }
 
+// ─── Joignabilité du site ────────────────────────────────────────────────────
+
+/// <summary>État du site, tel que la dernière réponse reçue le montre.</summary>
+public enum ServerState
+{
+    Online,
+    /// <summary>
+    /// Mise à jour en cours : pendant un déploiement, la page de maintenance
+    /// répond 503 à toutes les adresses, routes de l'API comprises.
+    /// </summary>
+    Maintenance,
+    /// <summary>Aucune réponse, ou Cloudflare qui ne joint plus le serveur.</summary>
+    Unreachable,
+}
+
+/// <summary>
+/// Voit passer chaque échange avec le site, quelle que soit la méthode qui l'a
+/// lancé. Chaque méthode du client juge l'échec à sa façon (exception, null,
+/// code d'échec) ; la panne, elle, se lit ici une seule fois pour toutes.
+/// </summary>
+internal sealed class ServerStateHandler(ApiClient owner) : DelegatingHandler(new HttpClientHandler())
+{
+    protected override async Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request, CancellationToken ct)
+    {
+        try
+        {
+            var res = await base.SendAsync(request, ct);
+            owner.ObserveStatus(res.StatusCode);
+            return res;
+        }
+        catch (HttpRequestException)
+        {
+            // Une annulation, elle, ne dit rien du site : elle n'est pas prise ici.
+            owner.ObserveUnreachable();
+            throw;
+        }
+    }
+}
+
 // ─── Client ──────────────────────────────────────────────────────────────────
 
 public class ApiClient : IDisposable
@@ -1164,11 +1212,51 @@ public class ApiClient : IDisposable
 
     private const int RevocationFailureThreshold = 3;
 
+    private int _serverState = (int)ServerState.Online;
+    private int _serverBack;
+
+    /// <summary>
+    /// Le site répond-il ? Lu par le bandeau de la fenêtre et par les messages
+    /// d'échec, pour qu'une maintenance se dise partout de la même façon.
+    /// </summary>
+    public ServerState State => (ServerState)Volatile.Read(ref _serverState);
+
+    public bool IsServerDown => State != ServerState.Online;
+
+    /// <summary>
+    /// Vrai une seule fois après le retour du site, pour relancer ce qui a
+    /// échoué pendant la panne. La lecture le remet à faux.
+    /// </summary>
+    public bool ConsumeServerBack() => Interlocked.Exchange(ref _serverBack, 0) == 1;
+
+    internal void ObserveStatus(System.Net.HttpStatusCode status) => SetServerState((int)status switch
+    {
+        503 => ServerState.Maintenance,
+        // Erreurs de passerelle : Cloudflare ne joint plus l'application. Juste
+        // après une maintenance, c'est le redémarrage qui finit : le message de
+        // la maintenance reste plutôt que de changer pour quelques secondes.
+        502 or 504 or (>= 520 and <= 527) => State == ServerState.Maintenance
+            ? ServerState.Maintenance
+            : ServerState.Unreachable,
+        _ => ServerState.Online,
+    });
+
+    internal void ObserveUnreachable() => SetServerState(ServerState.Unreachable);
+
+    private void SetServerState(ServerState next)
+    {
+        var previous = (ServerState)Interlocked.Exchange(ref _serverState, (int)next);
+        if (previous == next) return;
+
+        if (next == ServerState.Online) Volatile.Write(ref _serverBack, 1);
+        Plugin.Log.Information("[EorzeaEvents] Site : {0} → {1}", previous, next);
+    }
+
     public ApiClient(string baseUrl, string? token = null)
     {
         var baseUri = new Uri(baseUrl.TrimEnd('/') + "/");
-        _publicHttp = new HttpClient { BaseAddress = baseUri };
-        _http       = new HttpClient { BaseAddress = baseUri };
+        _publicHttp = new HttpClient(new ServerStateHandler(this)) { BaseAddress = baseUri };
+        _http       = new HttpClient(new ServerStateHandler(this)) { BaseAddress = baseUri };
         SetToken(token);
     }
 
@@ -1397,10 +1485,11 @@ public class ApiClient : IDisposable
                         throw new EstablishmentAddressBlockedException(estab, slug, reasonFr, reasonEn);
                     }
                 }
-                if (err.TryGetProperty("error", out var msg))
-                    throw new Exception(msg.GetString() ?? $"HTTP {(int)res.StatusCode}");
+                if (err.TryGetProperty("error", out var msg) && msg.GetString() is { Length: > 0 } text)
+                    throw new ServerMessageException(text);
             }
             catch (System.Text.Json.JsonException) { }
+            catch (ServerMessageException) { throw; }
             catch (ActiveEventConflictException) { throw; }
             catch (ActiveRpConflictException) { throw; }
             catch (EventPromotionBlockedException) { throw; }
@@ -1459,8 +1548,8 @@ public class ApiClient : IDisposable
             try
             {
                 var err = System.Text.Json.JsonDocument.Parse(body).RootElement;
-                if (err.TryGetProperty("error", out var msg))
-                    throw new Exception(msg.GetString() ?? $"HTTP {(int)res.StatusCode}");
+                if (err.TryGetProperty("error", out var msg) && msg.GetString() is { Length: > 0 } text)
+                    throw new ServerMessageException(text);
             }
             catch (System.Text.Json.JsonException) { }
             throw new Exception($"HTTP {(int)res.StatusCode}");
@@ -1468,11 +1557,20 @@ public class ApiClient : IDisposable
         return await res.Content.ReadFromJsonAsync<RpSessionDto>(JsonOptions, ct);
     }
 
+    /// <summary>
+    /// Termine la session. Faux si le serveur ne l'a pas fait : l'appelant
+    /// garde alors la session, qui tourne toujours côté site. Une session
+    /// introuvable (404) n'est plus à terminer, et compte comme terminée.
+    /// </summary>
     public async Task<bool> EndSessionAsync(string sessionId, CancellationToken ct = default)
     {
-        var res = await _http.DeleteAsync($"api/rp-sessions/{sessionId}", ct);
-        HandleAuthResponse(res.StatusCode);
-        return res.IsSuccessStatusCode;
+        try
+        {
+            var res = await _http.DeleteAsync($"api/rp-sessions/{sessionId}", ct);
+            HandleAuthResponse(res.StatusCode);
+            return res.IsSuccessStatusCode || res.StatusCode == System.Net.HttpStatusCode.NotFound;
+        }
+        catch { return false; }
     }
 
     // Retourne les IDs des sessions actives appartenant à l'utilisateur authentifié
@@ -1902,7 +2000,7 @@ public class ApiClient : IDisposable
     /// Ouvre sa fiche à un personnage. Idempotent côté serveur.
     ///
     /// Le motif d'échec est distingué : « ce personnage n'a pas de fiche visible
-    /// en jeu », « votre liste est pleine » et « liez un personnage » n'appellent
+    /// en jeu », « ta liste est pleine » et « lie un personnage » n'appellent
     /// pas la même réaction, et un message unique les rendait tous incompréhensibles.
     /// </summary>
     public async Task<AddFriendResult> AddRpFriendAsync(AddRpFriendRequest req,

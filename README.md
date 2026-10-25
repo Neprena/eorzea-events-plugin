@@ -192,7 +192,7 @@ Les paramètres s'ouvrent par `/eorzea config` ou par l'engrenage du gestionnair
 - **Le carnet des rencontres** reste sur ton PC. Rien n'en est envoyé au site.
 - **Ta position** n'est partagée avec les personnes équipées du plugin que si tu actives « Partager ma position quand je suis disponible », et seulement pendant que tu es disponible, tag « Jeu de rôle » allumé. Elle est arrondie, et n'apparaît jamais sur le site.
 - **Le comptage des présences** est anonyme : chaque minute en jeu, avec ou sans compte, le plugin transmet la zone, le monde, l'instance, l'adresse résidentielle le cas échéant et la position arrondie, avec un identifiant tiré au hasard à l'installation, sans nom de personnage. C'est ce qui permet d'afficher combien de personnes se trouvent sur une scène ou dans un lieu.
-- **Le chat** n'est mis en forme que chez vous. Le plugin ne modifie aucun message que vous envoyez, et n'en envoie aucun à votre place.
+- **Le chat** n'est mis en forme que chez toi. Le plugin ne modifie aucun message que tu envoies, et n'en envoie aucun à ta place.
 - **L'accès de chaque personnage** se gère depuis la page « Plugin » de ton espace sur le site.
 
 ## Aide

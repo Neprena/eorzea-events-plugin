@@ -218,15 +218,41 @@ public class MainWindow : ThemedWindow, IDisposable
             },
         ], initialId: "rp")
         {
-            Banner = activeId => _news.DrawBanners(activeId == "news"),
+            // La panne du site d'abord : elle explique pourquoi tout ce qui suit
+            // a cessé de se mettre à jour.
+            Banner = activeId =>
+            {
+                ServerNotice.Draw();
+                _news.DrawBanners(activeId == "news");
+            },
         };
+
+        Plugin.ServerBack += OnServerBack;
     }
 
     /// <summary>
-    /// Les images sont désormais détenues par <see cref="Textures"/>, libéré au
-    /// déchargement du plugin : cette fenêtre n'a plus rien à libérer.
+    /// Les images sont détenues par <see cref="Textures"/>, libéré au
+    /// déchargement du plugin : il ne reste à rendre que l'abonnement au retour
+    /// du site.
     /// </summary>
-    public void Dispose() => GC.SuppressFinalize(this);
+    public void Dispose()
+    {
+        Plugin.ServerBack -= OnServerBack;
+        GC.SuppressFinalize(this);
+    }
+
+    /// <summary>
+    /// Le site revient : ce que la panne a fait échouer se relit, sans attendre
+    /// un clic sur « Actualiser » ni le relevé suivant.
+    /// </summary>
+    private void OnServerBack()
+    {
+        if (_eventsFailed   && !_eventsLoading)   FetchEvents();
+        if (_estabFailed    && !_estabLoading)    FetchEstablishments(_estabSearchInput.Trim());
+        if (_sessionsFailed && !_sessionsLoading) FetchSessions();
+        _rpProfile.OnServerBack();
+        _news.OnServerBack();
+    }
 
     /// <summary>
     /// Point d'accroche de l'ouverture, appelé par Dalamud à la transition
@@ -625,9 +651,21 @@ public class MainWindow : ThemedWindow, IDisposable
         }
 
         var active = _sessionsList.Where(s => s.EndedAt == null).ToList();
+
+        // Une panne n'est pas une soirée sans scène : jamais reçue, la liste est
+        // vide parce que le site ne répond pas, et « Lance la première ! »
+        // mentirait. Même traitement que l'agenda et les lieux.
+        if (active.Count == 0
+            && (_sessionsFailed || (_sessionsLastFetch == DateTime.MinValue && Plugin.Api.IsServerDown)))
+        {
+            Feedback.EmptyState(Icons.Warning, l.LoadFailed, null, l.Refresh, FetchSessions,
+                                centered: false);
+            return;
+        }
+
         if (active.Count == 0)
         {
-            // « Soyez le premier » ne s'adresse qu'à qui peut ouvrir une scène.
+            // « Lance la première ! » ne s'adresse qu'à qui peut ouvrir une scène.
             // Non centré : les cartes suivent, et le centrage les aurait
             // repoussées en bas d'une grande fenêtre.
             Feedback.EmptyState(Icons.RpLive, l.RpNoSession,
@@ -1274,7 +1312,14 @@ public class MainWindow : ThemedWindow, IDisposable
                 _eventsLastFetch = DateTime.UtcNow;
                 _eventsFailed    = false;
             }
-            catch { _eventsFailed = true; }
+            catch
+            {
+                // Daté même en échec : sinon l'onglet relançait la requête à
+                // chaque image tant que le site était en maintenance. Le retour
+                // du site la relance de lui-même (OnServerBack).
+                _eventsFailed    = true;
+                _eventsLastFetch = DateTime.UtcNow;
+            }
             finally { _eventsLoading = false; }
         });
     }
@@ -1621,6 +1666,7 @@ public class MainWindow : ThemedWindow, IDisposable
         _sessionsList      = sessions;
         _sessionsLastFetch = DateTime.UtcNow;
         _sessionsLoading   = false;
+        _sessionsFailed    = false;
     }
 
     private void FetchSessions()

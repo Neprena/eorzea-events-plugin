@@ -75,6 +75,19 @@ public class MySessionWindow : ThemedWindow
             MaximumSize = new Vector2(950, 700),
         };
         _config = config;
+
+        Plugin.ServerBack += OnServerBack;
+    }
+
+    /// <summary>
+    /// Le site revient : « réessaie dans quelques minutes » ne vaut plus. Le
+    /// message reste en place jusqu'au geste suivant, sinon.
+    /// </summary>
+    private void OnServerBack()
+    {
+        var l = Plugin.L;
+        if (_statusIsError && (_statusMsg == l.ServerMaintenanceShort || _statusMsg == l.ServerUnreachableShort))
+            _statusMsg = string.Empty;
     }
 
     // ─── Helpers jeu ─────────────────────────────────────────────────────────
@@ -276,7 +289,7 @@ public class MySessionWindow : ThemedWindow
                     }
                     catch { }
                 }
-                ShowError(ex.Message);
+                ShowError(ServerNotice.Explain(ex, l.ErrCreate));
             }
             finally { _busy = false; }
         });
@@ -301,7 +314,7 @@ public class MySessionWindow : ThemedWindow
                 if (updated != null) { _activeSession = updated; _editing = false; ShowSuccess(l.StatusUpdated); }
                 else ShowError(l.ErrUpdate);
             }
-            catch (Exception ex) { ShowError(ex.Message); }
+            catch (Exception ex) { ShowError(ServerNotice.Explain(ex, l.ErrUpdate)); }
             finally { _busy = false; }
         });
     }
@@ -360,7 +373,7 @@ public class MySessionWindow : ThemedWindow
                 }
                 else ShowError(l.ErrUpdate);
             }
-            catch (Exception ex) { ShowError(ex.Message); }
+            catch (Exception ex) { ShowError(ServerNotice.Explain(ex, l.ErrUpdate)); }
             finally { _busy = false; }
         });
     }
@@ -411,7 +424,7 @@ public class MySessionWindow : ThemedWindow
                 _expiryDismissed = false;
                 ShowSuccess(string.Format(l.StatusExtended, hours));
             }
-            catch (Exception ex) { ShowError(ex.Message); }
+            catch (Exception ex) { ShowError(ServerNotice.Explain(ex, l.ErrExtend)); }
             finally { _busy = false; }
         });
     }
@@ -426,13 +439,21 @@ public class MySessionWindow : ThemedWindow
         {
             try
             {
-                await Plugin.Api.EndSessionAsync(id);
+                // Le résultat était ignoré : pendant une maintenance, la fenêtre
+                // annonçait « Session terminée » et oubliait une session qui
+                // tournait encore sur le site, sans plus aucun moyen de l'arrêter.
+                if (!await Plugin.Api.EndSessionAsync(id))
+                {
+                    ShowError(ServerNotice.Explain(l.ErrEnd));
+                    return;
+                }
+
                 _activeSession = null; _pendingZonePrompt = false;
                 _pendingRpTagPrompt = false; _pendingRpTagActivePrompt = false;
                 _config.ActiveSessionId = null; _config.Save();
                 ShowSuccess(l.StatusEnded);
             }
-            catch (Exception ex) { ShowError(ex.Message); }
+            catch (Exception ex) { ShowError(ServerNotice.Explain(ex, l.ErrEnd)); }
             finally { _busy = false; }
         });
     }
@@ -494,6 +515,8 @@ public class MySessionWindow : ThemedWindow
                 () => Plugin.OpenSetup(tokenInvalid: !tokenMissing));
             return;
         }
+
+        ServerNotice.Draw();
 
         if (_activeSession != null) DrawActiveSession();
         else DrawCreateForm();

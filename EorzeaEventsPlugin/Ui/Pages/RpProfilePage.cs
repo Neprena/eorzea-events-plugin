@@ -34,6 +34,16 @@ internal sealed class RpProfilePage(Configuration config)
 
     private string        _loadedFor = string.Empty;
     private bool          _loading;
+
+    /// <summary>
+    /// Le site ne répondait pas et aucune fiche n'est à l'écran, pas même celle
+    /// du cache. L'éditeur s'affichait alors vide, comme pour une fiche à créer :
+    /// enregistré au retour du site, il aurait effacé tout ce qui s'y trouvait.
+    /// </summary>
+    private bool          _loadFailed;
+
+    /// <summary>Échec du dernier refus ou retrait d'une demande de relation, vide sinon.</summary>
+    private string        _requestError = string.Empty;
     private bool          _saving;
     private DateTime      _savedUntil = DateTime.MinValue;
 
@@ -464,6 +474,12 @@ internal sealed class RpProfilePage(Configuration config)
             return;
         }
 
+        if (_loadFailed && _profile == null)
+        {
+            Feedback.EmptyState(Icons.Warning, l.LoadFailed, null, l.Refresh, () => Load(_loadedFor));
+            return;
+        }
+
         DrawActionRow(l);
         DrawWebNotice(l);
 
@@ -618,6 +634,20 @@ internal sealed class RpProfilePage(Configuration config)
         Load(key);
     }
 
+    /// <summary>
+    /// Le site revient : relit la fiche si la panne l'a empêchée d'arriver, qu'il
+    /// n'y ait rien à l'écran ou seulement la copie du cache, dont la
+    /// confidentialité est inconnue et l'enregistrement automatique coupé.
+    /// Jamais pendant une saisie, pour la même raison qu'à l'ouverture.
+    /// </summary>
+    public void OnServerBack()
+    {
+        if (_loadedFor.Length == 0 || _loading || _saving || _dirty || _statusDirty) return;
+
+        if (_loadFailed || !_profileFromNetwork) Load(_loadedFor);
+        else if (_slotsFailed)                   LoadSlots(_loadedFor);
+    }
+
     private void Load(string key)
     {
         // Au changement de personnage seulement : le cache évite un écran vide, le
@@ -661,9 +691,17 @@ internal sealed class RpProfilePage(Configuration config)
             await Plugin.Framework.RunOnFrameworkThread(() =>
             {
                 _loading = false;
-                if (fetched == null) return;
                 if (_loadedFor != key || _loadedProfile != slot) return;
 
+                // Une fiche qui n'existe pas encore revient nulle elle aussi ;
+                // seule la panne du site les distingue.
+                if (fetched == null)
+                {
+                    _loadFailed = _profile == null && Plugin.Api.IsServerDown;
+                    return;
+                }
+
+                _loadFailed = false;
                 _profile = fetched;
                 _profileFromNetwork = true;
 
@@ -865,7 +903,7 @@ internal sealed class RpProfilePage(Configuration config)
                 {
                     case Api.RpSlotResult.Quota:       _slotError = l.RpProfileSlotErrQuota; return;
                     case Api.RpSlotResult.LastProfile: _slotError = l.RpProfileSlotErrLast;  return;
-                    case Api.RpSlotResult.Failed:      _slotError = l.RpProfileSlotErr;      return;
+                    case Api.RpSlotResult.Failed:      _slotError = ServerNotice.Explain(l.RpProfileSlotErr); return;
                 }
 
                 ForceReload(key);
@@ -914,7 +952,7 @@ internal sealed class RpProfilePage(Configuration config)
     private static string SaveFailureText(Loc l) =>
         !Plugin.Api.HasToken       ? l.SaveFailedNoToken
         : !Plugin.Api.IsTokenValid ? l.SaveFailedToken
-        : l.SaveFailed;
+        : ServerNotice.Explain(l.SaveFailed);
 
     /// <summary>
     /// Ouvre une fiche pour la travailler, sans rien publier.
@@ -1709,13 +1747,20 @@ internal sealed class RpProfilePage(Configuration config)
             DrawReceivedRequest(received[i], l);
         }
 
-        if (sent.Count == 0) return;
+        if (sent.Count > 0)
+        {
+            Layout.Spacer(Theme.GapS);
+            Text.Muted(l.RpRelationSentTitle);
 
-        Layout.Spacer(Theme.GapS);
-        Text.Muted(l.RpRelationSentTitle);
+            foreach (var request in sent)
+                DrawSentRequest(request, l);
+        }
 
-        foreach (var request in sent)
-            DrawSentRequest(request, l);
+        if (_requestError.Length > 0)
+        {
+            Layout.Spacer(Theme.GapXs);
+            Text.Hint(_requestError, Theme.Danger);
+        }
     }
 
     /// <summary>
@@ -1776,24 +1821,38 @@ internal sealed class RpProfilePage(Configuration config)
     /// refus : le serveur continue de lui présenter sa demande comme sans
     /// réponse, et une relance restera impossible trente jours durant.
     /// </summary>
-    private static void Decline(string requestId)
+    private void Decline(string requestId)
     {
+        _requestError = string.Empty;
         Task.Run(async () =>
         {
-            await Plugin.Api.RespondRelationRequestAsync(
+            var result = await Plugin.Api.RespondRelationRequestAsync(
                 requestId, new Api.RespondRelationRequestBody { Action = "decline" });
-            await Plugin.Framework.RunOnFrameworkThread(Plugin.RequestRelationRequestsRefresh);
+            await Plugin.Framework.RunOnFrameworkThread(() =>
+                AfterRequestGesture(result != Api.ApiClient.RelationRespondResult.Failed));
         });
     }
 
     /// <summary>Retire une demande qu'on a envoyée, ce qui rouvre la possibilité d'en refaire une.</summary>
-    private static void CancelRequest(string requestId)
+    private void CancelRequest(string requestId)
     {
+        _requestError = string.Empty;
         Task.Run(async () =>
         {
-            await Plugin.Api.CancelRelationRequestAsync(requestId);
-            await Plugin.Framework.RunOnFrameworkThread(Plugin.RequestRelationRequestsRefresh);
+            var ok = await Plugin.Api.CancelRelationRequestAsync(requestId);
+            await Plugin.Framework.RunOnFrameworkThread(() => AfterRequestGesture(ok));
         });
+    }
+
+    /// <summary>
+    /// Le résultat n'était pas lu : un refus parti pendant une maintenance
+    /// laissait la demande à l'écran sans rien dire, comme si le clic s'était
+    /// perdu.
+    /// </summary>
+    private void AfterRequestGesture(bool ok)
+    {
+        if (!ok) _requestError = ServerNotice.Explain(Plugin.L.RpRelationFailed);
+        Plugin.RequestRelationRequestsRefresh();
     }
 
     /// <summary>
@@ -2567,7 +2626,7 @@ internal sealed class RpProfilePage(Configuration config)
 
         if (_saveFailed)
         {
-            label = l.SaveFailed;
+            label = SaveFailureText(l);
             color = Theme.Danger;
         }
         // « En attente » et « en cours » se disent pareil : la nuance ne regarde

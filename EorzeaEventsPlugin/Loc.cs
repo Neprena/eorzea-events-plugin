@@ -44,6 +44,14 @@ internal sealed partial class Loc
     public required string Search     { get; init; }
     public required string LoadFailed { get; init; }
     public required string SaveFailed { get; init; }
+    // Site en maintenance ou injoignable : bandeau de la fenêtre, puis la forme
+    // courte qui remplace le message d'échec d'un geste pendant la panne.
+    public required string ServerMaintenanceTitle { get; init; }
+    public required string ServerMaintenanceBody  { get; init; }
+    public required string ServerMaintenanceShort { get; init; }
+    public required string ServerUnreachableTitle { get; init; }
+    public required string ServerUnreachableBody  { get; init; }
+    public required string ServerUnreachableShort { get; init; }
     public required string OnSiteCount { get; init; }   // {0} = joueurs présents
     public required string DeclaredPosition     { get; init; }
     public required string DeclaredPositionHint { get; init; }
@@ -230,6 +238,7 @@ internal sealed partial class Loc
     public required string ErrCreate              { get; init; }
     public required string ErrUpdate              { get; init; }
     public required string ErrExtend              { get; init; }
+    public required string ErrEnd                 { get; init; }
     public required string ErrTitleRequired       { get; init; }
     public required string ErrTokenMissing        { get; init; }
     public required string HintNoLocation         { get; init; }
@@ -966,6 +975,12 @@ internal sealed partial class Loc
         Search     = "Rechercher",
         LoadFailed = "Le chargement a échoué. Le site est peut-être injoignable.",
         SaveFailed = "L'enregistrement a échoué. Rien n'a été modifié sur le site.",
+        ServerMaintenanceTitle = "Site en maintenance",
+        ServerMaintenanceBody = "Le site est en cours de mise à jour : ce qui s'affiche ici n'est plus actualisé. Le plugin reprend tout seul à son retour.",
+        ServerMaintenanceShort = "Le site est en maintenance. Réessaie dans quelques minutes.",
+        ServerUnreachableTitle = "Site injoignable",
+        ServerUnreachableBody = "Le plugin n'arrive pas à joindre le site : ce qui s'affiche ici n'est plus actualisé. Il réessaie tout seul ; si ça dure, vérifie ta connexion.",
+        ServerUnreachableShort = "Le site ne répond pas. Vérifie ta connexion, puis réessaie.",
         OnSiteCount = "{0} sur place",
         DeclaredPosition     = "Position déclarée",
         DeclaredPositionHint = "Session annoncée depuis le site : l'emplacement est décrit par son auteur, il n'a pas été relevé en jeu. Hors logement, personne ne peut être détecté sur place.",
@@ -1116,6 +1131,7 @@ internal sealed partial class Loc
         ErrCreate             = "Erreur lors de la création.",
         ErrUpdate             = "Erreur lors de la mise à jour.",
         ErrExtend             = "Erreur lors de la prolongation.",
+        ErrEnd                = "La session n'a pas pu être terminée : elle est toujours en ligne.",
         ErrTitleRequired      = "Le titre est obligatoire.",
         ErrTokenMissing       = "Aucun personnage lié.",
         HintNoLocation        = "Zone introuvable, remplis-la manuellement.",
@@ -1690,7 +1706,7 @@ internal sealed partial class Loc
         RpProfileUnsaved  = "Modifications non enregistrées",
         SaveFailedNoToken = "Aucun personnage lié. Lies-en un depuis les paramètres avant d'enregistrer.",
         SaveFailedToken   = "Le site a refusé ton jeton. Relie ton personnage depuis les paramètres.",
-        RpProfileSlotsUnavailable = "Impossible de lire tes fiches pour le moment. Vérifie que le plugin joint bien le site, dans Paramètres, puis rouvre cette page.",
+        RpProfileSlotsUnavailable = "Impossible de lire tes fiches pour le moment. Rouvre la fenêtre dans un instant pour réessayer.",
         RpProfileSlotsHint        = "Un personnage peut tenir plusieurs fiches et n'en publie qu'une. Celle qui est en évidence est celle que les autres voient ; clique sur une autre pour la publier à sa place. Les fiches gardées en réserve ne sont visibles de personne.",
         RpProfileSlotUnnamed      = "Fiche {0}",
         RpProfileSlotNew          = "Nouvelle fiche",
@@ -1814,6 +1830,12 @@ internal sealed partial class Loc
         Search     = "Search",
         LoadFailed = "Loading failed. The website may be unreachable.",
         SaveFailed = "Saving failed. Nothing was changed on the website.",
+        ServerMaintenanceTitle = "Website under maintenance",
+        ServerMaintenanceBody = "The website is being updated: what you see here is no longer refreshed. The plugin picks up again on its own once it is back.",
+        ServerMaintenanceShort = "The website is under maintenance. Try again in a few minutes.",
+        ServerUnreachableTitle = "Website unreachable",
+        ServerUnreachableBody = "The plugin cannot reach the website: what you see here is no longer refreshed. It keeps retrying on its own; if this lasts, check your connection.",
+        ServerUnreachableShort = "The website is not responding. Check your connection, then try again.",
         OnSiteCount = "{0} on site",
         DeclaredPosition     = "Declared location",
         DeclaredPositionHint = "Session announced from the website: the location is described by its author, it was not read in-game. Outside housing, nobody can be detected on site.",
@@ -1964,6 +1986,7 @@ internal sealed partial class Loc
         ErrCreate             = "Error while creating session.",
         ErrUpdate             = "Error while updating.",
         ErrExtend             = "Error extending session.",
+        ErrEnd                = "The session could not be ended: it is still live.",
         ErrTitleRequired      = "Title is required.",
         ErrTokenMissing       = "No character linked.",
         HintNoLocation        = "Zone not found, please fill in manually.",
@@ -2540,7 +2563,7 @@ internal sealed partial class Loc
         RpProfileUnsaved  = "Unsaved changes",
         SaveFailedNoToken = "No character linked. Link one from the settings before saving.",
         SaveFailedToken   = "The website refused your token. Link your character again from the settings.",
-        RpProfileSlotsUnavailable = "Your profiles cannot be read right now. Check that the plugin reaches the website, in Settings, then reopen this page.",
+        RpProfileSlotsUnavailable = "Your profiles cannot be read right now. Reopen the window in a moment to try again.",
         RpProfileSlotsHint        = "A character can hold several profiles and publishes only one. The highlighted one is what others see; click another one to publish it instead. Profiles kept in reserve are visible to nobody.",
         RpProfileSlotUnnamed      = "Profile {0}",
         RpProfileSlotNew          = "New profile",

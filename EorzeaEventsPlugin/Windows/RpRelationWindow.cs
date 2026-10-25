@@ -398,7 +398,7 @@ public sealed class RpRelationWindow : ThemedWindow
                 break;
 
             default:
-                Say(l.RpRelationFailed, error: true);
+                Say(ServerNotice.Explain(l.RpRelationFailed), error: true);
                 break;
         }
     }
@@ -450,7 +450,7 @@ public sealed class RpRelationWindow : ThemedWindow
                         Say(l.RpRelationFull, error: true);
                         break;
                     default:
-                        Say(l.RpRelationFailed, error: true);
+                        Say(ServerNotice.Explain(l.RpRelationFailed), error: true);
                         break;
                 }
 
@@ -486,7 +486,7 @@ public sealed class RpRelationWindow : ThemedWindow
 
                 if (!ok)
                 {
-                    Say(l.RpRelationFailed, error: true);
+                    Say(ServerNotice.Explain(l.RpRelationFailed), error: true);
                     return;
                 }
 
@@ -512,7 +512,7 @@ public sealed class RpRelationWindow : ThemedWindow
 
                 if (!ok)
                 {
-                    Say(Plugin.L.RpRelationFailed, error: true);
+                    Say(ServerNotice.Explain(Plugin.L.RpRelationFailed), error: true);
                     return;
                 }
 
@@ -562,7 +562,7 @@ public sealed class RpRelationWindow : ThemedWindow
                         Say(l.RpRelationTooMany, error: true);
                         break;
                     default:
-                        Say(l.RpRelationFailed, error: true);
+                        Say(ServerNotice.Explain(l.RpRelationFailed), error: true);
                         break;
                 }
             });

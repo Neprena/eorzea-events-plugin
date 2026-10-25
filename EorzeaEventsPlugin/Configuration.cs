@@ -651,7 +651,7 @@ public class Configuration : IPluginConfiguration
     /// </summary>
     public bool SharePositionWhenAvailable { get; set; } = false;
 
-    /// <summary>L'astuce « vous pouvez partager votre position » a été dite une fois.</summary>
+    /// <summary>L'astuce « Partager ma position » a été dite une fois.</summary>
     public bool PositionHintShown { get; set; } = false;
 
     // ─── Rencontres ──────────────────────────────────────────────────────────

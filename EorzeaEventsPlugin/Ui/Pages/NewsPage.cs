@@ -92,6 +92,12 @@ internal sealed class NewsPage
         finally { _loading = false; }
     }
 
+    /// <summary>Le site revient : une liste que la panne a fait échouer se relit aussitôt.</summary>
+    public void OnServerBack()
+    {
+        if (_failed && !_loading) _ = FetchAsync();
+    }
+
     private void MarkAllSeen()
     {
         var newest = _items.Max(n => n.PublishedAt);
@@ -280,7 +286,9 @@ internal sealed class NewsPage
             return;
         }
 
-        if (_failed) Feedback.Alert(Theme.Danger, Icons.Warning, l.LoadFailed);
+        // Le bandeau du site dit déjà la panne, en tête de fenêtre : le répéter
+        // ici ferait deux alertes pour une seule cause.
+        if (_failed && !Plugin.Api.IsServerDown) Feedback.Alert(Theme.Danger, Icons.Warning, l.LoadFailed);
 
         if (_items.Count == 0)
         {

@@ -3,7 +3,7 @@
   "Author": "Neprena",
   "Description": "Gère tes sessions RP Eorzea Events directement depuis le jeu.",
   "Punchline": "Sessions RP Eorzea Events en un clic.",
-  "Changelog": "Le plugin te tutoie désormais partout, comme le site : une partie des fenêtres te vouvoyait encore. L'historique complet des nouveautés est dans le plugin.",
+  "Changelog": "Quand le site est en maintenance, le plugin le dit d'un bandeau et d'un même message partout, puis recharge seul les listes et les fiches restées en échec à son retour. Terminer une session pendant une maintenance ne l'annonce plus terminée à tort, et une fiche RP impossible à charger n'ouvre plus un éditeur vide qui aurait pu l'effacer. L'historique complet des nouveautés est dans le plugin.",
   "InternalName": "EorzeaEventsPlugin",
   "RepoUrl": "https://github.com/Neprena/eorzea-events-plugin",
   "Tags": [

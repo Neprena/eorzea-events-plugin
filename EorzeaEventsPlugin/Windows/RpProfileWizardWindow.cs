@@ -319,7 +319,7 @@ public sealed class RpProfileWizardWindow : ThemedWindow
                     _busy  = false;
                     _error = result == RpSlotResult.Quota
                         ? Plugin.L.RpProfileSlotErrQuota
-                        : Plugin.L.RpProfileSlotErr;
+                        : ServerNotice.Explain(Plugin.L.RpProfileSlotErr);
                 });
                 return;
             }

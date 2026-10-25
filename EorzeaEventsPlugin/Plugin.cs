@@ -533,7 +533,7 @@ public sealed class Plugin : IDalamudPlugin
                 // sans attendre la minute.
                 _heartbeatDue = true;
 
-                if (!ok) ChatGui.PrintError($"[Eorzea Events] {L.RpAvailableFailed}");
+                if (!ok) ChatGui.PrintError($"[Eorzea Events] {Ui.Components.ServerNotice.Explain(L.RpAvailableFailed)}");
 
                 UpdateDtrRpAvail();
             });
@@ -716,6 +716,16 @@ public sealed class Plugin : IDalamudPlugin
 
     // Token invalide — notification envoyée une seule fois jusqu'au prochain renouvellement
     private bool _tokenInvalidNotified = false;
+
+    /// <summary>
+    /// Le site revient après une maintenance ou une coupure. Levé une fois, sur
+    /// le thread de jeu : ce qui a échoué pendant la panne se recharge de
+    /// soi-même, sans attendre son prochain relevé ni un clic.
+    /// </summary>
+    internal static event System.Action? ServerBack;
+
+    /// <summary>La session à restaurer n'a pas pu être lue, le site ne répondait pas.</summary>
+    private bool _restorePending;
 
     public Plugin()
     {
@@ -1644,7 +1654,7 @@ public sealed class Plugin : IDalamudPlugin
                         ChatGui.PrintError($"[Eorzea Events] {L.RpFriendNoToken}");
                         break;
                     default:
-                        ChatGui.PrintError($"[Eorzea Events] {L.RpFriendAddFailed}");
+                        ChatGui.PrintError($"[Eorzea Events] {Ui.Components.ServerNotice.Explain(L.RpFriendAddFailed)}");
                         break;
                 }
 
@@ -1702,7 +1712,7 @@ public sealed class Plugin : IDalamudPlugin
             await Framework.RunOnFrameworkThread(() =>
             {
                 if (ok) ChatGui.Print(string.Format(L.RpFriendRemoved, label));
-                else    ChatGui.PrintError($"[Eorzea Events] {L.RpFriendAddFailed}");
+                else    ChatGui.PrintError($"[Eorzea Events] {Ui.Components.ServerNotice.Explain(L.RpFriendAddFailed)}");
 
                 RefreshFriends(force: true);
             });
@@ -1769,7 +1779,9 @@ public sealed class Plugin : IDalamudPlugin
         var resp = await Api.StartLinkAsync(req);
         if (resp == null)
         {
-            ChatGui.PrintError("[Eorzea Events] Impossible de démarrer le couplage (le serveur a refusé la requête).");
+            // « Le serveur a refusé la requête », écrit ici en dur, était faux
+            // pendant une maintenance, et seulement en français.
+            ChatGui.PrintError($"[Eorzea Events] {Ui.Components.ServerNotice.Explain(L.SetupLinkFailed)}");
             return;
         }
 
@@ -1820,7 +1832,9 @@ public sealed class Plugin : IDalamudPlugin
             var (result, payload) = await Api.PollLinkAsync(resp.SessionId, plainSecret);
             if (result == LinkPollResult.Pending)
             {
+                // Le site répond de nouveau : l'erreur affichée ne vaut plus.
                 consecutiveErrors = 0;
+                ActiveLinkState.ErrorMessage = null;
                 continue;
             }
             if (result == LinkPollResult.Error)
@@ -1828,7 +1842,7 @@ public sealed class Plugin : IDalamudPlugin
                 consecutiveErrors++;
                 Log.Warning($"[EorzeaEvents] Poll link erreur #{consecutiveErrors} (sessionId={resp.SessionId[..8]}…)");
                 if (consecutiveErrors >= 3)
-                    ActiveLinkState.ErrorMessage = "Erreur de communication avec le serveur";
+                    ActiveLinkState.ErrorMessage = Ui.Components.ServerNotice.Explain(L.ServerUnreachableShort);
                 continue;
             }
             if (result == LinkPollResult.Bound && !string.IsNullOrWhiteSpace(payload?.Token))
@@ -1914,6 +1928,8 @@ public sealed class Plugin : IDalamudPlugin
     private void OnFrameworkUpdate(IFramework fw)
     {
         var now = DateTime.UtcNow;
+
+        if (Api.ConsumeServerBack()) OnServerBack();
 
         if ((now - _lastVersionCheck).TotalSeconds >= VersionCheckIntervalSeconds)
         {
@@ -3283,9 +3299,35 @@ public sealed class Plugin : IDalamudPlugin
         }
     }
 
+    /// <summary>
+    /// Relance d'un coup ce que la panne a fait échouer. Les relevés de fond
+    /// repasseraient à leur rythme, mais jusqu'à cinq minutes plus tard ; et
+    /// certains ne repassaient jamais seuls (personnages du compte, amis,
+    /// session à restaurer), faute d'avoir réussi la seule fois où on les tente.
+    /// </summary>
+    private void OnServerBack()
+    {
+        _syncDueNow          = true;
+        _heartbeatDue        = true;
+        _relationRequestsDue = true;
+        _lastMySessionsCheck = DateTime.MinValue;
+        _lastVersionCheck    = DateTime.MinValue;
+
+        if (_accountCharactersAsked && AccountCharacters.Count == 0)
+            RequestAccountCharacters(force: true);
+        if (_friendsLoadedFor != null) RefreshFriends(force: true);
+
+        if (_restorePending && !string.IsNullOrWhiteSpace(Config.ActiveSessionId)
+            && _sessionWindow is { HasActiveSession: false })
+            RestoreSession();
+
+        ServerBack?.Invoke();
+    }
+
     private void RestoreSession()
     {
         var id = Config.ActiveSessionId!;
+        _restorePending = false;
         Task.Run(async () =>
         {
             try
@@ -3301,6 +3343,9 @@ public sealed class Plugin : IDalamudPlugin
             }
             catch (Exception ex)
             {
+                // Le site ne répondait pas : la session reste en config, elle
+                // sera relue à son retour (OnServerBack).
+                _restorePending = true;
                 Log.Warning($"[EorzeaEvents] Impossible de restaurer la session: {ex.Message}");
             }
         });
@@ -3372,6 +3417,7 @@ public sealed class Plugin : IDalamudPlugin
         Ui.Textures.Dispose();
 
         EncounterRegistry.FlushIfDue(DateTime.UtcNow, force: true);
+        ServerBack = null;
         Api.Dispose();
     }
 

@@ -65,6 +65,26 @@ internal static class ReleaseNotes
     public static readonly ReleaseNote[] All =
     [
         new(
+            Version: "2.16.1",
+            TitleFr: "Le site en maintenance, dit clairement",
+            TitleEn: "Website maintenance, clearly shown",
+            BodyFr: """
+                    - **Amélioration :** Quand le site est en maintenance ou injoignable, un bandeau le dit en tête de la fenêtre principale, de « Ma session de RP ouvert » et de la fiche consultée. Les listes et les fiches restées en échec se rechargent d'elles-mêmes dès qu'il revient.
+                    - **Amélioration :** Une action qui échoue pendant une maintenance l'explique avec le même message partout, à la place de « HTTP 503 » ou de « le serveur a refusé la requête ».
+                    - **Correction :** Terminer ta session pendant une maintenance n'annonce plus « Session terminée » : la session reste affichée, puisqu'elle tourne encore sur le site.
+                    - **Correction :** Si ta fiche RP ne peut pas être chargée, la page le dit et propose Actualiser, au lieu d'ouvrir un éditeur vide dont l'enregistrement aurait effacé ta fiche.
+                    - **Correction :** La liste des scènes n'affiche plus « Lance la première ! » quand le site ne répond pas, et l'aperçu de ta fiche ne prétend plus qu'elle est invisible en jeu.
+                    - **Correction :** Tes amis RP et les personnages de ton compte se rechargent au retour du site, s'il était en maintenance au lancement du jeu.
+                    """,
+            BodyEn: """
+                    - **Improvement:** When the website is under maintenance or unreachable, a banner says so at the top of the main window, of "My Open RP Session" and of the profile you are viewing. Lists and profiles that failed to load reload on their own as soon as it is back.
+                    - **Improvement:** An action that fails during maintenance explains it with the same message everywhere, instead of "HTTP 503" or "the server refused the request".
+                    - **Fix:** Ending your session during maintenance no longer announces "Session ended": the session stays on screen, since it is still live on the website.
+                    - **Fix:** If your RP profile cannot be loaded, the page says so and offers Refresh, instead of opening an empty editor whose saving would have wiped your profile.
+                    - **Fix:** The scene list no longer shows "Be the first to start one!" when the website does not respond, and the preview of your profile no longer claims it is hidden in game.
+                    - **Fix:** Your RP friends and your account's characters reload once the website is back, if it was under maintenance when the game started.
+                    """),
+        new(
             Version: "2.16.0",
             TitleFr: "Le plugin te tutoie",
             TitleEn: "One voice in French",

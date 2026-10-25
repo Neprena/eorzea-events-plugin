@@ -42,6 +42,13 @@ public class RpProfileWindow : ThemedWindow
     private bool _viewFetchEmpty;
 
     /// <summary>
+    /// Le site ne répondait pas. Ce n'est pas un refus : en aperçu, conclure
+    /// « ta fiche n'est pas visible en jeu » donnait une fausse explication, et
+    /// faisait disparaître la fiche gardée le temps de la requête.
+    /// </summary>
+    private bool _viewFetchFailed;
+
+    /// <summary>
     /// En aperçu, vue simulée : publique par défaut, ou celle d'un ami. Régler une
     /// section sur « Mes amis RP » sans pouvoir en constater l'effet reviendrait à
     /// demander de la confiance à l'aveugle.
@@ -62,6 +69,15 @@ public class RpProfileWindow : ThemedWindow
             MinimumSize = new Vector2(600, 620),
             MaximumSize = new Vector2(800, 960),
         };
+
+        Plugin.ServerBack += OnServerBack;
+    }
+
+    /// <summary>Le site revient : la fiche que la panne a empêchée d'arriver se relit.</summary>
+    private void OnServerBack()
+    {
+        if (IsOpen && _viewFetchFailed && _viewCharacterId is { Length: > 0 } characterId)
+            FetchFullProfile(characterId, keepCurrent: true);
     }
 
     /// <summary>
@@ -86,6 +102,7 @@ public class RpProfileWindow : ThemedWindow
         };
         _viewFull        = null;
         _viewFetchEmpty  = false;
+        _viewFetchFailed = false;
         _viewCharacterId = characterId;
         _previewAsFriend = false;
 
@@ -112,6 +129,7 @@ public class RpProfileWindow : ThemedWindow
         };
         _viewFull        = null;
         _viewFetchEmpty  = false;
+        _viewFetchFailed = false;
         _viewCharacterId = characterId;
 
         WindowName = $"{Plugin.L.RpProfileViewTitle} : {Glyphs.Safe(characterName)}##rpprofile";
@@ -127,6 +145,7 @@ public class RpProfileWindow : ThemedWindow
         _viewTarget = entry;
         _viewFull   = null;
         _viewFetchEmpty  = false;
+        _viewFetchFailed = false;
         _viewCharacterId = entry.Profile?.CharacterId;
 
         WindowName = $"{Plugin.L.RpProfileViewTitle} : {Glyphs.Safe(entry.CharacterName)}##rpprofile";
@@ -156,6 +175,8 @@ public class RpProfileWindow : ThemedWindow
         {
             if (body)
             {
+                ServerNotice.Draw();
+
                 if (_isPreview)
                 {
                     Feedback.Alert(Theme.Idle, Icons.Show, l.RpProfilePreviewTitle,
@@ -171,6 +192,8 @@ public class RpProfileWindow : ThemedWindow
                     // visible en jeu, et le dire vaut mieux qu'un écran vide.
                     if (_viewFetchEmpty)
                         Feedback.EmptyState(Icons.Hide, l.RpProfilePreviewHidden);
+                    else if (_viewFetchFailed)
+                        Feedback.EmptyState(Icons.Warning, l.LoadFailed);
                     else
                         Feedback.SkeletonCards(2);
                 }
@@ -301,14 +324,21 @@ public class RpProfileWindow : ThemedWindow
 
                 if (full != null)
                 {
-                    _viewFull       = full;
-                    _viewFetchEmpty = false;
+                    _viewFull        = full;
+                    _viewFetchEmpty  = false;
+                    _viewFetchFailed = false;
 
                     // Rencontre : une fiche réellement servie, jamais la sienne
                     // (aperçu). Ici et non à l'ouverture de la fenêtre, pour ne
                     // pas retenir une fiche que le serveur a refusée.
                     if (!_isPreview && _viewTarget is { } target)
                         EncounterRegistry.RecordProfileOpened(characterId, target.CharacterName, target.Server, full);
+                }
+                else if (Plugin.Api.IsServerDown)
+                {
+                    // Panne et non refus : ce qui est affiché reste, et le
+                    // retour du site relira la fiche (OnServerBack).
+                    _viewFetchFailed = true;
                 }
                 else
                 {

@@ -1,9 +1,9 @@
 {
   "Name": "Eorzea Events",
   "Author": "Neprena",
-  "Description": "Gérez vos sessions RP Eorzea Events directement depuis le jeu.",
+  "Description": "Gère tes sessions RP Eorzea Events directement depuis le jeu.",
   "Punchline": "Sessions RP Eorzea Events en un clic.",
-  "Changelog": "Une actualité publiée sur le site apparaît maintenant dans le plugin dès l'ouverture de la fenêtre ou de la page Actualités, qui gagne un bouton Actualiser. L'historique complet des nouveautés est dans le plugin.",
+  "Changelog": "Le plugin te tutoie désormais partout, comme le site : une partie des fenêtres te vouvoyait encore. L'historique complet des nouveautés est dans le plugin.",
   "InternalName": "EorzeaEventsPlugin",
   "RepoUrl": "https://github.com/Neprena/eorzea-events-plugin",
   "Tags": [

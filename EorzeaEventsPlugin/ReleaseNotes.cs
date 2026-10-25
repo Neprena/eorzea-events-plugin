@@ -49,8 +49,8 @@ internal sealed record ReleaseNote(
 ///    « là où le jeu met », « facilite l'utilisation ».
 /// 4. Chaque pronom, chaque « à la place », chaque « désormais » doit avoir un
 ///    référent parfaitement clair pour qui découvre la fonctionnalité.
-/// 5. Pas de masculin générique : passer par le verbe (« les rôlistes que vous
-///    croisez ») ou interroger plutôt que désigner (« qui est à portée de
+/// 5. Pas de masculin générique : passer par le verbe (« les rôlistes que tu
+///    croises ») ou interroger plutôt que désigner (« qui est à portée de
 ///    vue »). Les libellés de l'interface gardent leur forme (« Amis RP »).
 ///
 /// Le test avant de valider une ligne : en la retirant, qu'est-ce que le joueur
@@ -64,6 +64,16 @@ internal static class ReleaseNotes
     /// </summary>
     public static readonly ReleaseNote[] All =
     [
+        new(
+            Version: "2.16.0",
+            TitleFr: "Le plugin te tutoie",
+            TitleEn: "One voice in French",
+            BodyFr: """
+                    - **Amélioration :** Le plugin te tutoie partout, comme le site. Une partie des fenêtres te vouvoyait encore, parfois à côté d'un texte qui te tutoyait.
+                    """,
+            BodyEn: """
+                    - **Improvement:** The French version of the plugin now addresses you informally everywhere, like the website. Some windows still used the formal form, sometimes right next to text that didn't.
+                    """),
         new(
             Version: "2.15.1",
             TitleFr: "Des actualités à jour",

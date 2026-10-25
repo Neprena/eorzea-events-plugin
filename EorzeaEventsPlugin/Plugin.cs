@@ -1745,7 +1745,7 @@ public sealed class Plugin : IDalamudPlugin
 
         if (string.IsNullOrWhiteSpace(name) || worldId <= 0)
         {
-            ChatGui.PrintError("[Eorzea Events] Aucun personnage connecté. Connectez-vous in-game et réessayez.");
+            ChatGui.PrintError("[Eorzea Events] Aucun personnage connecté. Connecte-toi in-game et réessaie.");
             return;
         }
 
@@ -1801,7 +1801,7 @@ public sealed class Plugin : IDalamudPlugin
             .AddUiForeground(45) // bleu
             .AddText("[Eorzea Events] ")
             .AddUiForegroundOff()
-            .AddText($"Ouverture de la page de confirmation pour {name}@{worldName}. Validez dans votre navigateur.")
+            .AddText($"Ouverture de la page de confirmation pour {name}@{worldName}. Valide dans ton navigateur.")
             .Build());
 
         // Poll en arrière-plan : 5 s d'intervalle pendant max 10 min.

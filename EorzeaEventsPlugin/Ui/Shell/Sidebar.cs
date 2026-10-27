@@ -94,6 +94,18 @@ internal static class Sidebar
             if (DrawItem(dl, top, width, slot, activeId, rail)) clicked = slot.Page.Id;
         }
 
+        // Le nid de Pâques, dans le creux entre les entrées et celles du bas.
+        if (Seasons.SeasonHunts.Active == Seasons.SeasonHunts.Eggs)
+        {
+            var from = 0f;
+            var to   = height;
+            foreach (var slot in slots)
+                if (slot.Page.Pinned) to = MathF.Min(to, slot.Y);
+                else from = MathF.Max(from, slot.Y + slot.Height);
+
+            Seasons.SeasonDecor.Nest(dl, top, width, from, to, rail);
+        }
+
         DrawGrip(dl, top, width, height, config);
 
         return clicked;
@@ -197,7 +209,8 @@ internal static class Sidebar
     {
         var slots = new List<Slot>(pages.Count);
         var item  = Theme.S(rail ? Theme.SidebarRailItem : Theme.SidebarItem);
-        var y     = Theme.S(Theme.GapS);
+        // Sous le grand logo des saisons quand il pend sur la colonne.
+        var y     = Theme.S(Theme.GapS) + TitleBar.LogoOverhang;
 
         string? section = null;
         var first = true;
@@ -305,34 +318,36 @@ internal static class Sidebar
         }
 
         var tint  = ImGui.GetColorU32(active || hovered ? Theme.Text : Theme.TextMuted);
-        var label = page.Label();
-        var glyph = page.Icon.S();
+        var label = Seasons.SeasonDecor.NavLabel(page.Label());
+        var heart = Seasons.SeasonDecor.HeartIcon(page.Id);
+        var glyph = (heart ? Icons.Heart : page.Icon).S();
+        var mark  = heart ? ImGui.GetColorU32(Seasons.SeasonDecor.Pink) : tint;
         var count = page.Badge?.Invoke() ?? 0;
         var lock_ = count == 0 && page.Locked?.Invoke() == true;
 
         if (rail)
         {
-            DrawRailItem(dl, origin, width, slot.Height, glyph, label, tint, count, lock_);
+            DrawRailItem(dl, origin, width, slot.Height, glyph, label, tint, mark, count, lock_);
 
             // Libellé abrégé sous l'icône : le nom entier reste au survol.
             if (hovered) Feedback.Tooltip(label);
         }
         else
         {
-            DrawDrawerItem(dl, origin, width, slot.Height, glyph, label, tint, count, lock_);
+            DrawDrawerItem(dl, origin, width, slot.Height, glyph, label, tint, mark, count, lock_);
         }
 
         return clicked;
     }
 
     private static void DrawDrawerItem(ImDrawListPtr dl, Vector2 origin, float width, float item,
-                                       string glyph, string label, uint tint, int count, bool locked)
+                                       string glyph, string label, uint tint, uint mark, int count, bool locked)
     {
         // FontAwesome étant fusionné dans la police de corps, ni la mesure ni le
         // tracé ne nécessitent de bascule de police.
         var glyphSize = ImGui.CalcTextSize(glyph);
         var gutter    = Theme.S(IconGutter);
-        dl.AddText(origin + new Vector2(gutter - glyphSize.X * 0.5f, (item - glyphSize.Y) * 0.5f), tint, glyph);
+        dl.AddText(origin + new Vector2(gutter - glyphSize.X * 0.5f, (item - glyphSize.Y) * 0.5f), mark, glyph);
 
         var trailing  = count > 0 || locked ? Theme.S(34f) : Theme.S(10f);
         var labelX    = origin.X + Theme.S(IconGutter + 18f);
@@ -346,12 +361,12 @@ internal static class Sidebar
     }
 
     private static void DrawRailItem(ImDrawListPtr dl, Vector2 origin, float width, float item,
-                                     string glyph, string label, uint tint, int count, bool locked)
+                                     string glyph, string label, uint tint, uint mark, int count, bool locked)
     {
         var glyphSize = ImGui.CalcTextSize(glyph);
         var iconTop   = origin.Y + Theme.S(10f);
         var iconX     = origin.X + (width - glyphSize.X) * 0.5f;
-        dl.AddText(new Vector2(iconX, iconTop), tint, glyph);
+        dl.AddText(new Vector2(iconX, iconTop), mark, glyph);
 
         using (Fonts.PushSmall())
         {

@@ -800,6 +800,8 @@ public sealed class Plugin : IDalamudPlugin
             HelpMessage = "Ouvre le panneau. /eorzea config = paramètres. /eorzea link = lier le personnage actuel. /eorzea rp <texte> = remplacer les jetons %xt et %xp.",
         });
 
+        // Le thème de saison d'abord : les fenêtres lisent la palette dès leur PreDraw.
+        PluginInterface.UiBuilder.Draw         += Ui.Seasons.SeasonState.Update;
         PluginInterface.UiBuilder.Draw         += _windowSystem.Draw;
         PluginInterface.UiBuilder.OpenConfigUi += OpenConfig;
         PluginInterface.UiBuilder.OpenMainUi   += OpenMain;
@@ -3396,6 +3398,7 @@ public sealed class Plugin : IDalamudPlugin
         ChatGui.ChatMessage                     -= _chatFormatter.OnChatMessage;
         PluginInterface.UiBuilder.Draw          -= Chat.ChatTokens.FlushClipboard;
         PluginInterface.UiBuilder.Draw         -= _windowSystem.Draw;
+        PluginInterface.UiBuilder.Draw         -= Ui.Seasons.SeasonState.Update;
         PluginInterface.UiBuilder.OpenConfigUi -= OpenConfig;
         PluginInterface.UiBuilder.OpenMainUi   -= OpenMain;
         CommandManager.RemoveHandler(CommandMain);

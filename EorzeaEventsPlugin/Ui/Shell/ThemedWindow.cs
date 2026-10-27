@@ -49,6 +49,13 @@ public abstract class ThemedWindow : Window
     protected virtual float BackgroundOpacity => Math.Clamp(Plugin.Config.WindowOpacity, 0.4f, 1f);
 
     /// <summary>
+    /// La fenêtre porte le décor du thème de saison sur sa nuit. Réservé à la
+    /// fenêtre principale : sur une fiche ou une infobulle, la lune et la neige
+    /// encombreraient plus qu'elles n'égaieraient. La palette, elle, vaut partout.
+    /// </summary>
+    protected virtual bool SeasonalBackdrop => false;
+
+    /// <summary>
     /// Intensité du flou à 100 %, le plafond de Dalamud. Le défaut en prend
     /// un dixième : vu en jeu le 19 octobre, dès 8 ou 12 le décor se moyennait
     /// en une teinte sombre presque uniforme, et la fenêtre paraissait opaque.
@@ -137,6 +144,9 @@ public abstract class ThemedWindow : Window
         dl.PushClipRect(position, position + size, false);
         Surface.NightBackground(dl, position + new Vector2(0f, top), position + size - new Vector2(scrollbar, 0f),
                                 rounding, roundTop: !titled, BackgroundOpacity);
+        if (SeasonalBackdrop)
+            Seasons.SeasonDecor.Backdrop(dl, position + new Vector2(0f, top), position + size - new Vector2(scrollbar, 0f),
+                                         BackgroundOpacity);
         dl.AddRect(position, position + size, ImGui.GetColorU32(Theme.BorderSoft), rounding, ImDrawFlags.None,
                    ImGui.GetStyle().WindowBorderSize);
 

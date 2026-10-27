@@ -1,6 +1,6 @@
 <Project Sdk="Dalamud.NET.Sdk/15.0.0">
   <PropertyGroup>
-    <Version>2.16.1</Version>
+    <Version>2.17.0</Version>
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
@@ -20,5 +20,8 @@
     <!-- Le logo, pour la barre de titre. Réduit à 128 px : il n'est jamais
          affiché plus grand, et l'original pèse un demi-mégaoctet. -->
     <EmbeddedResource Include="Assets\Images\logo.png" LogicalName="Images.logo.png" />
+    <!-- Décors des thèmes saisonniers, rastérisés depuis Seasons\src par
+         scripts/render-season-assets.ts. Les SVG ne sont pas embarqués. -->
+    <EmbeddedResource Include="Assets\Images\Seasons\*.png" LogicalName="Images.Seasons.%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

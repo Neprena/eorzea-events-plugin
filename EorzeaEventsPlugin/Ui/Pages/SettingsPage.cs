@@ -5,6 +5,7 @@ using Dalamud.Interface.ImGuiNotification;
 using Dalamud.Interface.Utility.Raii;
 using EorzeaEventsPlugin.Api;
 using EorzeaEventsPlugin.Ui.Components;
+using EorzeaEventsPlugin.Ui.Seasons;
 using System.Numerics;
 
 namespace EorzeaEventsPlugin.Ui.Pages;
@@ -98,6 +99,7 @@ internal sealed class SettingsPage(Configuration config)
 
             case TabMisc:
                 DrawAppearance(l);
+                DrawSeasons(l);
                 DrawLanguage(l);
                 DrawAbout(l);
 #if DEBUG
@@ -870,6 +872,65 @@ internal sealed class SettingsPage(Configuration config)
             () => config.AnimatedProfileHeaders, v => config.AnimatedProfileHeaders = v);
     }
 
+    // ─── Thèmes saisonniers ───────────────────────────────────────────────────
+
+    /// <summary>
+    /// Selon la date ou jamais, décor et surprises. Pas d'aperçu : un thème ne
+    /// se montre qu'en sa saison. Pour tester, la section Développement des
+    /// compilations de débogage simule une date.
+    /// </summary>
+    private void DrawSeasons(Loc l)
+    {
+        using var card = Card.Begin("set_seasons", interactive: false);
+
+        Layout.SectionHeader(l.CfgSeasonsHeader, Icons.Seasons);
+
+        // Deux pastilles plutôt qu'un interrupteur : « coupé » ne dirait pas
+        // ce qu'on obtient à la place, la Nuit dorée le dit.
+        var gap = Theme.S(Theme.GapS);
+        if (Inputs.Pill("season_auto", l.CfgSeasonsAuto, config.SeasonalThemes) && !config.SeasonalThemes)
+        {
+            config.SeasonalThemes = true;
+            config.Save();
+        }
+        ImGui.SameLine(0f, gap);
+        if (Inputs.Pill("season_off", l.CfgSeasonsOff, !config.SeasonalThemes) && config.SeasonalThemes)
+        {
+            config.SeasonalThemes = false;
+            config.Save();
+        }
+
+        if (config.SeasonalThemes)
+        {
+            Layout.Spacer(Theme.GapXs);
+            Text.Hint(SeasonStatus(l));
+        }
+
+        Layout.Spacer(Theme.GapS);
+        Row(l.CfgSeasonsDecor, l.CfgSeasonsDecorHint,
+            () => config.SeasonalDecor, v => config.SeasonalDecor = v, disabled: !config.SeasonalThemes);
+        Row(l.CfgSeasonsEggs, l.CfgSeasonsEggsHint,
+            () => config.SeasonalEasterEggs, v => config.SeasonalEasterEggs = v, disabled: !config.SeasonalThemes);
+    }
+
+    /// <summary>« En ce moment : Halloween, jusqu'au 2 novembre. », ou le prochain thème.</summary>
+    private static string SeasonStatus(Loc l)
+    {
+        var now     = SeasonState.Now;
+        var current = SeasonCalendar.For(now);
+
+        // Les bornes sont en UTC : la date affichée est celle du joueur.
+        if (current != Season.None && SeasonCalendar.Occurrence(current, now) is { } span)
+            return string.Format(l.CfgSeasonsNow, SeasonState.Name(current), DayAndMonth(span.End.ToLocalTime(), l));
+
+        var (next, start) = SeasonCalendar.Next(now);
+        return string.Format(l.CfgSeasonsNext, SeasonState.Name(next), DayAndMonth(start.ToLocalTime(), l));
+    }
+
+    /// <summary>Jour et mois dans la langue du plugin, avec le « 1er » du français.</summary>
+    private static string DayAndMonth(DateTime date, Loc l) =>
+        l.Code == "fr" && date.Day == 1 ? $"1er {date.ToString("MMMM", l.Culture)}" : date.ToString("M", l.Culture);
+
     private void DrawLanguage(Loc l)
     {
         using var card = Card.Begin("set_language", interactive: false);
@@ -909,6 +970,71 @@ internal sealed class SettingsPage(Configuration config)
     // ─── Développement ────────────────────────────────────────────────────────
 
 #if DEBUG
+    /// <summary>
+    /// Une date simulée plutôt qu'un aperçu : le thème et toutes ses surprises
+    /// se déclenchent comme le jour venu (calendrier de l'Avent, chasses,
+    /// compte à rebours, récapitulatif, mogs). La date avance ensuite au rythme
+    /// réel.
+    /// </summary>
+    private void DrawSeasonSimulator()
+    {
+        Layout.Divider(Theme.GapS);
+        Text.Body("Thèmes saisonniers");
+        Text.Small(SeasonState.Simulated == null
+            ? "Date réelle."
+            : $"Date simulée : {SeasonState.Now:dd/MM/yyyy HH:mm:ss} ({SeasonState.Name(SeasonState.Current)})");
+        Layout.Spacer(Theme.GapXs);
+
+        var row = FlowRow.Fill(Theme.S(Theme.GapXs));
+        foreach (var (label, date) in SeasonPresets())
+        {
+            row.Next(ImGui.CalcTextSize(label).X + Theme.S(22f));
+            if (Inputs.Pill($"season_sim_{label}", label, SeasonState.Simulated == date))
+                SeasonState.Simulate(date);
+        }
+
+        Layout.Spacer(Theme.GapXs);
+        var ghost = SeasonState.ForceGhost;
+        if (Inputs.ToggleRow("Fantôme en continu", ref ghost, "Halloween : le fantôme de minuit passe en boucle."))
+            SeasonState.ForceGhost = ghost;
+
+        if (Btn.Draw("Remettre les surprises à zéro", BtnTone.Secondary, BtnSize.Small, Icons.Refresh))
+        {
+            config.SeasonalFinds.Clear();
+            config.Save();
+        }
+    }
+
+    /// <summary>Les dates à simuler, toujours à venir pour que les clés d'année restent cohérentes.</summary>
+    private static (string Label, DateTime? Date)[] SeasonPresets()
+    {
+        var today = DateTime.Now.Date;
+
+        DateTime Next(int month, int day, int hour)
+        {
+            var date = new DateTime(today.Year, month, day, hour, 0, 0);
+            return date.Date < today ? date.AddYears(1) : date;
+        }
+
+        var easter = SeasonCalendar.EasterSunday(today.Year);
+        if (easter < today) easter = SeasonCalendar.EasterSunday(today.Year + 1);
+
+        var eve = Next(12, 31, 23).AddMinutes(59);
+
+        return
+        [
+            ("Date réelle",    null),
+            ("Veillée des saints", Next(10, 27, 21)),
+            ("Avent",          Next(12, 14, 20)),
+            ("Fête des étoiles",   Next(12, 20, 20)),
+            ("31 déc. 23:59",  eve),
+            ("Récap janvier",  new DateTime(eve.Year + 1, 1, 2, 20, 0, 0)),
+            ("Valention",          Next(2, 10, 20)),
+            ("Chasse aux Prœufs",  easter.AddHours(15)),
+            ("1er avril",      Next(4, 1, 12)),
+        ];
+    }
+
     private void DrawDeveloper()
     {
         using var card = Card.Begin("set_dev", interactive: false,
@@ -931,6 +1057,8 @@ internal sealed class SettingsPage(Configuration config)
         if (Btn.Draw("Production", BtnTone.Secondary, BtnSize.Medium)) SetBaseUrl("https://eorzea.events");
         ImGui.SameLine(0f, Theme.S(Theme.GapXs));
         if (Btn.Draw("Local", BtnTone.Secondary, BtnSize.Medium)) SetBaseUrl("http://localhost:3000");
+
+        DrawSeasonSimulator();
 
         Layout.Divider(Theme.GapS);
         if (!Btn.Draw("Simuler la migration", BtnTone.Danger, BtnSize.Medium, Icons.Refresh)) return;

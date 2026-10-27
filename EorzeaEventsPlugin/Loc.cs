@@ -84,6 +84,46 @@ internal sealed partial class Loc
     public required string CfgAnimatedHeaders     { get; init; }
     public required string CfgAnimatedHeadersHint { get; init; }
 
+    // Thèmes saisonniers
+    public required string   CfgSeasonsHeader      { get; init; }
+    public required string   CfgSeasonsAuto        { get; init; }
+    public required string   CfgSeasonsOff         { get; init; }
+    public required string   CfgSeasonsNow         { get; init; }   // {0} = thème, {1} = date de fin
+    public required string   CfgSeasonsNext        { get; init; }   // {0} = thème, {1} = date de début
+    public required string   CfgSeasonsDecor       { get; init; }
+    public required string   CfgSeasonsDecorHint   { get; init; }
+    public required string   CfgSeasonsEggs        { get; init; }
+    public required string   CfgSeasonsEggsHint    { get; init; }
+    public required string   SeasonGoldenNight     { get; init; }
+    public required string   SeasonNewYear         { get; init; }
+    public required string   SeasonValentine       { get; init; }
+    public required string   SeasonEaster          { get; init; }
+    public required string   SeasonHalloween       { get; init; }
+    public required string   SeasonChristmas       { get; init; }
+    public required string   HuntPumpkinFound      { get; init; }   // {0} = trouvées, {1} = total
+    public required string   HuntPumpkinsDone      { get; init; }   // {0} = total
+    public required string   HuntEggFound          { get; init; }   // {0} = trouvés, {1} = total
+    public required string   HuntEggsDone          { get; init; }   // {0} = total
+    public required string   HuntNest              { get; init; }   // {0} = trouvés, {1} = total
+    public required string   GhostBubble           { get; init; }
+    public required string   AdventTitle           { get; init; }
+    public required string   AdventDay             { get; init; }   // {0} = numéro de la case
+    public required string   AdventHint            { get; init; }
+    public required string[] AdventChallenges      { get; init; }   // 24 défis RP, un par case
+    public required string   NewYearCountdown      { get; init; }   // {0} = année, {1} = hh:mm:ss
+    public required string   RecapKicker           { get; init; }   // {0} = année écoulée
+    public required string   RecapMet              { get; init; }
+    public required string   RecapFamiliar         { get; init; }   // {0} = nombre de rencontres
+    public required string   RecapZone             { get; init; }
+    public required string   RecapLocal            { get; init; }
+    public required string   RecapOpen             { get; init; }
+    public required string   KupoLabel             { get; init; }   // {0} = libellé du menu
+    public required string   KupoHeading           { get; init; }   // {0} = titre de section
+    public required string   LoveTitle             { get; init; }
+    public required string   LoveDay               { get; init; }   // {0} = jour de février
+    public required string   LoveHint              { get; init; }
+    public required string[] LovePrompts           { get; init; }   // 8 défis RP, du 7 au 14 février
+
     // ── RP Session tab ────────────────────────────────────────────────────────
     public required string RpNoSession         { get; init; }
     public required string RpSessionsActive    { get; init; }   // {0} session(s)
@@ -1013,6 +1053,81 @@ internal sealed partial class Loc
         CfgAnimatedHeaders     = "Animer le ciel des fiches RP",
         CfgAnimatedHeadersHint = "Étoiles qui scintillent et poussières qui dérivent, sur les fiches sans bannière.",
 
+        CfgSeasonsHeader      = "Thèmes saisonniers",
+        CfgSeasonsAuto        = "Selon la date",
+        CfgSeasonsOff         = "Nuit dorée toute l'année",
+        CfgSeasonsNow         = "En ce moment : {0}, jusqu'au {1}.",
+        CfgSeasonsNext        = "Prochain thème : {0}, à partir du {1}.",
+        CfgSeasonsDecor       = "Décor animé",
+        CfgSeasonsDecorHint   = "Lune et chauves-souris, neige, cœurs, pétales, ornements du logo. Figé si Dalamud réduit les animations.",
+        CfgSeasonsEggs        = "Surprises de saison",
+        CfgSeasonsEggsHint    = "Citrouilles et œufs cachés dans les pages, calendrier de l'Avent, fantôme de minuit, et quelques autres.",
+        SeasonGoldenNight     = "Nuit dorée",
+        SeasonNewYear         = "Fête de la transition",
+        SeasonValentine       = "Valention",
+        SeasonEaster          = "Chasse aux Prœufs",
+        SeasonHalloween       = "Veillée des saints",
+        SeasonChristmas       = "Fête des étoiles",
+        HuntPumpkinFound      = "Citrouille trouvée ! {0} sur {1}",
+        HuntPumpkinsDone      = "Les {0} citrouilles sont trouvées, bravo !",
+        HuntEggFound          = "Œuf trouvé ! {0} sur {1}, dans le nid en bas du menu.",
+        HuntEggsDone          = "Les {0} œufs sont dans le nid, bravo !",
+        HuntNest              = "{0} / {1} œufs",
+        GhostBubble           = "Bouh. Il est minuit à Eorzea.",
+        AdventTitle           = "Calendrier de l'Avent",
+        AdventDay             = "Case {0}",
+        AdventHint            = "Une case par jour jusqu'au 24. Une case oubliée reste à ouvrir.",
+        AdventChallenges      =
+        [
+            "Ton personnage raconte un souvenir d'hiver à quelqu'un qui ne le connaît pas.",
+            "Partage une boisson chaude avec un personnage que tu n'as jamais croisé.",
+            "Ton personnage cherche où passer la nuit au chaud. Qui lui ouvre sa porte ?",
+            "Ton personnage a perdu quelque chose dans la neige. Demande de l'aide pour le retrouver.",
+            "Écris une courte lettre que ton personnage n'enverra jamais.",
+            "Ton personnage tente une recette de fête. Elle rate. Qui y goûte quand même ?",
+            "Va à un événement de l'agenda avec un personnage qui n'est pas dans tes habitudes.",
+            "Ton personnage décore un lieu qui n'est pas le sien. Avec ou sans permission ?",
+            "Fais chanter ton personnage devant au moins une autre personne.",
+            "Ton personnage reçoit un cadeau anonyme et mène l'enquête.",
+            "Au coin du feu, ton personnage raconte une légende de sa région natale.",
+            "Ton personnage tente de se réconcilier avec quelqu'un.",
+            "Visite un lieu de l'onglet Lieux que tu ne connais pas encore.",
+            "Ton personnage offre un présent à quelqu'un qu'il croise pour la première fois.",
+            "Ouvre une scène de RP Ouvert sur le thème de l'hiver.",
+            "Ton personnage prépare un repas pour plus de monde que prévu.",
+            "Ton personnage confie à quelqu'un ce qu'il espère de l'année à venir.",
+            "Ton personnage porte une tenue qu'il ne mettrait jamais d'habitude.",
+            "Fais découvrir à quelqu'un un recoin d'Eorzea que ton personnage aime.",
+            "Ton personnage rend un service sans rien attendre en retour.",
+            "La nuit la plus longue de l'année : ton personnage veille jusqu'à l'aube. Avec qui ?",
+            "Ton personnage écrit ses vœux à trois personnes et les leur remet en main propre.",
+            "Organise un échange de cadeaux, même à deux.",
+            "Ce soir, ton personnage passe la veillée avec quelqu'un qui compte pour lui.",
+        ],
+        NewYearCountdown      = "{0} dans {1}",
+        RecapKicker           = "Ton année RP · {0}",
+        RecapMet              = "personnages rencontrés pour la première fois",
+        RecapFamiliar         = "le personnage que tu as le plus croisé, {0} fois",
+        RecapZone             = "la zone de tes rencontres les plus nombreuses",
+        RecapLocal            = "Calculé sur ton ordinateur à partir de tes rencontres. Rien n'est envoyé.",
+        RecapOpen             = "Voir mes rencontres",
+        KupoLabel             = "{0}, kupo",
+        KupoHeading           = "{0}, kupo !",
+        LoveTitle             = "Billets doux",
+        LoveDay               = "Billet du {0} février",
+        LoveHint              = "Un billet par jour jusqu'au 14. Un billet oublié reste à lire.",
+        LovePrompts           =
+        [
+            "Ton personnage glisse un mot doux, signé ou non, à quelqu'un qu'il apprécie.",
+            "Ton personnage offre des chocolats à quelqu'un qu'il connaît à peine.",
+            "Ton personnage raconte comment il a rencontré la personne qui compte le plus pour lui.",
+            "Donne rendez-vous à quelqu'un dans un lieu de l'onglet Lieux.",
+            "Ton personnage aide quelqu'un à déclarer sa flamme, ou à s'en remettre.",
+            "Ton personnage reçoit une lettre d'amour qui était destinée à quelqu'un d'autre.",
+            "Une danse, une chanson ou un poème : ton personnage le dédie à quelqu'un, devant témoins.",
+            "Ce soir, ton personnage passe la soirée avec quelqu'un qui compte : amitié, amour ou famille.",
+        ],
+
         RpNoSession         = "Aucune session active en ce moment",
         RpSessionsActive    = "{0} session(s) en cours",
         RpBeFirst           = "Lance la première !",
@@ -1867,6 +1982,81 @@ internal sealed partial class Loc
         CfgWindowBlurHint      = "Blur of the scenery behind the windows. 0% turns it off.",
         CfgAnimatedHeaders     = "Animate the sky on RP profiles",
         CfgAnimatedHeadersHint = "Twinkling stars and drifting motes, on profiles without a banner.",
+
+        CfgSeasonsHeader      = "Seasonal themes",
+        CfgSeasonsAuto        = "By date",
+        CfgSeasonsOff         = "Golden Night all year",
+        CfgSeasonsNow         = "Right now: {0}, until {1}.",
+        CfgSeasonsNext        = "Next theme: {0}, from {1}.",
+        CfgSeasonsDecor       = "Animated decor",
+        CfgSeasonsDecorHint   = "Moon and bats, snow, hearts, petals, logo ornaments. Frozen when Dalamud reduces motion.",
+        CfgSeasonsEggs        = "Seasonal surprises",
+        CfgSeasonsEggsHint    = "Pumpkins and eggs hidden in the pages, an Advent calendar, a midnight ghost, and a few more.",
+        SeasonGoldenNight     = "Golden Night",
+        SeasonNewYear         = "Heavensturn",
+        SeasonValentine       = "Valentione's Day",
+        SeasonEaster          = "Hatching-tide",
+        SeasonHalloween       = "All Saints' Wake",
+        SeasonChristmas       = "Starlight Celebration",
+        HuntPumpkinFound      = "Pumpkin found! {0} of {1}",
+        HuntPumpkinsDone      = "All {0} pumpkins found, well done!",
+        HuntEggFound          = "Egg found! {0} of {1}, in the nest at the bottom of the menu.",
+        HuntEggsDone          = "All {0} eggs are in the nest, well done!",
+        HuntNest              = "{0} / {1} eggs",
+        GhostBubble           = "Boo. It's midnight in Eorzea.",
+        AdventTitle           = "Advent calendar",
+        AdventDay             = "Day {0}",
+        AdventHint            = "One door a day until the 24th. A door you missed can still be opened.",
+        AdventChallenges      =
+        [
+            "Your character shares a winter memory with someone who doesn't know them.",
+            "Share a hot drink with a character you've never met.",
+            "Your character looks for somewhere warm to spend the night. Who opens their door?",
+            "Your character lost something in the snow. Ask for help finding it.",
+            "Write a short letter your character will never send.",
+            "Your character tries a festive recipe. It fails. Who tastes it anyway?",
+            "Go to an event from the calendar with a character you don't usually play with.",
+            "Your character decorates a place that isn't theirs. With or without permission?",
+            "Have your character sing in front of at least one other person.",
+            "Your character receives an anonymous gift and investigates.",
+            "By the fire, your character tells a legend from their homeland.",
+            "Your character tries to make peace with someone.",
+            "Visit a venue from the Venues tab that you don't know yet.",
+            "Your character gives a gift to someone they meet for the first time.",
+            "Start an Open RP scene with a winter theme.",
+            "Your character cooks a meal for more people than planned.",
+            "Your character tells someone what they hope for in the coming year.",
+            "Your character wears an outfit they would never usually wear.",
+            "Show someone a corner of Eorzea your character loves.",
+            "Your character does someone a favour, expecting nothing in return.",
+            "The longest night of the year: your character stays up until dawn. With whom?",
+            "Your character writes season's greetings to three people and hands them over in person.",
+            "Organise a gift exchange, even with just two people.",
+            "Tonight, your character spends the evening with someone who matters to them.",
+        ],
+        NewYearCountdown      = "{0} in {1}",
+        RecapKicker           = "Your RP year · {0}",
+        RecapMet              = "characters met for the first time",
+        RecapFamiliar         = "the character you crossed paths with most, {0} times",
+        RecapZone             = "the zone where you met the most people",
+        RecapLocal            = "Computed on your computer from your encounters. Nothing is sent.",
+        RecapOpen             = "See my encounters",
+        KupoLabel             = "{0}, kupo",
+        KupoHeading           = "{0}, kupo!",
+        LoveTitle             = "Love notes",
+        LoveDay               = "February {0} note",
+        LoveHint              = "One note a day until the 14th. A note you missed can still be read.",
+        LovePrompts           =
+        [
+            "Your character slips a sweet note, signed or not, to someone they like.",
+            "Your character gives chocolates to someone they barely know.",
+            "Your character tells how they met the person who matters most to them.",
+            "Arrange a date with someone at a venue from the Venues tab.",
+            "Your character helps someone confess their feelings, or get over them.",
+            "Your character receives a love letter meant for someone else.",
+            "A dance, a song or a poem: your character dedicates it to someone, in front of witnesses.",
+            "Tonight, your character spends the evening with someone who matters: friendship, love or family.",
+        ],
 
         RpNoSession         = "No active sessions right now",
         RpSessionsActive    = "{0} active session(s)",

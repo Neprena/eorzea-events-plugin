@@ -151,6 +151,15 @@ public class RpProfileCache
 /// tout ceci ne quitte la machine.
 /// </summary>
 [Serializable]
+/// <summary>Période officielle d'un événement saisonnier. Bornes incluses, en UTC.</summary>
+public class SeasonWindowEntry
+{
+    /// <summary>Thème du plugin : newyear, valentine, easter, halloween, christmas.</summary>
+    public string   Season { get; set; } = string.Empty;
+    public DateTime Start  { get; set; }
+    public DateTime End    { get; set; }
+}
+
 public class RpEncounter
 {
     public string    CharacterId   { get; set; } = string.Empty;
@@ -336,6 +345,30 @@ public class Configuration : IPluginConfiguration
 
     /// <summary>Étoiles qui scintillent et poussières qui dérivent dans l'en-tête des fiches.</summary>
     public bool AnimatedProfileHeaders { get; set; } = true;
+
+    /// <summary>Thèmes de saison selon la date. Coupés : la Nuit dorée toute l'année.</summary>
+    public bool SeasonalThemes { get; set; } = true;
+
+    /// <summary>Décor des thèmes : lune, neige, pétales, ornements du logo.</summary>
+    public bool SeasonalDecor { get; set; } = true;
+
+    /// <summary>Surprises des thèmes : chasses, calendrier de l'Avent, fantôme de minuit, mogs du 1er avril.</summary>
+    public bool SeasonalEasterEggs { get; set; } = true;
+
+    /// <summary>
+    /// Progression des surprises, par clé et par année : pages où la citrouille
+    /// ou l'œuf a été ramassé (« halloween-2026 »), cases ouvertes du
+    /// calendrier (« advent-2026 »), récapitulatif fermé (« recap-2027 »).
+    /// Locale : rien de tout ça ne part au site.
+    /// </summary>
+    public Dictionary<string, HashSet<string>> SeasonalFinds { get; set; } = [];
+
+    /// <summary>
+    /// Dernières périodes officielles des événements saisonniers reçues du site.
+    /// Gardées ici pour qu'un plugin hors ligne, ou lancé avant que le site
+    /// réponde, cale quand même ses thèmes sur les dates de Square Enix.
+    /// </summary>
+    public List<SeasonWindowEntry> SeasonWindows { get; set; } = [];
 
     /// <summary>
     /// Proposer le bouton « Y aller » quand Lifestream est installé. Reste sans

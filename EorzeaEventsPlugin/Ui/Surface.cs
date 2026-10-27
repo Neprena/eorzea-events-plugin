@@ -242,7 +242,7 @@ internal static class Surface
                                        float rounding, bool roundTop, float opacity)
     {
         var top    = ImGui.GetColorU32(Theme.Alpha(Theme.NightTop, opacity));
-        var bottom = ImGui.GetColorU32(Theme.Alpha(Theme.BgBase, opacity));
+        var bottom = ImGui.GetColorU32(Theme.Alpha(Theme.NightBottom, opacity));
 
         VerticalGradient(dl, min, max, top, bottom, rounding, roundTop, roundBottom: true);
 

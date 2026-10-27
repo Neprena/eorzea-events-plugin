@@ -23,6 +23,7 @@ internal static class Layout
                                      Action? actions = null,
                                      float actionsWidth = 0f)
     {
+        title = Seasons.SeasonDecor.Heading(title);
         var color = tone ?? Theme.Accent;
 
         if (icon is { } value)

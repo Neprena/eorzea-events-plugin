@@ -43,6 +43,11 @@ internal static class Icons
     public const FontAwesomeIcon Housing   = FontAwesomeIcon.Home;
     public const FontAwesomeIcon Map       = FontAwesomeIcon.Map;
     public const FontAwesomeIcon World     = FontAwesomeIcon.Globe;
+
+    // ── Thèmes saisonniers ──
+    public const FontAwesomeIcon Seasons   = FontAwesomeIcon.Magic;
+    public const FontAwesomeIcon Gift      = FontAwesomeIcon.Gift;
+    public const FontAwesomeIcon Heart     = FontAwesomeIcon.Heart;
     public const FontAwesomeIcon Clock     = FontAwesomeIcon.Clock;
     public const FontAwesomeIcon Recurring = FontAwesomeIcon.Redo;
     public const FontAwesomeIcon Language  = FontAwesomeIcon.Comments;

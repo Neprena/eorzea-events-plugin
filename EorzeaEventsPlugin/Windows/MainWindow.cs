@@ -224,6 +224,7 @@ public class MainWindow : ThemedWindow, IDisposable
             {
                 ServerNotice.Draw();
                 _news.DrawBanners(activeId == "news");
+                Ui.Seasons.YearRecap.Draw(activeId, () => OpenAt("encounters"));
             },
         };
 
@@ -286,6 +287,8 @@ public class MainWindow : ThemedWindow, IDisposable
 
     /// <summary>La coque peint elle-même les bords, sans marge de fenêtre.</summary>
     protected override bool Chromeless => true;
+
+    protected override bool SeasonalBackdrop => true;
 
     private static void OpenUrl(string url) =>
         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });

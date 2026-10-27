@@ -65,6 +65,20 @@ internal static class ReleaseNotes
     public static readonly ReleaseNote[] All =
     [
         new(
+            Version: "2.17.0",
+            TitleFr: "Le plugin fête les saisons du jeu",
+            TitleEn: "The plugin celebrates the game's seasons",
+            BodyFr: """
+                    - **Nouveauté :** Pendant les événements saisonniers du jeu (Fête de la transition, Valention, Chasse aux Prœufs, Veillée des saints, Fête des étoiles), le plugin en prend les couleurs et s'anime, aux dates annoncées par Square Enix.
+                    - **Nouveauté :** Chaque saison cache ses surprises : citrouilles et œufs à dénicher dans les pages, calendrier de l'Avent, fantôme de minuit… À toi de trouver les autres.
+                    - **Nouveauté :** Tout se règle dans Paramètres › Divers › Thèmes saisonniers : selon la date ou la Nuit dorée toute l'année, avec le décor et les surprises à couper séparément.
+                    """,
+            BodyEn: """
+                    - **New:** During the game's seasonal events (Heavensturn, Valentione's Day, Hatching-tide, All Saints' Wake, Starlight Celebration), the plugin takes on their colours and comes alive, on the dates announced by Square Enix.
+                    - **New:** Each season hides its surprises: pumpkins and eggs to find in the pages, an Advent calendar, a midnight ghost… The rest is up to you to discover.
+                    - **New:** Everything is set in Settings › Misc › Seasonal themes: by date or the Golden Night all year, with the decor and the surprises switchable separately.
+                    """),
+        new(
             Version: "2.16.1",
             TitleFr: "Le site en maintenance, dit clairement",
             TitleEn: "Website maintenance, clearly shown",

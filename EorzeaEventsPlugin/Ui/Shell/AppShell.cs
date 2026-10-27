@@ -64,7 +64,9 @@ internal sealed class AppShell
     {
         var available = ImGui.GetContentRegionAvail();
 
-        var action = TitleBar.Draw(available.X, folded);
+        // Le grand logo des saisons pend sur la colonne : pas sur un écran
+        // bloquant, qui n'en a pas et dont il masquerait le contenu.
+        var action = TitleBar.Draw(available.X, folded, large: fullScreen == null && Seasons.SeasonDecor.Festive);
 
         var bodyHeight = available.Y
                          - Theme.S(Theme.TitleBarHeight)
@@ -107,6 +109,8 @@ internal sealed class AppShell
         // La notification se pose sur le contenu, puis le curseur revient où le
         // contenu l'a laissé : la barre d'état se place d'après lui.
         var after = ImGui.GetCursorScreenPos();
+        Seasons.SeasonOverlay.Draw(contentMin, contentMin + new Vector2(contentWidth, bodyHeight), page.Id);
+        TitleBar.DrawLargeLogo();
         Snackbar.Draw(contentMin, contentMin + new Vector2(contentWidth, bodyHeight));
         ImGui.SetCursorScreenPos(after);
 

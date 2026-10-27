@@ -151,6 +151,7 @@ internal static class Card
 
         var dl = ImGui.GetWindowDrawList();
         Surface.Panel(dl, min, max, bg, border ?? Theme.Border, highlight: !art);
+        if (!art) Seasons.SeasonDecor.CardCap(dl, min, max);
 
         // Pas de dégradé de fond ici, à dessein : la liste de dessin ne sait pas
         // remplir un rectangle arrondi en dégradé. Un rectangle inséré sous le

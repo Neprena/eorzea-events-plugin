@@ -26,6 +26,35 @@ internal static class Theme
         ( rgb        & 0xFF) / 255f,
         a);
 
+    // ─── Palette ──────────────────────────────────────────────────────────────
+    //
+    // Les couleurs qu'un thème saisonnier remplace le temps de sa période (voir
+    // Ui/Seasons). Leurs valeurs vivent ici, dans la Nuit dorée ; les propriétés
+    // plus bas, documentées à leur place, ne font que lire la palette courante.
+
+    public static readonly Palette GoldenNight = new(
+        NightTop:     Hex(0x141A33),
+        NightBottom:  Hex(0x0B0E1C),
+        HaloCrystal:  Hex(0x5096FF, 0.30f),
+        HaloGold:     Hex(0xE9BE5C, 0.10f),
+        Accent:       Hex(0x6CCBFF),
+        AccentHover:  Hex(0x9ADCFF),
+        AccentActive: Hex(0x3FA9E6),
+        Action:       Hex(0xE9BE5C),
+        ActionHover:  Hex(0xF4D27A),
+        ActionActive: Hex(0xD9A63E),
+        TextOnAction: Hex(0x2A1A00),
+        TitleGold:    Hex(0xE9C46A),
+        Border:       Hex(0xE9BE5C, 0.24f),
+        BorderSoft:   Hex(0xE9BE5C, 0.13f),
+        BorderLight:  Hex(0xE9BE5C, 0.40f),
+        Highlight:    Hex(0xF2CB6B, 0.22f));
+
+    private static Palette _palette = GoldenNight;
+
+    /// <summary>Remplace la palette courante. Appelé par <c>SeasonState</c>, avant le rendu.</summary>
+    internal static void Use(Palette palette) => _palette = palette;
+
     // ─── Fonds ────────────────────────────────────────────────────────────────
     //
     // Échelle de profondeur, du plus enfoncé au plus surélevé. La règle qui rend
@@ -52,12 +81,13 @@ internal static class Theme
     public static readonly Vector4 CardFill      = Hex(0xFFFFFF, 0.045f);
     public static readonly Vector4 CardFillHover = Hex(0xFFFFFF, 0.08f);
 
-    /// <summary>Haut du dégradé de fond.</summary>
-    public static readonly Vector4 NightTop = Hex(0x141A33);
+    /// <summary>Haut et bas du dégradé de fond.</summary>
+    public static Vector4 NightTop    => _palette.NightTop;
+    public static Vector4 NightBottom => _palette.NightBottom;
 
     /// <summary>Les deux halos du haut de fenêtre : le cristal au centre, l'or plus large et plus pâle.</summary>
-    public static readonly Vector4 HaloCrystal = Hex(0x5096FF, 0.30f);
-    public static readonly Vector4 HaloGold    = Hex(0xE9BE5C, 0.10f);
+    public static Vector4 HaloCrystal => _palette.HaloCrystal;
+    public static Vector4 HaloGold    => _palette.HaloGold;
 
     /// <summary>Ombre portée sous les surfaces surélevées.</summary>
     public static readonly Vector4 Shadow = Hex(0x000000, 0.50f);
@@ -68,19 +98,19 @@ internal static class Theme
     // filtre, interrupteur. L'or ne sert qu'à l'action principale d'un écran :
     // répandu, il ne désignerait plus rien.
 
-    public static readonly Vector4 Accent       = Hex(0x6CCBFF);
-    public static readonly Vector4 AccentHover  = Hex(0x9ADCFF);
-    public static readonly Vector4 AccentActive = Hex(0x3FA9E6);
+    public static Vector4 Accent       => _palette.Accent;
+    public static Vector4 AccentHover  => _palette.AccentHover;
+    public static Vector4 AccentActive => _palette.AccentActive;
 
-    public static readonly Vector4 Action       = Hex(0xE9BE5C);
-    public static readonly Vector4 ActionHover  = Hex(0xF4D27A);
-    public static readonly Vector4 ActionActive = Hex(0xD9A63E);
+    public static Vector4 Action       => _palette.Action;
+    public static Vector4 ActionHover  => _palette.ActionHover;
+    public static Vector4 ActionActive => _palette.ActionActive;
 
     /// <summary>Texte posé sur l'or, un brun profond plutôt qu'un noir.</summary>
-    public static readonly Vector4 TextOnAction = Hex(0x2A1A00);
+    public static Vector4 TextOnAction => _palette.TextOnAction;
 
     /// <summary>Or des titres de page et de la marque, celui des lettres du logo.</summary>
-    public static readonly Vector4 TitleGold = Hex(0xE9C46A);
+    public static Vector4 TitleGold => _palette.TitleGold;
 
     /// <summary>
     /// Or historique. Inchangé à dessein : il sert aussi de couleur par défaut
@@ -122,16 +152,16 @@ internal static class Theme
     // Pour les atténuer, multiplier leur opacité (Faded) plutôt que la
     // remplacer avec Alpha : celle-ci les rendrait plus opaques qu'à l'origine.
 
-    public static readonly Vector4 Border      = Hex(0xE9BE5C, 0.24f);
-    public static readonly Vector4 BorderSoft  = Hex(0xE9BE5C, 0.13f);
-    public static readonly Vector4 BorderLight = Hex(0xE9BE5C, 0.40f);
+    public static Vector4 Border      => _palette.Border;
+    public static Vector4 BorderSoft  => _palette.BorderSoft;
+    public static Vector4 BorderLight => _palette.BorderLight;
 
     /// <summary>
     /// Liseré clair posé sur l'arête haute d'une surface. C'est ce qui donne
     /// l'impression que la carte capte la lumière et se détache du fond. Doré,
     /// comme les filets.
     /// </summary>
-    public static readonly Vector4 Highlight = Hex(0xF2CB6B, 0.22f);
+    public static Vector4 Highlight => _palette.Highlight;
 
     // ─── Métriques (en pixels non scalés : toujours passer par S()) ───────────
 

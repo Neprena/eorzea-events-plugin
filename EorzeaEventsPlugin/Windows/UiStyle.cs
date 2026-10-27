@@ -13,36 +13,37 @@ namespace EorzeaEventsPlugin.Windows;
 ///
 /// Les métriques sont des propriétés et non des champs : l'échelle de
 /// l'interface Dalamud peut changer à chaud, une constante figée au chargement
-/// rendrait l'interface illisible à 150 %.
+/// rendrait l'interface illisible à 150 %. Même chose pour les couleurs de la
+/// palette, que les thèmes saisonniers remplacent en cours de session.
 /// </summary>
 internal static class UiStyle
 {
     // ── Hiérarchie de texte ───────────────────────────────────────────────────
-    public static readonly Vector4 TextTitle   = Theme.TitleGold;
+    public static Vector4 TextTitle => Theme.TitleGold;
     public static readonly Vector4 TextSection = Theme.GoldHover;
     public static readonly Vector4 TextMuted   = Theme.TextMuted;
     public static readonly Vector4 TextSubtle  = Theme.TextFaint;
 
     // ── Couleurs de statut (en-têtes de groupes) ─────────────────────────────
     public static readonly Vector4 StatusOpen  = Theme.Online;
-    public static readonly Vector4 StatusSoon  = Theme.Accent;
+    public static Vector4 StatusSoon => Theme.Accent;
     public static readonly Vector4 StatusLater = Theme.Idle;
 
     // ── Card ──────────────────────────────────────────────────────────────────
     public static readonly Vector4 CardBg     = Theme.BgSurface;
-    public static readonly Vector4 CardBorder = Theme.Border;
+    public static Vector4 CardBorder => Theme.Border;
 
     // ── Chips ─────────────────────────────────────────────────────────────────
     public static readonly Vector4 ChipBg       = Theme.BgRaised;
     public static readonly Vector4 ChipBgOpen   = Theme.Mix(Theme.BgRaised, Theme.Online, 0.30f);
     public static readonly Vector4 ChipBgSoon   = Theme.Mix(Theme.BgRaised, Theme.Link,   0.30f);
     public static readonly Vector4 ChipBgLater  = Theme.Mix(Theme.BgRaised, Theme.Idle,   0.30f);
-    public static readonly Vector4 ChipBgAccent = Theme.Mix(Theme.BgRaised, Theme.Accent, 0.35f);
+    public static Vector4 ChipBgAccent => Theme.Mix(Theme.BgRaised, Theme.Accent, 0.35f);
 
     // ── Boutons ───────────────────────────────────────────────────────────────
-    public static readonly Vector4 PrimaryNormal  = Theme.Action;
-    public static readonly Vector4 PrimaryHovered = Theme.ActionHover;
-    public static readonly Vector4 PrimaryActive  = Theme.ActionActive;
+    public static Vector4 PrimaryNormal  => Theme.Action;
+    public static Vector4 PrimaryHovered => Theme.ActionHover;
+    public static Vector4 PrimaryActive  => Theme.ActionActive;
 
     public static readonly Vector4 SuccessNormal  = Theme.Online;
     public static readonly Vector4 SuccessHovered = Theme.Mix(Theme.Online, Theme.Text,   0.18f);

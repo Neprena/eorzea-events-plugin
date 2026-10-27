@@ -609,6 +609,20 @@ public class NewsListDto
     [JsonPropertyName("items")] public List<NewsItemDto> Items { get; set; } = [];
 }
 
+/// <summary>Périodes officielles des événements saisonniers, relevées par le site sur le Lodestone.</summary>
+public class SeasonWindowsDto
+{
+    [JsonPropertyName("windows")] public List<SeasonWindowDto> Windows { get; set; } = [];
+}
+
+public class SeasonWindowDto
+{
+    /// <summary>Thème du plugin : newyear, valentine, easter, halloween, christmas.</summary>
+    [JsonPropertyName("season")] public string   Season { get; set; } = string.Empty;
+    [JsonPropertyName("start")]  public DateTime Start  { get; set; }
+    [JsonPropertyName("end")]    public DateTime End    { get; set; }
+}
+
 /// <summary>
 /// Issue d'un relevé agrégé.
 ///
@@ -1384,6 +1398,21 @@ public class ApiClient : IDisposable
             var res = await _publicHttp.GetFromJsonAsync<NewsListDto>(
                 $"api/plugin/news?lang={Uri.EscapeDataString(languageCode)}", JsonOptions, ct);
             return res?.Items;
+        }
+        catch { return null; }
+    }
+
+    /// <summary>
+    /// Périodes officielles des événements saisonniers, sur lesquelles les
+    /// thèmes du plugin se calent. <c>null</c> sur un échec : le plugin garde
+    /// celles qu'il connaît, ou ses estimations.
+    /// </summary>
+    public async Task<List<SeasonWindowDto>?> GetSeasonWindowsAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var res = await _publicHttp.GetFromJsonAsync<SeasonWindowsDto>("api/plugin/seasons", JsonOptions, ct);
+            return res?.Windows;
         }
         catch { return null; }
     }

@@ -154,7 +154,7 @@ public class RpProfileCache
 /// <summary>Période officielle d'un événement saisonnier. Bornes incluses, en UTC.</summary>
 public class SeasonWindowEntry
 {
-    /// <summary>Thème du plugin : newyear, valentine, easter, halloween, christmas.</summary>
+    /// <summary>Thème du plugin : newyear, valentine, littleladies, easter, makeitrain, moonfire, rising, halloween, christmas.</summary>
     public string   Season { get; set; } = string.Empty;
     public DateTime Start  { get; set; }
     public DateTime End    { get; set; }

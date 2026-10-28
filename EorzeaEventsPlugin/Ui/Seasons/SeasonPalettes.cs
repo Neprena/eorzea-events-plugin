@@ -14,12 +14,16 @@ internal static class SeasonPalettes
 {
     public static Palette For(Season season) => season switch
     {
-        Season.NewYear   => NewYear,
-        Season.Valentine => Valentine,
-        Season.Easter    => Easter,
-        Season.Halloween => Halloween,
-        Season.Christmas => Christmas,
-        _                => GoldenNight,
+        Season.NewYear      => NewYear,
+        Season.Valentine    => Valentine,
+        Season.Easter       => Easter,
+        Season.Halloween    => Halloween,
+        Season.Christmas    => Christmas,
+        Season.LittleLadies => LittleLadies,
+        Season.GoldSaucer   => GoldSaucer,
+        Season.Moonfire     => Moonfire,
+        Season.Rising       => Rising,
+        _                   => GoldenNight,
     };
 
     /// <summary>
@@ -128,4 +132,92 @@ internal static class SeasonPalettes
         BorderSoft:   Hex(0xFF7FA8, 0.14f),
         BorderLight:  Hex(0xFF7FA8, 0.42f),
         Highlight:    Hex(0xFFC2D6, 0.26f));
+
+    /// <summary>
+    /// La fête des demoiselles : nuit prune, halo rose, lueur pêche. L'accent
+    /// rose pâle marque l'état actif, l'action pêche le geste principal.
+    /// </summary>
+    private static readonly Palette LittleLadies = new(
+        NightTop:     Hex(0x3A1A3E),
+        NightBottom:  Hex(0x170A1B),
+        HaloCrystal:  Hex(0xFF80B8, 0.30f),
+        HaloGold:     Hex(0xFFBA96, 0.18f),
+        Accent:       Hex(0xFF9EC7),
+        AccentHover:  Hex(0xFFBEDA),
+        AccentActive: Hex(0xF07FB0),
+        Action:       Hex(0xFFB48C),
+        ActionHover:  Hex(0xFFC6A6),
+        ActionActive: Hex(0xF09A6E),
+        TextOnAction: Hex(0x2E1206),
+        TitleGold:    Hex(0xFFD3E4),
+        Border:       Hex(0xFF9EC7, 0.28f),
+        BorderSoft:   Hex(0xFF9EC7, 0.15f),
+        BorderLight:  Hex(0xFF9EC7, 0.44f),
+        Highlight:    Hex(0xFFD4E6, 0.28f));
+
+    /// <summary>
+    /// Le festival du Gold Saucer : nuit violette, halo néon magenta, or des
+    /// jetons pour l'action et les titres.
+    /// </summary>
+    private static readonly Palette GoldSaucer = new(
+        NightTop:     Hex(0x2A0E5E),
+        NightBottom:  Hex(0x0E0628),
+        HaloCrystal:  Hex(0xFF3CD2, 0.30f),
+        HaloGold:     Hex(0xFFC93C, 0.20f),
+        Accent:       Hex(0xFF7FE8),
+        AccentHover:  Hex(0xFFA6EF),
+        AccentActive: Hex(0xF05AD8),
+        Action:       Hex(0xFFC93C),
+        ActionHover:  Hex(0xFFD766),
+        ActionActive: Hex(0xEBB21F),
+        TextOnAction: Hex(0x2A1A00),
+        TitleGold:    Hex(0xFFE27A),
+        Border:       Hex(0xFFC93C, 0.30f),
+        BorderSoft:   Hex(0xFFC93C, 0.16f),
+        BorderLight:  Hex(0xFFC93C, 0.46f),
+        Highlight:    Hex(0xFFE696, 0.30f));
+
+    /// <summary>
+    /// Les Feux de la Mort : nuit d'été, braise à l'horizon, accent turquoise
+    /// du lagon, action orange des feux.
+    /// </summary>
+    private static readonly Palette Moonfire = new(
+        NightTop:     Hex(0x0A1D3C),
+        NightBottom:  Hex(0x071424),
+        HaloCrystal:  Hex(0xFF6A2B, 0.30f),
+        HaloGold:     Hex(0xFF408C, 0.15f),
+        Accent:       Hex(0x4FE8D6),
+        AccentHover:  Hex(0x82F0E3),
+        AccentActive: Hex(0x2CCFBC),
+        Action:       Hex(0xFF7A2E),
+        ActionHover:  Hex(0xFF9452),
+        ActionActive: Hex(0xE5641A),
+        TextOnAction: Hex(0x2A0E00),
+        TitleGold:    Hex(0xFFD08A),
+        Border:       Hex(0xFF8A3D, 0.28f),
+        BorderSoft:   Hex(0xFF8A3D, 0.15f),
+        BorderLight:  Hex(0xFF8A3D, 0.44f),
+        Highlight:    Hex(0xFFC88C, 0.28f));
+
+    /// <summary>
+    /// La fête de la Commémoration : nuit bleu profond, lueur du phénix au
+    /// centre, halo de cristal autour, action or.
+    /// </summary>
+    private static readonly Palette Rising = new(
+        NightTop:     Hex(0x0C1840),
+        NightBottom:  Hex(0x060B1E),
+        HaloCrystal:  Hex(0xFF9646, 0.28f),
+        HaloGold:     Hex(0x6CB8FF, 0.22f),
+        Accent:       Hex(0x8FD8FF),
+        AccentHover:  Hex(0xB5E6FF),
+        AccentActive: Hex(0x66C2F0),
+        Action:       Hex(0xFFB547),
+        ActionHover:  Hex(0xFFC56E),
+        ActionActive: Hex(0xEB9E2A),
+        TextOnAction: Hex(0x2A1600),
+        TitleGold:    Hex(0xFFD98A),
+        Border:       Hex(0x8FD8FF, 0.26f),
+        BorderSoft:   Hex(0x8FD8FF, 0.14f),
+        BorderLight:  Hex(0x8FD8FF, 0.42f),
+        Highlight:    Hex(0xC8EBFF, 0.30f));
 }

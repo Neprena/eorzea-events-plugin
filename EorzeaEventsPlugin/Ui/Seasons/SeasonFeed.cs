@@ -76,11 +76,15 @@ internal static class SeasonFeed
 
     private static Season? Parse(string key) => key switch
     {
-        "newyear"   => Season.NewYear,
-        "valentine" => Season.Valentine,
-        "easter"    => Season.Easter,
-        "halloween" => Season.Halloween,
-        "christmas" => Season.Christmas,
-        _           => null,
+        "newyear"      => Season.NewYear,
+        "valentine"    => Season.Valentine,
+        "easter"       => Season.Easter,
+        "halloween"    => Season.Halloween,
+        "christmas"    => Season.Christmas,
+        "littleladies" => Season.LittleLadies,
+        "makeitrain"   => Season.GoldSaucer,
+        "moonfire"     => Season.Moonfire,
+        "rising"       => Season.Rising,
+        _              => null,
     };
 }

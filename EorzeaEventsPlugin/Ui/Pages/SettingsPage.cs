@@ -1030,7 +1030,11 @@ internal sealed class SettingsPage(Configuration config)
             ("31 déc. 23:59",  eve),
             ("Récap janvier",  new DateTime(eve.Year + 1, 1, 2, 20, 0, 0)),
             ("Valention",          Next(2, 10, 20)),
+            ("Demoiselles",        Next(3, 2, 20)),
             ("Chasse aux Prœufs",  easter.AddHours(15)),
+            ("Gold Saucer",        Next(6, 5, 20)),
+            ("Feux de la Mort",    Next(8, 18, 21)),
+            ("Commémoration",      Next(9, 2, 20)),
             ("1er avril",      Next(4, 1, 12)),
         ];
     }

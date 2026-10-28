@@ -48,8 +48,11 @@ internal static class TitleBar
                          Theme.S(Theme.RadiusWindow), folded ? ImDrawFlags.RoundCornersAll : ImDrawFlags.RoundCornersTop);
 
         if (!folded)
+        {
             dl.AddLine(new Vector2(origin.X, end.Y - 0.5f), new Vector2(end.X, end.Y - 0.5f),
                        ImGui.GetColorU32(Theme.Border), 1f);
+            Seasons.SeasonDecor.TitleEdge(dl, origin.X, end.X, end.Y);
+        }
 
         // Boutons carrés calés sur la hauteur de la barre, et non sur la hauteur
         // d'un cadre ImGui : celle-ci dépend de la police et du padding, si bien
@@ -58,8 +61,8 @@ internal static class TitleBar
         var margin  = MathF.Round(Theme.S(Theme.GapS));
         var side    = MathF.Round(height - margin * 2f);
         var gap     = MathF.Round(Theme.S(Theme.GapXs));
-        var daily   = folded ? null : Seasons.SeasonHunts.ActiveDaily;
-        var buttons = (folded ? 2 : 3) + (daily != null ? 1 : 0);
+        var season  = folded ? null : Seasons.SeasonOverlay.TitleButton();
+        var buttons = (folded ? 2 : 3) + (season != null ? 1 : 0);
         var right   = MathF.Round(end.X - margin);
         var top     = MathF.Round(origin.Y + margin);
 
@@ -101,15 +104,16 @@ internal static class TitleBar
                 OpenSite();
         }
 
-        // Le calendrier du moment (cadeau de l'Avent, cœur des billets doux),
-        // avec une pastille tant que la case du jour n'est pas ouverte.
-        if (daily != null)
+        // Le calendrier du moment (cadeau de l'Avent, cœur des billets doux,
+        // jetons du Mini Cactpot), avec une pastille tant que la case ou le
+        // ticket du jour attend.
+        if (season is { } button)
         {
             x -= side + gap;
-            if (IconButton(dl, new Vector2(x, top), side, daily.Icon, "shell_daily", daily.Title(Plugin.L)))
-                Seasons.SeasonOverlay.ToggleDaily();
+            if (IconButton(dl, new Vector2(x, top), side, button.Icon, "shell_daily", button.Label))
+                Seasons.SeasonOverlay.ToggleTitleButton();
 
-            if (Seasons.SeasonOverlay.DailyUnread)
+            if (button.Unread)
                 dl.AddCircleFilled(new Vector2(x + side - Theme.S(7f), top + Theme.S(7f)), Theme.S(3.5f),
                                    ImGui.GetColorU32(Theme.Danger));
         }
@@ -219,8 +223,10 @@ internal static class TitleBar
         x += logo + Theme.S(Theme.GapS);
 
         using var font = Fonts.PushBrand();
-        var size = ImGui.CalcTextSize(BrandName);
-        dl.AddText(new Vector2(x, origin.Y + (height - size.Y) * 0.5f), ImGui.GetColorU32(Theme.TitleGold), BrandName);
+        var size  = ImGui.CalcTextSize(BrandName);
+        var at    = new Vector2(x, origin.Y + (height - size.Y) * 0.5f);
+        Seasons.SeasonDecor.BrandGlow(dl, at, BrandName);
+        dl.AddText(at, ImGui.GetColorU32(Theme.TitleGold), BrandName);
 
         return x + size.X;
     }

@@ -225,6 +225,7 @@ public class MainWindow : ThemedWindow, IDisposable
                 ServerNotice.Draw();
                 _news.DrawBanners(activeId == "news");
                 Ui.Seasons.YearRecap.Draw(activeId, () => OpenAt("encounters"));
+                Ui.Seasons.Souvenir.Draw(activeId, () => OpenAt("encounters"));
             },
         };
 

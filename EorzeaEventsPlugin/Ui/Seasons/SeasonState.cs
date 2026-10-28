@@ -82,12 +82,16 @@ internal static class SeasonState
         var l = Plugin.L;
         return season switch
         {
-            Season.NewYear   => l.SeasonNewYear,
-            Season.Valentine => l.SeasonValentine,
-            Season.Easter    => l.SeasonEaster,
-            Season.Halloween => l.SeasonHalloween,
-            Season.Christmas => l.SeasonChristmas,
-            _                => l.SeasonGoldenNight,
+            Season.NewYear      => l.SeasonNewYear,
+            Season.Valentine    => l.SeasonValentine,
+            Season.Easter       => l.SeasonEaster,
+            Season.Halloween    => l.SeasonHalloween,
+            Season.Christmas    => l.SeasonChristmas,
+            Season.LittleLadies => l.SeasonLittleLadies,
+            Season.GoldSaucer   => l.SeasonGoldSaucer,
+            Season.Moonfire     => l.SeasonMoonfire,
+            Season.Rising       => l.SeasonRising,
+            _                   => l.SeasonGoldenNight,
         };
     }
 

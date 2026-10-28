@@ -228,6 +228,7 @@ public class MySessionWindow : ThemedWindow
                 _pendingEstabAddressBlock  = false;
                 _config.ActiveSessionId = session!.Id; _config.Save();
                 ShowSuccess(l.StatusStarted);
+                Ui.Seasons.SeasonDecor.Celebrate();
                 _title = _description = string.Empty;
             }
             catch (ActiveEventConflictException aex)

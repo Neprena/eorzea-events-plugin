@@ -9,6 +9,10 @@ internal enum Season
     Easter,
     Halloween,
     Christmas,
+    LittleLadies,
+    GoldSaucer,
+    Moonfire,
+    Rising,
 }
 
 /// <summary>Une période de thème, bornes incluses, en UTC.</summary>
@@ -19,7 +23,8 @@ internal readonly record struct SeasonSpan(Season Season, DateTime Start, DateTi
 
 /// <summary>
 /// Le calendrier des thèmes, calé sur les événements saisonniers de Square
-/// Enix : Heavensturn, Valentione, Hatching-tide, All Saints' Wake et Starlight.
+/// Enix : Heavensturn, Valentione, Little Ladies' Day, Hatching-tide, Make It
+/// Rain, Moonfire Faire, The Rising, All Saints' Wake et Starlight.
 ///
 /// Deux sources. Les périodes officielles, relevées sur le Lodestone par le
 /// site et transmises au plugin (<see cref="UseOfficial"/>), tombent à l'heure
@@ -30,9 +35,16 @@ internal readonly record struct SeasonSpan(Season Season, DateTime Start, DateTi
 /// </summary>
 internal static class SeasonCalendar
 {
-    /// <summary>Les thèmes dans l'ordre de l'année. Le premier l'emporte quand deux périodes se touchent (31 décembre).</summary>
+    /// <summary>
+    /// Les thèmes dans l'ordre de l'année. Le premier l'emporte quand deux
+    /// périodes se touchent : le 31 décembre, ou le 26 août quand The Rising
+    /// succède à la Moonfire Faire.
+    /// </summary>
     public static readonly Season[] All =
-        [Season.NewYear, Season.Valentine, Season.Easter, Season.Halloween, Season.Christmas];
+    [
+        Season.NewYear, Season.Valentine, Season.LittleLadies, Season.Easter, Season.GoldSaucer,
+        Season.Moonfire, Season.Rising, Season.Halloween, Season.Christmas,
+    ];
 
     private static IReadOnlyList<SeasonSpan> _official = [];
 
@@ -106,16 +118,24 @@ internal static class SeasonCalendar
         var (first, last) = season switch
         {
             // Heavensturn : du 31 décembre à la mi-janvier.
-            Season.NewYear   => (new DateTime(year - 1, 12, 31), new DateTime(year, 1, 15)),
+            Season.NewYear      => (new DateTime(year - 1, 12, 31), new DateTime(year, 1, 15)),
             // Valentione's Day : les deux premières semaines de février.
-            Season.Valentine => (new DateTime(year, 2, 2), new DateTime(year, 2, 16)),
+            Season.Valentine    => (new DateTime(year, 2, 2), new DateTime(year, 2, 16)),
+            // Little Ladies' Day : de la fin février à la mi-mars.
+            Season.LittleLadies => (new DateTime(year, 2, 26), new DateTime(year, 3, 13)),
             // Hatching-tide : deux semaines autour de Pâques, qui bouge chaque année.
-            Season.Easter    => (EasterSunday(year).AddDays(-7), EasterSunday(year).AddDays(7)),
+            Season.Easter       => (EasterSunday(year).AddDays(-7), EasterSunday(year).AddDays(7)),
+            // Make It Rain, le festival du Gold Saucer : de la fin mai à la fin juin.
+            Season.GoldSaucer   => (new DateTime(year, 5, 28), new DateTime(year, 6, 22)),
+            // Moonfire Faire : la deuxième quinzaine d'août.
+            Season.Moonfire     => (new DateTime(year, 8, 11), new DateTime(year, 8, 26)),
+            // The Rising, l'anniversaire du jeu : de la fin août à la mi-septembre.
+            Season.Rising       => (new DateTime(year, 8, 27), new DateTime(year, 9, 10)),
             // All Saints' Wake : de la mi-octobre au 2 novembre.
-            Season.Halloween => (new DateTime(year, 10, 16), new DateTime(year, 11, 2)),
+            Season.Halloween    => (new DateTime(year, 10, 16), new DateTime(year, 11, 2)),
             // Starlight Celebration : la deuxième quinzaine de décembre.
-            Season.Christmas => (new DateTime(year, 12, 16), new DateTime(year, 12, 31)),
-            _                => throw new ArgumentOutOfRangeException(nameof(season)),
+            Season.Christmas    => (new DateTime(year, 12, 16), new DateTime(year, 12, 31)),
+            _                   => throw new ArgumentOutOfRangeException(nameof(season)),
         };
 
         return new SeasonSpan(season, LocalToUtc(first), LocalToUtc(last.AddDays(1)).AddTicks(-1), Official: false);

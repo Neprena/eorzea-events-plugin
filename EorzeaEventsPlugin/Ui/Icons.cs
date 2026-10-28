@@ -48,6 +48,7 @@ internal static class Icons
     public const FontAwesomeIcon Seasons   = FontAwesomeIcon.Magic;
     public const FontAwesomeIcon Gift      = FontAwesomeIcon.Gift;
     public const FontAwesomeIcon Heart     = FontAwesomeIcon.Heart;
+    public const FontAwesomeIcon Coins     = FontAwesomeIcon.Coins;
     public const FontAwesomeIcon Clock     = FontAwesomeIcon.Clock;
     public const FontAwesomeIcon Recurring = FontAwesomeIcon.Redo;
     public const FontAwesomeIcon Language  = FontAwesomeIcon.Comments;

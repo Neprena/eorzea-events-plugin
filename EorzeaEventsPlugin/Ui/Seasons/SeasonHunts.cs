@@ -27,6 +27,13 @@ internal static class SeasonHunts
     public static readonly Hunt Eggs = new(Season.Easter, "easter",
         ["rp", "around", "encounters", "profile", "friends", "events", "venues", "news", "settings"]);
 
+    /// <summary>
+    /// La couronne de la fête des demoiselles : rien à chercher, chaque page
+    /// visitée pose une fleur sur le diadème du logo. Les pages des citrouilles.
+    /// </summary>
+    public static readonly Hunt Crown = new(Season.LittleLadies, "littleladies",
+        ["rp", "around", "encounters", "events", "venues", "news", "settings"]);
+
     private static readonly string[] EggArt = ["egg-mint", "egg-yellow", "egg-pink", "egg-lavender"];
 
     /// <summary>La chasse ouverte en ce moment, ou null.</summary>
@@ -89,6 +96,18 @@ internal static class SeasonHunts
             : done ? string.Format(l.HuntEggsDone, total) : string.Format(l.HuntEggFound, found, total);
 
         Snackbar.Show(message);
+    }
+
+    /// <summary>Pose la fleur de la page sur la couronne, à la première visite, et l'annonce.</summary>
+    public static void Visit(string page)
+    {
+        if (!SeasonState.EasterEggs || SeasonState.Current != Season.LittleLadies) return;
+        if (Array.IndexOf(Crown.Pages, page) < 0 || !Add(Crown.Key, page)) return;
+
+        var l     = Plugin.L;
+        var found = Count(Crown.Key);
+        var total = Crown.Pages.Length;
+        Snackbar.Show(found >= total ? string.Format(l.CrownDone, total) : string.Format(l.CrownFlower, found, total));
     }
 
     // ─── Calendriers ──────────────────────────────────────────────────────────

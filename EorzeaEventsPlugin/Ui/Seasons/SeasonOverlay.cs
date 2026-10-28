@@ -1,4 +1,5 @@
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface;
 using Dalamud.Interface.Utility.Raii;
 using System.Numerics;
 
@@ -6,8 +7,9 @@ namespace EorzeaEventsPlugin.Ui.Seasons;
 
 /// <summary>
 /// Ce que les saisons posent par-dessus le contenu de la fenêtre principale :
-/// la toile d'araignée, le fantôme de minuit, l'objet caché de la page et le
-/// calendrier du moment (Avent, billets doux).
+/// la toile d'araignée, le fantôme de minuit, l'objet caché de la page, la
+/// bombe des Feux de la Mort et le calendrier du moment (Avent, billets doux,
+/// Mini Cactpot).
 ///
 /// Même technique que <see cref="Components.Snackbar"/> : des fenêtres enfants
 /// créées après le contenu, donc dessinées au-dessus. Celle du décor ne prend
@@ -23,9 +25,13 @@ internal static class SeasonOverlay
     {
         using var padding = ImRaii.PushStyle(ImGuiStyleVar.WindowPadding, Vector2.Zero);
 
+        SeasonHunts.Visit(pageId);
+
         Front(min, max);
         Hidden(min, max, pageId);
+        Bomb(min, max, pageId);
         DrawDaily(min, max);
+        SeasonCactpot.Draw(min, max);
     }
 
     // ─── Décor de premier plan ────────────────────────────────────────────────
@@ -132,6 +138,87 @@ internal static class SeasonOverlay
                           size * scale, MathF.Sin(t * 0.8f) * 0.08f);
     }
 
+    // ─── Bombe ────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Aux Feux de la Mort, une bombe à la mèche allumée attend au bas de RP
+    /// Ouvert, une bulle à côté. Un clic, et elle part en feu d'artifice ; elle
+    /// revient le lendemain.
+    /// </summary>
+    private static void Bomb(Vector2 min, Vector2 max, string pageId)
+    {
+        if (pageId != "rp" || !SeasonState.EasterEggs || SeasonState.Current != Season.Moonfire) return;
+
+        var key  = $"moonfire-{SeasonState.Now.Year}";
+        var item = SeasonState.Now.ToString("MMdd");
+        if (SeasonHunts.Has(key, item)) return;
+
+        var t    = SeasonState.Time;
+        var size = Theme.S(34f, 34f);
+        var at   = new Vector2(MathF.Round(max.X - size.X - Theme.S(18f)), MathF.Round(max.Y - size.Y - Theme.S(10f)));
+
+        // La bulle, à gauche de la bombe : la souris passe au travers.
+        var text   = Plugin.L.BombBubble;
+        var label  = ImGui.CalcTextSize(text);
+        var pad    = Theme.S(10f, 5f);
+        var bubble = label + pad * 2f;
+        var spot   = new Vector2(at.X - Theme.S(8f) - bubble.X, at.Y + (size.Y - bubble.Y) * 0.5f);
+        if (spot.X > min.X)
+        {
+            // Une marge autour, pour que l'ombre de la bulle ne soit pas rognée.
+            var margin = Theme.S(6f, 6f);
+            ImGui.SetCursorScreenPos(spot - margin);
+            using var note = ImRaii.Child("##season_bomb_note", bubble + margin * 2f, false, Bare | ImGuiWindowFlags.NoInputs);
+            if (note)
+            {
+                var dl = ImGui.GetWindowDrawList();
+                Surface.Panel(dl, spot, spot + bubble, Theme.BgSurface, Theme.Border, Theme.S(10f), shadowSpread: 4f);
+                dl.AddText(spot + pad, ImGui.GetColorU32(Theme.Text), text);
+            }
+        }
+
+        ImGui.SetCursorScreenPos(at);
+        using var child = ImRaii.Child("##season_bomb", size, false, Bare);
+        if (!child) return;
+
+        if (ImGui.InvisibleButton("##bomb", size))
+        {
+            SeasonHunts.Add(key, item);
+            SeasonDecor.Celebrate();
+        }
+
+        var hovered = ImGui.IsItemHovered();
+        if (hovered) ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
+
+        // Elle flotte, la mèche crépite.
+        var draw  = ImGui.GetWindowDrawList();
+        var lift  = MathF.Sin(t * MathF.Tau / 6f) * Theme.S(3f);
+        var scale = hovered ? 1.1f : 1f;
+        SeasonArt.Centered(draw, "bomb", at + size * 0.5f + new Vector2(0f, lift), size * scale);
+
+        var spark = 0.15f + 0.85f * (0.5f + 0.5f * MathF.Sin(t * MathF.Tau / 1.4f));
+        SeasonArt.Centered(draw, "sparkle", at + new Vector2(size.X * 0.72f, size.Y * 0.08f + lift), Theme.S(12f, 12f), spark);
+    }
+
+    // ─── Bouton de la barre de titre ──────────────────────────────────────────
+
+    /// <summary>Le bouton saisonnier de la barre de titre : son icône, son libellé, et sa pastille.</summary>
+    public readonly record struct SeasonButton(FontAwesomeIcon Icon, string Label, bool Unread);
+
+    /// <summary>Le calendrier du moment, ou le Mini Cactpot ; null hors saison.</summary>
+    public static SeasonButton? TitleButton()
+    {
+        if (SeasonHunts.ActiveDaily is { } daily) return new SeasonButton(daily.Icon, daily.Title(Plugin.L), DailyUnread);
+        if (SeasonCactpot.Active) return new SeasonButton(Icons.Coins, Plugin.L.CactpotTitle, !SeasonCactpot.Played);
+        return null;
+    }
+
+    public static void ToggleTitleButton()
+    {
+        if (SeasonHunts.ActiveDaily != null) ToggleDaily();
+        else if (SeasonCactpot.Active) SeasonCactpot.Toggle();
+    }
+
     // ─── Calendriers ──────────────────────────────────────────────────────────
 
     /// <summary>Le calendrier ouvert, et le jour du mois affiché.</summary>
@@ -139,10 +226,10 @@ internal static class SeasonOverlay
     private static int          _day;
 
     /// <summary>La case du jour n'est pas encore ouverte : le bouton de la barre porte une pastille.</summary>
-    public static bool DailyUnread =>
+    private static bool DailyUnread =>
         SeasonHunts.ActiveDaily is { } daily && !SeasonHunts.Opened(daily, SeasonState.Now.Day);
 
-    public static void ToggleDaily()
+    private static void ToggleDaily()
     {
         _open = _open == null ? SeasonHunts.ActiveDaily : null;
         if (_open == null) return;

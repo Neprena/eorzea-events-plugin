@@ -100,6 +100,10 @@ internal sealed partial class Loc
     public required string   SeasonEaster          { get; init; }
     public required string   SeasonHalloween       { get; init; }
     public required string   SeasonChristmas       { get; init; }
+    public required string   SeasonLittleLadies    { get; init; }
+    public required string   SeasonGoldSaucer      { get; init; }
+    public required string   SeasonMoonfire        { get; init; }
+    public required string   SeasonRising          { get; init; }
     public required string   HuntPumpkinFound      { get; init; }   // {0} = trouvées, {1} = total
     public required string   HuntPumpkinsDone      { get; init; }   // {0} = total
     public required string   HuntEggFound          { get; init; }   // {0} = trouvés, {1} = total
@@ -123,6 +127,17 @@ internal sealed partial class Loc
     public required string   LoveDay               { get; init; }   // {0} = jour de février
     public required string   LoveHint              { get; init; }
     public required string[] LovePrompts           { get; init; }   // 8 défis RP, du 7 au 14 février
+    public required string   CrownFlower           { get; init; }   // {0} = fleurs posées, {1} = total
+    public required string   CrownDone             { get; init; }   // {0} = total
+    public required string   CactpotTitle          { get; init; }
+    public required string   CactpotScratch        { get; init; }
+    public required string   CactpotPickLine       { get; init; }
+    public required string   CactpotLine           { get; init; }   // {0} = addition, {1} = somme
+    public required string   CactpotHint           { get; init; }
+    public required string[] CactpotFortunes       { get; init; }   // 8 défis RP, tirés par la somme de la ligne
+    public required string   BombBubble            { get; init; }
+    public required string   SouvenirKicker        { get; init; }
+    public required string   SouvenirMet           { get; init; }   // {0} = nom du personnage
 
     // ── RP Session tab ────────────────────────────────────────────────────────
     public required string RpNoSession         { get; init; }
@@ -1068,6 +1083,10 @@ internal sealed partial class Loc
         SeasonEaster          = "Chasse aux Prœufs",
         SeasonHalloween       = "Veillée des saints",
         SeasonChristmas       = "Fête des étoiles",
+        SeasonLittleLadies    = "Fête des demoiselles",
+        SeasonGoldSaucer      = "Festival du Gold Saucer",
+        SeasonMoonfire        = "Les Feux de la Mort",
+        SeasonRising          = "Fête de la Commémoration",
         HuntPumpkinFound      = "Citrouille trouvée ! {0} sur {1}",
         HuntPumpkinsDone      = "Les {0} citrouilles sont trouvées, bravo !",
         HuntEggFound          = "Œuf trouvé ! {0} sur {1}, dans le nid en bas du menu.",
@@ -1127,6 +1146,27 @@ internal sealed partial class Loc
             "Une danse, une chanson ou un poème : ton personnage le dédie à quelqu'un, devant témoins.",
             "Ce soir, ton personnage passe la soirée avec quelqu'un qui compte : amitié, amour ou famille.",
         ],
+        CrownFlower           = "Une fleur de plus sur ta couronne : {0} sur {1}. Chaque page visitée en pose une.",
+        CrownDone             = "Les {0} fleurs sont réunies : ton diadème scintille.",
+        CactpotTitle          = "Mini Cactpot du jour",
+        CactpotScratch        = "Gratte trois cases",
+        CactpotPickLine       = "Choisis une ligne",
+        CactpotLine           = "Ligne choisie : {0} = {1}",
+        CactpotHint           = "Un ticket par jour pendant le festival. Rien à gagner, juste un défi RP.",
+        CactpotFortunes       =
+        [
+            "Une rencontre inattendue t'attend ce soir. À toi de la provoquer.",
+            "La chance sourit aux audacieux : présente ton personnage à quelqu'un qu'il ne connaît pas.",
+            "Ton personnage a perdu un pari et doit une faveur à la prochaine personne qui lui parle.",
+            "Les cartes te sont favorables : propose une partie de Triple Triade, en jeu ou en RP.",
+            "Jour de veine : ton personnage a gagné gros et invite toute la tablée.",
+            "Ton personnage a misé sur le mauvais chocobo. Il le raconte à qui veut l'entendre.",
+            "Un inconnu glisse un ticket gagnant à ton personnage. Qu'en fait-il ?",
+            "Laisse le hasard choisir ta soirée : tire au sort un lieu de l'onglet Lieux et vas-y.",
+        ],
+        BombBubble            = "Psst… Ne clique surtout pas.",
+        SouvenirKicker        = "Il y a un an, jour pour jour",
+        SouvenirMet           = "Tu croisais {0} pour la première fois.",
 
         RpNoSession         = "Aucune session active en ce moment",
         RpSessionsActive    = "{0} session(s) en cours",
@@ -1998,6 +2038,10 @@ internal sealed partial class Loc
         SeasonEaster          = "Hatching-tide",
         SeasonHalloween       = "All Saints' Wake",
         SeasonChristmas       = "Starlight Celebration",
+        SeasonLittleLadies    = "Little Ladies' Day",
+        SeasonGoldSaucer      = "Make It Rain Campaign",
+        SeasonMoonfire        = "Moonfire Faire",
+        SeasonRising          = "The Rising",
         HuntPumpkinFound      = "Pumpkin found! {0} of {1}",
         HuntPumpkinsDone      = "All {0} pumpkins found, well done!",
         HuntEggFound          = "Egg found! {0} of {1}, in the nest at the bottom of the menu.",
@@ -2057,6 +2101,27 @@ internal sealed partial class Loc
             "A dance, a song or a poem: your character dedicates it to someone, in front of witnesses.",
             "Tonight, your character spends the evening with someone who matters: friendship, love or family.",
         ],
+        CrownFlower           = "One more flower on your crown: {0} of {1}. Each page you visit adds one.",
+        CrownDone             = "All {0} flowers are in place: your tiara sparkles.",
+        CactpotTitle          = "Today's Mini Cactpot",
+        CactpotScratch        = "Scratch three spots",
+        CactpotPickLine       = "Pick a line",
+        CactpotLine           = "Chosen line: {0} = {1}",
+        CactpotHint           = "One ticket a day during the festival. Nothing to win, just an RP challenge.",
+        CactpotFortunes       =
+        [
+            "An unexpected encounter awaits you tonight. It's up to you to make it happen.",
+            "Fortune favors the bold: introduce your character to someone they don't know.",
+            "Your character lost a bet and owes a favor to the next person who speaks to them.",
+            "The cards are on your side: offer a game of Triple Triad, in game or in RP.",
+            "Lucky day: your character won big and treats the whole table.",
+            "Your character bet on the wrong chocobo and tells anyone who will listen.",
+            "A stranger slips your character a winning ticket. What do they do with it?",
+            "Let chance pick your evening: draw a venue from the Venues tab at random and go.",
+        ],
+        BombBubble            = "Psst… Whatever you do, don't click.",
+        SouvenirKicker        = "One year ago today",
+        SouvenirMet           = "You met {0} for the first time.",
 
         RpNoSession         = "No active sessions right now",
         RpSessionsActive    = "{0} active session(s)",

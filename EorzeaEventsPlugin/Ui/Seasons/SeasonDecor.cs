@@ -13,12 +13,10 @@ namespace EorzeaEventsPlugin.Ui.Seasons;
 /// le ciel étoilé de <see cref="Surface"/> : rien n'est alloué à chaque image.
 /// Toutes les dimensions passent par <see cref="Theme.S(float)"/>.
 /// </summary>
-internal static class SeasonDecor
+internal static partial class SeasonDecor
 {
     private readonly record struct Particle(float X, float Y, float Speed, float Size, float Phase, float Spin, int Variant);
 
-    // Avant les particules : les champs statiques s'initialisent dans l'ordre du
-    // fichier, et Scatter en lit la longueur.
     private static readonly Vector4[] ConfettiColors =
         [Theme.Hex(0xE9BE5C), Theme.Hex(0xFF7FA8), Theme.Hex(0x6CCBFF), Theme.Hex(0x6FE0B0), Theme.Hex(0xF1ECE0)];
 
@@ -51,7 +49,9 @@ internal static class SeasonDecor
                 Size:    (float)random.NextDouble(),
                 Phase:   (float)random.NextDouble() * MathF.Tau,
                 Spin:    (float)random.NextDouble() * 2f - 1f,
-                Variant: random.Next(ConfettiColors.Length));
+                // Sans lire ConfettiColors : entre les parties de la classe,
+                // l'ordre d'initialisation des champs statiques n'est pas garanti.
+                Variant: random.Next(8));
 
         return list;
     }
@@ -74,11 +74,15 @@ internal static class SeasonDecor
         dl.PushClipRect(min, max, true);
         switch (SeasonState.Current)
         {
-            case Season.Halloween: Halloween(dl, min, max, t, alpha); break;
-            case Season.Christmas: Snowfall(dl, min, max, t, alpha);  break;
-            case Season.Easter:    Petalfall(dl, min, max, t, alpha); break;
-            case Season.NewYear:   NewYear(dl, min, max, t, alpha);   break;
-            case Season.Valentine: Heartrise(dl, min, max, t, alpha); break;
+            case Season.Halloween:    Halloween(dl, min, max, t, alpha);    break;
+            case Season.Christmas:    Snowfall(dl, min, max, t, alpha);     break;
+            case Season.Easter:       Petalfall(dl, min, max, t, alpha);    break;
+            case Season.NewYear:      NewYear(dl, min, max, t, alpha);      break;
+            case Season.Valentine:    Heartrise(dl, min, max, t, alpha);    break;
+            case Season.LittleLadies: LittleLadies(dl, min, max, t, alpha); break;
+            case Season.GoldSaucer:   GoldSaucer(dl, min, max, t, alpha);   break;
+            case Season.Moonfire:     Moonfire(dl, min, max, t, alpha);     break;
+            case Season.Rising:       Rising(dl, min, max, t, alpha);       break;
         }
         dl.PopClipRect();
     }
@@ -167,35 +171,60 @@ internal static class SeasonDecor
             var x = new Vector2(cos, sin) * Theme.S(3.2f);
             var y = new Vector2(-sin, cos) * Theme.S(1.6f);
             dl.AddQuadFilled(center - x - y, center + x - y, center + x + y, center - x + y,
-                             ImGui.GetColorU32(Theme.Alpha(ConfettiColors[bit.Variant], 0.85f * alpha)));
+                             ImGui.GetColorU32(Theme.Alpha(ConfettiColors[bit.Variant % ConfettiColors.Length], 0.85f * alpha)));
         }
     }
 
     /// <summary>
-    /// Le feu d'artifice des dix premières minutes de l'année. Sur la date
-    /// seule, comme le compte à rebours qui le précède : la Heavensturn peut ne
-    /// commencer qu'après minuit, et le thème du Nouvel An avec elle.
+    /// Le feu d'artifice par-dessus la page : les dix premières minutes de
+    /// l'année, ou quelques secondes aux Feux de la Mort (<see cref="Celebrate"/>).
+    /// Le Nouvel An est sur la date seule, comme le compte à rebours qui le
+    /// précède : la Heavensturn peut ne commencer qu'après minuit, et le thème
+    /// du Nouvel An avec elle.
     /// </summary>
     public static bool FireworksNow =>
-        SeasonState.EasterEggs && Plugin.Config.SeasonalDecor
-        && SeasonState.Now is { Month: 1, Day: 1, Hour: 0, Minute: < 10 };
+        SeasonState.EasterEggs
+        && (Plugin.Config.SeasonalDecor && SeasonState.Now is { Month: 1, Day: 1, Hour: 0, Minute: < 10 }
+            || SeasonState.Current == Season.Moonfire && DateTime.UtcNow < _celebrateUntil);
+
+    private static DateTime _celebrateUntil;
+
+    /// <summary>
+    /// Aux Feux de la Mort, tire un feu d'artifice de six secondes : la bombe
+    /// cliquée, ou une scène qui vient de s'ouvrir. Sans effet le reste de l'année.
+    /// </summary>
+    public static void Celebrate()
+    {
+        if (SeasonState.EasterEggs && SeasonState.Current == Season.Moonfire)
+            _celebrateUntil = DateTime.UtcNow.AddSeconds(6);
+    }
+
+    private static readonly string[] MoonfireBursts = ["burst-gold", "burst-pink", "burst-teal"];
 
     /// <summary>Trois gerbes décalées, qui s'ouvrent puis s'éteignent, en haut de la zone donnée.</summary>
     public static void Fireworks(ImDrawListPtr dl, Vector2 min, Vector2 max)
     {
-        var t    = SeasonState.Time;
-        var size = max - min;
+        var t     = SeasonState.Time;
+        var size  = max - min;
+        var mixed = SeasonState.Current == Season.Moonfire;
 
         ReadOnlySpan<(float X, float Y, float Size, float Delay)> bursts =
             [(0.35f, 0.14f, 120f, 0f), (0.58f, 0.08f, 96f, 1.1f), (0.78f, 0.18f, 132f, 2.2f)];
 
-        foreach (var (x, y, side, delay) in bursts)
+        for (var i = 0; i < bursts.Length; i++)
         {
-            var progress = (t + delay) % 3.2f / 3.2f;
-            var opening  = 0.2f + 0.88f * (1f - (1f - progress) * (1f - progress));
-            var fade     = progress < 0.12f ? progress / 0.12f : progress > 0.7f ? (1f - progress) / 0.3f : 1f;
-            SeasonArt.Centered(dl, "burst-gold", min + size * new Vector2(x, y), Theme.S(side, side) * opening, fade);
+            var (x, y, side, delay) = bursts[i];
+            Burst(dl, mixed ? MoonfireBursts[i] : "burst-gold", min + size * new Vector2(x, y), Theme.S(side), delay, t, 1f);
         }
+    }
+
+    /// <summary>Une gerbe qui s'ouvre puis s'éteint, en boucle de 3,2 secondes.</summary>
+    private static void Burst(ImDrawListPtr dl, string name, Vector2 center, float side, float delay, float t, float alpha)
+    {
+        var progress = (t + delay) % 3.2f / 3.2f;
+        var opening  = 0.2f + 0.88f * (1f - (1f - progress) * (1f - progress));
+        var fade     = progress < 0.12f ? progress / 0.12f : progress > 0.7f ? (1f - progress) / 0.3f : 1f;
+        SeasonArt.Centered(dl, name, center, new Vector2(side, side) * opening, fade * alpha);
     }
 
     /// <summary>Des cœurs qui montent lentement du bas de la fenêtre en se balançant, et s'effacent en route.</summary>
@@ -228,15 +257,19 @@ internal static class SeasonDecor
     /// <summary>Un événement est en cours et le logo porte un ornement : il passe en grand médaillon.</summary>
     public static bool Festive => SeasonState.Decor || Kupo;
 
-    /// <summary>Ce qui passe derrière le logo : les oreilles de lapin. À peindre avant lui.</summary>
+    /// <summary>Ce qui passe derrière le logo : oreilles de lapin, couronne de laurier. À peindre avant lui.</summary>
     public static void LogoBehind(ImDrawListPtr dl, Vector2 min, float side)
     {
-        if (Kupo || !SeasonState.Decor || SeasonState.Current != Season.Easter) return;
+        if (Kupo || !SeasonState.Decor) return;
 
-        SeasonArt.Draw(dl, "bunny-ears", At(min, side, 0f, -8f), Scaled(side, 27f, 21.6f));
+        switch (SeasonState.Current)
+        {
+            case Season.Easter: SeasonArt.Draw(dl, "bunny-ears", At(min, side, 0f, -8f), Scaled(side, 27f, 21.6f)); break;
+            case Season.Rising: SeasonArt.Draw(dl, "laurel", At(min, side, -5f, 9f), Scaled(side, 38f, 22f));       break;
+        }
     }
 
-    /// <summary>Ce qui se pose sur le logo : chapeau, bonnet, cœur, pompon. À peindre après lui.</summary>
+    /// <summary>Ce qui se pose sur le logo : chapeau, bonnet, cœur, diadème, fleur, pompon. À peindre après lui.</summary>
     public static void LogoFront(ImDrawListPtr dl, Vector2 min, float side)
     {
         if (Kupo)
@@ -249,10 +282,41 @@ internal static class SeasonDecor
 
         switch (SeasonState.Current)
         {
-            case Season.Halloween: Hat(dl, "witch-hat", min, side, -9f, -9f, 32f, 24f, -14f);     break;
-            case Season.Christmas: Hat(dl, "starlight-hat", min, side, -6f, -9f, 32f, 24f, -8f);  break;
-            case Season.NewYear:   Hat(dl, "party-hat", min, side, -7f, -8f, 17f, 19.5f, -18f);   break;
-            case Season.Valentine: Heartbeat(dl, min, side);                                       break;
+            case Season.Halloween:    Hat(dl, "witch-hat", min, side, -9f, -9f, 32f, 24f, -14f);                       break;
+            case Season.Christmas:    Hat(dl, "starlight-hat", min, side, -6f, -9f, 32f, 24f, -8f);                    break;
+            case Season.NewYear:      Hat(dl, "party-hat", min, side, -7f, -8f, 17f, 19.5f, -18f);                     break;
+            case Season.Valentine:    Heartbeat(dl, min, side);                                                        break;
+            case Season.LittleLadies: Tiara(dl, min, side);                                                            break;
+            case Season.GoldSaucer:   Hat(dl, "tophat", min, side, -4f, -7f, 20f, 15f, -12f);                          break;
+            case Season.Moonfire:     SeasonArt.Draw(dl, "hibiscus", At(min, side, 18f, -4f), Scaled(side, 15f, 15f)); break;
+        }
+    }
+
+    /// <summary>Les places des fleurs de la couronne, de gauche à droite le long du diadème.</summary>
+    private static readonly (float X, float Y)[] CrownSpots =
+        [(1f, -1f), (4.5f, -4.5f), (8.5f, -6.5f), (12.5f, -8f), (16.5f, -8f), (20f, -6.5f), (23f, -3.5f)];
+
+    /// <summary>
+    /// Le diadème de la fête des demoiselles, et les fleurs que la couronne a
+    /// gagnées. Les sept réunies, deux étincelles s'allument tour à tour.
+    /// </summary>
+    private static void Tiara(ImDrawListPtr dl, Vector2 min, float side)
+    {
+        Hat(dl, "tiara", min, side, 3f, -6f, 22f, 14.5f, -8f);
+        if (!SeasonState.EasterEggs) return;
+
+        var found = Math.Min(SeasonHunts.Count(SeasonHunts.Crown.Key), CrownSpots.Length);
+        for (var i = 0; i < found; i++)
+            SeasonArt.Draw(dl, "blossom", At(min, side, CrownSpots[i].X, CrownSpots[i].Y), Scaled(side, 6f, 6f));
+
+        if (found < SeasonHunts.Crown.Pages.Length) return;
+
+        var t = SeasonState.Time;
+        ReadOnlySpan<(float X, float Y, float Delay)> sparks = [(-2f, -7f, 0f), (25f, -9f, 1.4f)];
+        foreach (var (x, y, delay) in sparks)
+        {
+            var glow = 0.15f + 0.85f * (0.5f + 0.5f * MathF.Sin((t + delay) * MathF.Tau / 2.8f));
+            SeasonArt.Draw(dl, "sparkle", At(min, side, x, y), Scaled(side, 6f, 6f), glow);
         }
     }
 
@@ -347,6 +411,52 @@ internal static class SeasonDecor
                 var point = (1f - s) * (1f - s) * p0 + 2f * s * (1f - s) * c + s * s * p1;
                 var glow  = 0.35f + 0.65f * (0.5f + 0.5f * MathF.Sin(t * MathF.Tau / 2.8f + bulb * 0.7f));
                 SeasonArt.Draw(dl, Bulbs[bulb % Bulbs.Length], point - Theme.S(6f, 3f), Theme.S(12f, 16.5f), glow);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Au festival du Gold Saucer, une rampe d'ampoules au bas de la barre de
+    /// titre, or et magenta en alternance, qui se chassent.
+    /// </summary>
+    public static void TitleEdge(ImDrawListPtr dl, float left, float right, float bottom)
+    {
+        if (!SeasonState.Decor || SeasonState.Current != Season.GoldSaucer) return;
+
+        var step  = Theme.S(22f);
+        var y     = bottom - Theme.S(5f);
+        var lit   = (int)(SeasonState.Time / 0.55f) % 2;
+        var index = 0;
+
+        for (var x = left + step * 0.5f; x < right; x += step, index++)
+        {
+            var tone  = index % 2 == 0 ? NeonGold : NeonPink;
+            var power = index % 2 == lit ? 1f : 0.22f;
+            dl.AddCircleFilled(new Vector2(x, y), Theme.S(4.5f), ImGui.GetColorU32(Theme.Alpha(tone, 0.35f * power)), 12);
+            dl.AddCircleFilled(new Vector2(x, y), Theme.S(2.2f),
+                               ImGui.GetColorU32(Theme.Alpha(Vector4.Lerp(tone, Vector4.One, 0.6f), power)), 10);
+        }
+    }
+
+    private static readonly Vector4 NeonGold = Theme.Hex(0xFFC93C);
+    private static readonly Vector4 NeonPink = Theme.Hex(0xFF4FD8);
+
+    /// <summary>
+    /// Au festival du Gold Saucer, le nom du plugin s'allume en néon : un halo
+    /// magenta, fait du même texte décalé tout autour. À peindre avant le nom,
+    /// dans la même police.
+    /// </summary>
+    public static void BrandGlow(ImDrawListPtr dl, Vector2 at, string text)
+    {
+        if (!SeasonState.Decor || SeasonState.Current != Season.GoldSaucer) return;
+
+        foreach (var (radius, alpha) in (ReadOnlySpan<(float, float)>)[(2.2f, 0.16f), (1.1f, 0.28f)])
+        {
+            var color = ImGui.GetColorU32(Theme.Alpha(NeonPink, alpha));
+            for (var k = 0; k < 8; k++)
+            {
+                var (sin, cos) = MathF.SinCos(k * MathF.Tau / 8f);
+                dl.AddText(at + new Vector2(cos, sin) * Theme.S(radius), color, text);
             }
         }
     }

@@ -65,6 +65,18 @@ internal static class ReleaseNotes
     public static readonly ReleaseNote[] All =
     [
         new(
+            Version: "2.17.1",
+            TitleFr: "Quatre nouvelles fêtes",
+            TitleEn: "Four more festivals",
+            BodyFr: """
+                    - **Nouveauté :** Le plugin prend aussi les couleurs de la Fête des demoiselles, du Festival du Gold Saucer, des Feux de la Mort et de la Fête de la Commémoration, aux dates annoncées par Square Enix.
+                    - **Nouveauté :** Chacune a ses surprises : une couronne à fleurir page après page, un Mini Cactpot à gratter chaque jour au Gold Saucer… À toi de trouver les autres.
+                    """,
+            BodyEn: """
+                    - **New:** The plugin now also takes on the colours of Little Ladies' Day, the Make It Rain Campaign, the Moonfire Faire and The Rising, on the dates announced by Square Enix.
+                    - **New:** Each one hides its surprises: a crown to fill with flowers page after page, a Mini Cactpot to scratch every day at the Gold Saucer… The rest is up to you to discover.
+                    """),
+        new(
             Version: "2.17.0",
             TitleFr: "Le plugin fête les saisons du jeu",
             TitleEn: "The plugin celebrates the game's seasons",

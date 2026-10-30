@@ -3,7 +3,7 @@
   "Author": "Neprena",
   "Description": "Gère tes sessions RP Eorzea Events directement depuis le jeu.",
   "Punchline": "Sessions RP Eorzea Events en un clic.",
-  "Changelog": "Le plugin fête désormais aussi la Fête des demoiselles, le Festival du Gold Saucer, les Feux de la Mort et la Fête de la Commémoration, avec leurs couleurs et leurs surprises, aux dates annoncées par Square Enix. L'historique complet des nouveautés est dans le plugin.",
+  "Changelog": "Dans une maison rénovée au style d'un autre quartier, le lieu annoncé pour toi est désormais celui de la maison, et le RP ouvert qui s'y joue figure dans ta zone. Ta présence dans un établissement installé dans une telle maison compte aussi parmi les joueurs présents. L'historique complet des nouveautés est dans le plugin.",
   "InternalName": "EorzeaEventsPlugin",
   "RepoUrl": "https://github.com/Neprena/eorzea-events-plugin",
   "Tags": [

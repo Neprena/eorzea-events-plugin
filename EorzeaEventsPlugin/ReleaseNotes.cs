@@ -65,6 +65,20 @@ internal static class ReleaseNotes
     public static readonly ReleaseNote[] All =
     [
         new(
+            Version: "2.17.2",
+            TitleFr: "Les maisons rénovées dans le bon quartier",
+            TitleEn: "Renovated houses in the right district",
+            BodyFr: """
+                    - **Correction :** Dans une maison rénovée au style d'un autre quartier, le lieu annoncé pour toi est celui de la maison : une villa de La Coupe refaite au style de Lavandière s'affiche « Villa - La Coupe » dans « Autour de moi », et non plus « Villa - Lavandière ».
+                    - **Correction :** Le RP ouvert qui se joue dans une maison rénovée apparaît dans le groupe « Dans ta zone » quand tu t'y trouves.
+                    - **Correction :** Dans un établissement installé dans une maison rénovée, ta présence compte parmi les joueurs présents.
+                    """,
+            BodyEn: """
+                    - **Fix:** In a house renovated in another district's style, the location shown for you is the house's own: a villa in the Goblet redone in the Lavender Beds style now reads "Private Mansion - The Goblet" in "Around me", no longer "Private Mansion - The Lavender Beds".
+                    - **Fix:** An open RP held in a renovated house appears in the "In your zone" group when you are there.
+                    - **Fix:** In a venue set up in a renovated house, your presence now counts among the players present.
+                    """),
+        new(
             Version: "2.17.1",
             TitleFr: "Quatre nouvelles fêtes",
             TitleEn: "Four more festivals",

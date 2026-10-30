@@ -1038,6 +1038,8 @@ public class CreateSessionRequest
     [JsonPropertyName("rawPlot")]       public int?    RawPlot       { get; set; }
     [JsonPropertyName("duration")]      public int     Duration      { get; set; } = 2;
     [JsonPropertyName("territoryId")]   public uint?   TerritoryId   { get; set; }
+    // Territoire d'origine du logement : voir ApiClient.HeartbeatAsync.
+    [JsonPropertyName("houseTerritoryId")] public uint? HouseTerritoryId { get; set; }
     // Instance publique : sans elle, le comptage des personnes sur place
     // confond les copies d'une zone divisée.
     [JsonPropertyName("instanceId")]    public uint?   InstanceId    { get; set; }
@@ -1632,6 +1634,11 @@ public class ApiClient : IDisposable
     /// publique du site reste celle des joueurs qui se sont déclarés
     /// disponibles.
     /// </param>
+    /// <param name="houseTerritoryId">
+    /// Territoire d'origine du logement, à l'intérieur seulement. Le territoire
+    /// chargé d'une maison rénovée peut être celui d'un autre quartier : sans
+    /// celui-ci, le serveur cherchait l'établissement dans le mauvais.
+    /// </param>
     /// <param name="zone">
     /// Nom lisible de la zone, forme affichable du territoryId déjà envoyé. Le
     /// serveur ne la retient que si <paramref name="rpTag"/> vaut vrai : sans
@@ -1640,6 +1647,7 @@ public class ApiClient : IDisposable
     public async Task HeartbeatAsync(
         string? version = null,
         uint? territoryId = null,
+        uint? houseTerritoryId = null,
         string? worldName = null,
         int? ward = null,
         int? plot = null,
@@ -1658,7 +1666,7 @@ public class ApiClient : IDisposable
         {
             var body = new
             {
-                version, territoryId, worldName, ward, plot, room, characterName,
+                version, territoryId, houseTerritoryId, worldName, ward, plot, room, characterName,
                 contentId, rpTag, zone, mapId, instanceId,
                 // Arrondi à la décimale, comme la présence anonyme : c'est la
                 // précision affichée en jeu, et elle suffit à poser un drapeau.
@@ -1737,6 +1745,7 @@ public class ApiClient : IDisposable
     public async Task PresenceHeartbeatAsync(
         uint territoryId, string worldName, string clientId,
         int? ward = null, int? plot = null, int? room = null,
+        uint? houseTerritoryId = null,
         float? posX = null, float? posZ = null, uint? instanceId = null,
         CancellationToken ct = default)
     {
@@ -1747,7 +1756,7 @@ public class ApiClient : IDisposable
             // transmettre une position plus fine que ce qu'on en fait.
             var body = new
             {
-                territoryId, worldName, clientId, ward, plot, room, instanceId,
+                territoryId, houseTerritoryId, worldName, clientId, ward, plot, room, instanceId,
                 posX = posX.HasValue ? MathF.Round(posX.Value, 1) : (float?)null,
                 posZ = posZ.HasValue ? MathF.Round(posZ.Value, 1) : (float?)null,
             };

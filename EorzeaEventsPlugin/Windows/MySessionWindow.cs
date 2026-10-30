@@ -95,23 +95,8 @@ public class MySessionWindow : ThemedWindow
     private string GetCurrentWorld()
         => Plugin.ObjectTable.LocalPlayer?.CurrentWorld.Value.Name.ToString() ?? Plugin.L.WorldUnknown;
 
-    private unsafe string GetCurrentZone()
-    {
-        var sheet = Plugin.DataManager.GetExcelSheet<TerritoryType>();
-        if (sheet == null) return Plugin.L.ZoneUnknown;
-        var terType = Plugin.ClientState.TerritoryType;
-        var hm = HousingManager.Instance();
-        // Ne substituer le nom de zone par l'intérieur d'estate QUE lorsqu'on est
-        // réellement dans un logement. IndoorTerritory != null = intérieur chargé ;
-        // null en plein ward (où GetCurrentWard() >= 0 est trompeur).
-        if (hm != null && hm->IndoorTerritory != null)
-        {
-            var orig = HousingManager.GetOriginalHouseTerritoryTypeId();
-            if (orig != 0) terType = orig;
-        }
-        var row = sheet.GetRowOrDefault(terType);
-        return row?.PlaceName.Value.Name.ToString() ?? Plugin.L.ZoneUnknown;
-    }
+    private static string GetCurrentZone()
+        => Plugin.CurrentZone is { Length: > 0 } zone ? zone : Plugin.L.ZoneUnknown;
 
     private (uint territoryId, uint mapId) GetCurrentTerritoryMap()
         => ((uint)Plugin.ClientState.TerritoryType, Plugin.ClientState.MapId);
@@ -207,6 +192,7 @@ public class MySessionWindow : ThemedWindow
             RawPlot       = housing?.RawPlot,
             Duration      = _duration,
             TerritoryId   = terId,
+            HouseTerritoryId = Plugin.GetHouseTerritoryId(),
             InstanceId    = Plugin.GetPublicInstanceId(),
             MapId         = mapId,
             Force         = force,

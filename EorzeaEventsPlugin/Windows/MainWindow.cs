@@ -522,13 +522,6 @@ public class MainWindow : ThemedWindow, IDisposable
 
     // ─── Tab: RP Ouvert ───────────────────────────────────────────────────────
 
-    private string? GetCurrentZoneName()
-    {
-        var sheet = Plugin.DataManager.GetExcelSheet<TerritoryType>();
-        var row   = sheet?.GetRowOrDefault(Plugin.ClientState.TerritoryType);
-        return row?.PlaceName.Value.Name.ToString();
-    }
-
     private static void DrawTokenInvalidScreen()
     {
         var l          = Plugin.L;
@@ -679,7 +672,7 @@ public class MainWindow : ThemedWindow, IDisposable
         }
 
         var currentWorld = Plugin.ObjectTable.LocalPlayer?.CurrentWorld.Value.Name.ToString();
-        var currentZone  = GetCurrentZoneName();
+        var currentZone  = Plugin.CurrentZone;
 
         // Trois groupes et non deux : une scène de mon monde mais d'une autre
         // zone tombait dans « Autres serveurs », ce qui était faux.

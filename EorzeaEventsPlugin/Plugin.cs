@@ -690,8 +690,9 @@ public sealed class Plugin : IDalamudPlugin
     private uint       _lastRpStatus    = 0;
     private const uint RpOnlineStatusId = 22; // "Role-playing" dans FFXIV
 
-    // Zone courante (mise à jour au changement de territoire)
+    // Zone courante (recalculée à chaque tour, voir RefreshCurrentZone)
     internal static string? CurrentZone { get; private set; }
+    private static uint _currentZoneTerritory;
 
     // IDs des sessions appartenant à l'utilisateur courant (rafraîchi toutes les 30 s)
     internal static HashSet<string> MySessionIds { get; private set; } = [];
@@ -865,9 +866,6 @@ public sealed class Plugin : IDalamudPlugin
 
         // Vérifier la version minimale requise
         Task.Run(async () => await CheckMinimumVersionAsync());
-
-        // Initialiser la zone courante
-        CurrentZone = ResolveTerritoryName(ClientState.TerritoryType);
     }
 
     private void DoFirstRunCheck()
@@ -1951,6 +1949,8 @@ public sealed class Plugin : IDalamudPlugin
         // ne les suspende pas.
         Ui.Components.Snackbar.Update();
 
+        RefreshCurrentZone(now);
+
         if (IsBlocked)
         {
             _sessionWindow?.PollSessionStatus();
@@ -2019,6 +2019,7 @@ public sealed class Plugin : IDalamudPlugin
             var charName  = ObjectTable.LocalPlayer?.Name.TextValue;
             var contentId = GetLocalContentId();
             var housing   = ClientState.IsLoggedIn ? GetCurrentHousingForHeartbeat() : null;
+            var house     = ClientState.IsLoggedIn ? GetHouseTerritoryId() : null;
             // Le tag n'est connu qu'en jeu : hors du jeu on ne dit rien plutôt
             // que « éteint », sans quoi une déconnexion effacerait une présence
             // que le joueur n'a pas retirée.
@@ -2045,6 +2046,7 @@ public sealed class Plugin : IDalamudPlugin
                 await Api.HeartbeatAsync(
                     version:       VersionLabel(),
                     territoryId:   territory > 0 ? territory : null,
+                    houseTerritoryId: house,
                     worldName:     !string.IsNullOrWhiteSpace(world) ? world : null,
                     ward:          housing?.Ward,
                     plot:          housing?.Plot,
@@ -2104,11 +2106,13 @@ public sealed class Plugin : IDalamudPlugin
             {
                 // Tout se lit ici, sur le thread de jeu ; la tâche ne fait qu'envoyer.
                 var housing  = GetCurrentHousingForHeartbeat();
+                var house    = GetHouseTerritoryId();
                 var instance = GetPublicInstanceId();
                 var coords   = GetHeartbeatMapCoords();
                 Task.Run(async () => await Api.PresenceHeartbeatAsync(
                     territory, world, Config.ClientId,
                     ward: housing?.Ward, plot: housing?.Plot, room: housing?.Room,
+                    houseTerritoryId: house,
                     posX: coords?.x, posZ: coords?.y, instanceId: instance));
             }
         }
@@ -3360,10 +3364,57 @@ public sealed class Plugin : IDalamudPlugin
         return row?.PlaceName.Value.Name.ToString();
     }
 
+    /// <summary>
+    /// Territoire qui donne son nom au lieu où se tient le joueur.
+    ///
+    /// Le territoire chargé ne suffit pas dans un logement rénové : son
+    /// intérieur est celui du style choisi, qui peut venir d'un autre quartier.
+    /// Une villa de La Coupe refaite au style de Lavandière charge l'intérieur
+    /// de Lavandière, alors que le jeu, dans sa recherche de joueurs, la situe
+    /// bien à La Coupe.
+    /// </summary>
+    private static uint ResolveZoneTerritory()
+        => GetHouseTerritoryId() ?? ClientState.TerritoryType;
+
+    /// <summary>
+    /// Territoire d'origine du logement où se tient le joueur, `null` hors d'un
+    /// intérieur. Voir <see cref="ResolveZoneTerritory"/> : le serveur s'en sert
+    /// pour situer le quartier d'une adresse, le territoire chargé pouvant être
+    /// celui d'un autre.
+    /// </summary>
+    internal static unsafe uint? GetHouseTerritoryId()
+    {
+        var hm = HousingManager.Instance();
+        // IndoorTerritory n'est renseigné qu'à l'intérieur : dans les allées du
+        // quartier, GetCurrentWard() répond aussi et tromperait.
+        if (hm == null || hm->IndoorTerritory == null) return null;
+        var original = HousingManager.GetOriginalHouseTerritoryTypeId();
+        return original != 0 ? original : null;
+    }
+
+    /// <summary>
+    /// À chaque tour et non au seul changement de territoire : l'intérieur d'un
+    /// logement n'est connu qu'une fois chargé, après l'événement.
+    /// </summary>
+    private static void RefreshCurrentZone(DateTime now)
+    {
+        var territory = ResolveZoneTerritory();
+        if (territory == _currentZoneTerritory) return;
+
+        var known = _currentZoneTerritory != 0;
+        _currentZoneTerritory = territory;
+        CurrentZone           = ResolveTerritoryName(territory);
+
+        // Un nom corrigé après coup se republie comme après un téléport. Pas au
+        // chargement du plugin ni à la connexion, qui ne déplacent personne :
+        // OnTerritoryChanged s'en charge déjà pour la connexion.
+        if (!known) return;
+        _availabilityZoneRefreshDue = true;
+        _availabilityZoneRefreshAt  = now.AddSeconds(3);
+    }
+
     private void OnTerritoryChanged(uint territory)
     {
-        CurrentZone = ResolveTerritoryName(territory);
-
         // La zone d'un déclaré n'était écrite qu'à la déclaration : après un
         // téléport, la liste le montrait encore là où il n'était plus.
         _availabilityZoneRefreshDue = true;

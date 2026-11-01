@@ -104,6 +104,7 @@ public sealed class Plugin : IDalamudPlugin
     private static   EstabDetailWindow? _estabDetailWindow;
     private static   EventDetailWindow? _eventDetailWindow;
     private static   NewsDetailWindow?  _newsDetailWindow;
+    private static   ContestDetailWindow? _contestDetailWindow;
     private static   RpProfileWindow?      _rpProfileWindow;
     private static   RpAnnouncementWindow? _announcementWindow;
     private static   WhatsNewWindow?       _whatsNewWindow;
@@ -773,6 +774,7 @@ public sealed class Plugin : IDalamudPlugin
         _estabDetailWindow = new EstabDetailWindow(Config);
         _eventDetailWindow = new EventDetailWindow();
         _newsDetailWindow  = new NewsDetailWindow();
+        _contestDetailWindow = new ContestDetailWindow(id => _mainWindow?.FindContest(id));
         _rpProfileWindow    = new RpProfileWindow();
         _announcementWindow = new RpAnnouncementWindow(Config);
         _whatsNewWindow     = new WhatsNewWindow(Config);
@@ -787,6 +789,7 @@ public sealed class Plugin : IDalamudPlugin
         _windowSystem.AddWindow(_estabDetailWindow);
         _windowSystem.AddWindow(_eventDetailWindow);
         _windowSystem.AddWindow(_newsDetailWindow);
+        _windowSystem.AddWindow(_contestDetailWindow);
         _windowSystem.AddWindow(_rpProfileWindow);
         _windowSystem.AddWindow(_announcementWindow);
         _windowSystem.AddWindow(_whatsNewWindow);
@@ -933,6 +936,10 @@ public sealed class Plugin : IDalamudPlugin
     /// <summary>Lecture d'une actualité : couverture, texte entier, images.</summary>
     internal static void OpenNewsDetail(EorzeaEventsPlugin.Api.NewsItemDto item)
         { _newsDetailWindow?.Open(item); }
+
+    /// <summary>Détail d'un concours : lots, conditions, tirage, état du compte.</summary>
+    internal static void OpenContestDetail(EorzeaEventsPlugin.Api.ContestItemDto item)
+        { _contestDetailWindow?.Open(item); }
     internal static void OpenMySession()
     {
         if (IsBlocked)

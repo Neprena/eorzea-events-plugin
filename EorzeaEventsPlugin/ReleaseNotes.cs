@@ -65,6 +65,20 @@ internal static class ReleaseNotes
     public static readonly ReleaseNote[] All =
     [
         new(
+            Version: "2.18.0",
+            TitleFr: "Les concours dans le plugin",
+            TitleEn: "Contests in the plugin",
+            BodyFr: """
+                    - **Nouveauté :** Une page Concours, dans la section Communauté du menu, montre les concours ouverts et à venir, avec leurs lots, leurs dates et leurs conditions. L'inscription se fait sur le site, avec le bouton « Participer sur le site ».
+                    - **Nouveauté :** Quand un concours ouvre, une pastille s'allume sur la page Concours. Le concours mis en avant s'annonce aussi en tête de fenêtre, jusqu'à ce que tu fermes ce bandeau ou que tu y participes.
+                    - **Nouveauté :** Avec ton compte lié, chaque concours indique si tu y participes déjà.
+                    """,
+            BodyEn: """
+                    - **New:** A Contests page, in the Community section of the menu, shows open and upcoming contests, with their prizes, dates and conditions. You enter on the website, with the "Enter on the website" button.
+                    - **New:** When a contest opens, a badge lights up on the Contests page. The featured contest is also announced at the top of the window, until you close that banner or enter it.
+                    - **New:** With your account linked, each contest shows whether you have already entered.
+                    """),
+        new(
             Version: "2.17.2",
             TitleFr: "Les maisons rénovées dans le bon quartier",
             TitleEn: "Renovated houses in the right district",

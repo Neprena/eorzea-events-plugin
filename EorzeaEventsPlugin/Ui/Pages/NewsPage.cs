@@ -177,89 +177,19 @@ internal sealed class NewsPage
 
     /// <summary>
     /// Actualité épinglée, sur une seule ligne : libellé, titre, « Lire » et
-    /// fermeture. En carte, avec son accroche et ses boutons, elle occupait le
-    /// haut de chaque page ; l'accroche se lit dans la fenêtre de lecture.
-    /// Toute la ligne ouvre l'actualité.
+    /// fermeture. Toute la ligne ouvre l'actualité.
     /// </summary>
     private static void DrawPinnedStrip(NewsItemDto pinned, Loc l)
     {
-        var origin = ImGui.GetCursorScreenPos();
-        var width  = ImGui.GetContentRegionAvail().X - Card.RightInset;
-        var frame  = ImGui.GetFrameHeight();
-        // Assez d'air autour des boutons pour qu'ils ne touchent pas le cadre :
-        // à 3 px, « Lire » semblait posé en travers du bord.
-        var padY   = Theme.S(6f);
-        var height = frame + padY * 2f;
-        var padX   = Theme.S(Theme.GapL);
-        var gap    = Theme.S(Theme.GapS);
-        var dl     = ImGui.GetWindowDrawList();
-        var radius = Theme.S(Theme.RadiusFrame);
-
-        // Boutons à droite, mesurés d'abord : le titre prend ce qui reste.
-        var readW  = Btn.Measure(l.NewsRead, BtnSize.Small, Icons.News);
-        var closeX = origin.X + width - padX - frame;
-        var readX  = closeX - gap - readW;
-        var y      = origin.Y + padY;
-
-        // Zone cliquable : la partie texte seulement, les boutons gardent la leur.
-        ImGui.SetCursorScreenPos(origin);
-        var open    = ImGui.InvisibleButton("##pinnedstrip", new Vector2(Math.Max(1f, readX - gap - origin.X), height));
-        var hovered = ImGui.IsItemHovered();
-        if (hovered) ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
-
-        var tint = Theme.Mix(Theme.BgSurface, Theme.Gold, hovered ? 0.20f : 0.12f);
-        dl.AddRectFilled(origin, origin + new Vector2(width, height), ImGui.GetColorU32(tint), radius);
-        dl.AddRect(origin, origin + new Vector2(width, height),
-                   ImGui.GetColorU32(Theme.Alpha(Theme.Gold, 0.45f)), radius);
-        dl.AddRectFilled(origin, origin + new Vector2(Theme.S(3f), height),
-                         ImGui.GetColorU32(Theme.Gold), radius, ImDrawFlags.RoundCornersLeft);
-
-        // Libellé doré, en petit, centré sur la hauteur de la ligne.
-        float x = origin.X + padX;
-        using (Fonts.PushSmall())
-        {
-            var kicker = $"{Icons.Pin.S()}  {l.NewsPinnedKicker.ToUpper(l.Culture)}";
-            var ky     = origin.Y + (height - ImGui.GetTextLineHeight()) * 0.5f;
-            dl.AddText(new Vector2(x, ky), ImGui.GetColorU32(Theme.Gold), kicker);
-            x += ImGui.CalcTextSize(kicker).X + Theme.S(Theme.GapM);
-        }
-
-        using (Fonts.PushBodyStrong())
-        {
-            var room  = readX - gap - x;
-            var title = Ellipsize(Glyphs.Safe(pinned.Title), room);
-            var ty    = origin.Y + (height - ImGui.GetTextLineHeight()) * 0.5f;
-            dl.AddText(new Vector2(x, ty), ImGui.GetColorU32(Theme.Text), title);
-        }
-
-        ImGui.SetCursorScreenPos(new Vector2(readX, y));
-        if (Btn.Draw(l.NewsRead, BtnTone.Primary, BtnSize.Small, Icons.News, id: "readpinned")) open = true;
-
-        ImGui.SetCursorScreenPos(new Vector2(closeX, y));
-        if (Btn.Icon(Icons.Close, "dismisspinned", BtnTone.Ghost, l.BannerDismiss))
+        var open = BannerStrip.Draw("pinned", Icons.Pin, l.NewsPinnedKicker, Theme.Gold,
+                                    pinned.Title, l.NewsRead, Icons.News, out var dismissed);
+        if (dismissed)
         {
             Plugin.Config.DismissedPinnedNewsId = pinned.Id;
             Plugin.Config.Save();
-            open = false;
         }
 
         if (open) Plugin.OpenNewsDetail(pinned);
-
-        // Le curseur repart sous la ligne ; le Dummy valide la position.
-        ImGui.SetCursorScreenPos(new Vector2(origin.X, origin.Y + height));
-        ImGui.Dummy(Vector2.Zero);
-    }
-
-    /// <summary>Coupe le texte avec « … » pour qu'il tienne dans la largeur donnée.</summary>
-    private static string Ellipsize(string text, float limit)
-    {
-        if (limit <= 0f) return string.Empty;
-        if (ImGui.CalcTextSize(text).X <= limit) return text;
-
-        const string dots = "…";
-        var end = text.Length;
-        while (end > 0 && ImGui.CalcTextSize(text[..end].TrimEnd() + dots).X > limit) end--;
-        return end == 0 ? string.Empty : text[..end].TrimEnd() + dots;
     }
 
     // ─── Page ─────────────────────────────────────────────────────────────────

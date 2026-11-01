@@ -30,6 +30,34 @@ internal sealed partial class Loc
     public required string AlertTitle          { get; init; }
     public required string AlertChat           { get; init; }   // {0} = message
 
+    // ── Concours ──────────────────────────────────────────────────────────────
+    public required string TabContests          { get; init; }
+    public required string ContestsEmpty        { get; init; }
+    public required string ContestsAllOnSite    { get; init; }
+    public required string ContestPhaseOpen     { get; init; }
+    public required string ContestPhaseUpcoming { get; init; }
+    public required string ContestPhaseClosed   { get; init; }
+    public required string ContestPhaseDrawn    { get; init; }
+    public required string ContestFeatured      { get; init; }
+    public required string ContestEntered       { get; init; }
+    public required string ContestWon           { get; init; }
+    public required string ContestUntil         { get; init; }   // {0} = date
+    public required string ContestOpensOn       { get; init; }   // {0} = date
+    public required string ContestDrawOn        { get; init; }   // {0} = date
+    public required string ContestEndedOn       { get; init; }   // {0} = date
+    public required string ContestEntries       { get; init; }   // {0} = nombre
+    public required string ContestPrizes        { get; init; }
+    public required string ContestConditions    { get; init; }
+    public required string ContestOptional      { get; init; }
+    public required string ContestWinners       { get; init; }
+    public required string ContestYourEntry     { get; init; }
+    public required string ContestYouEntered    { get; init; }
+    public required string ContestYouWon        { get; init; }   // {0} = lot
+    public required string ContestNotDrawn      { get; init; }
+    public required string ContestEnterOnSite   { get; init; }
+    public required string ContestDetails       { get; init; }
+    public required string ContestBannerKicker  { get; init; }
+
     // ── Common ────────────────────────────────────────────────────────────────
     public required string Loading    { get; init; }
     public required string Refresh    { get; init; }
@@ -1016,6 +1044,34 @@ internal sealed partial class Loc
         AlertTitle          = "Message de l'équipe",
         AlertChat           = "Message de l'équipe : {0}",
 
+        // Concours
+        TabContests          = "Concours",
+        ContestsEmpty        = "Aucun concours pour le moment.",
+        ContestsAllOnSite    = "Tous les concours sur le site",
+        ContestPhaseOpen     = "En cours",
+        ContestPhaseUpcoming = "Bientôt",
+        ContestPhaseClosed   = "Tirage à venir",
+        ContestPhaseDrawn    = "Tirage effectué",
+        ContestFeatured      = "Mis en avant",
+        ContestEntered       = "Tu participes",
+        ContestWon           = "Tu as gagné",
+        ContestUntil         = "Jusqu'au {0}",
+        ContestOpensOn       = "Ouvre le {0}",
+        ContestDrawOn        = "Tirage le {0}",
+        ContestEndedOn       = "Terminé le {0}",
+        ContestEntries       = "Participations : {0}",
+        ContestPrizes        = "Lots",
+        ContestConditions    = "Conditions",
+        ContestOptional      = "facultatif",
+        ContestWinners       = "Résultat du tirage",
+        ContestYourEntry     = "Ta participation",
+        ContestYouEntered    = "Tu participes à ce concours.",
+        ContestYouWon        = "Tu as gagné : {0} !",
+        ContestNotDrawn      = "Tirage effectué : pas de lot pour toi cette fois.",
+        ContestEnterOnSite   = "Participer sur le site",
+        ContestDetails       = "Détails",
+        ContestBannerKicker  = "Concours",
+
         Loading    = "Chargement...",
         Refresh    = "Actualiser",
         ViewOnline = "Voir en ligne",
@@ -1970,6 +2026,34 @@ internal sealed partial class Loc
         BannerDismiss       = "Dismiss",
         AlertTitle          = "Team message",
         AlertChat           = "Team message: {0}",
+
+        // Concours
+        TabContests          = "Contests",
+        ContestsEmpty        = "No contests right now.",
+        ContestsAllOnSite    = "All contests on the website",
+        ContestPhaseOpen     = "Open",
+        ContestPhaseUpcoming = "Coming soon",
+        ContestPhaseClosed   = "Draw pending",
+        ContestPhaseDrawn    = "Winners drawn",
+        ContestFeatured      = "Featured",
+        ContestEntered       = "You're in",
+        ContestWon           = "You won",
+        ContestUntil         = "Until {0}",
+        ContestOpensOn       = "Opens {0}",
+        ContestDrawOn        = "Draw on {0}",
+        ContestEndedOn       = "Ended {0}",
+        ContestEntries       = "Entries: {0}",
+        ContestPrizes        = "Prizes",
+        ContestConditions    = "Conditions",
+        ContestOptional      = "optional",
+        ContestWinners       = "Draw results",
+        ContestYourEntry     = "Your entry",
+        ContestYouEntered    = "You're entered in this contest.",
+        ContestYouWon        = "You won: {0}!",
+        ContestNotDrawn      = "The draw is done: no prize for you this time.",
+        ContestEnterOnSite   = "Enter on the website",
+        ContestDetails       = "Details",
+        ContestBannerKicker  = "Contest",
 
         Loading    = "Loading...",
         Refresh    = "Refresh",

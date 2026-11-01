@@ -609,6 +609,63 @@ public class NewsListDto
     [JsonPropertyName("items")] public List<NewsItemDto> Items { get; set; } = [];
 }
 
+/// <summary>
+/// Concours du site, déjà traduit par le serveur. La phase vient du serveur :
+/// upcoming (pas encore ouvert), open (inscriptions ouvertes), closed (fermé,
+/// tirage à venir), drawn (tirage effectué).
+/// </summary>
+public class ContestItemDto
+{
+    [JsonPropertyName("id")]          public string    Id          { get; set; } = string.Empty;
+    [JsonPropertyName("title")]       public string    Title       { get; set; } = string.Empty;
+    [JsonPropertyName("description")] public string    Description { get; set; } = string.Empty;
+    [JsonPropertyName("imageUrl")]    public string?   ImageUrl    { get; set; }
+    [JsonPropertyName("phase")]       public string    Phase       { get; set; } = "closed";
+    [JsonPropertyName("isFeatured")]  public bool      IsFeatured  { get; set; }
+    [JsonPropertyName("startAt")]     public DateTime  StartAt     { get; set; }
+    [JsonPropertyName("endAt")]       public DateTime  EndAt       { get; set; }
+    [JsonPropertyName("drawAt")]      public DateTime? DrawAt      { get; set; }
+    [JsonPropertyName("entryCount")]  public int       EntryCount  { get; set; }
+    [JsonPropertyName("prizes")]      public List<ContestPrizeDto>     Prizes     { get; set; } = [];
+    [JsonPropertyName("conditions")]  public List<ContestConditionDto> Conditions { get; set; } = [];
+    [JsonPropertyName("winners")]     public List<ContestWinnerDto>    Winners    { get; set; } = [];
+    [JsonPropertyName("path")]        public string    Path        { get; set; } = string.Empty;
+
+    /// <summary>État du compte lié ; null sans compte lié.</summary>
+    [JsonPropertyName("me")]          public ContestMeDto? Me      { get; set; }
+}
+
+public class ContestPrizeDto
+{
+    [JsonPropertyName("rank")]     public int    Rank     { get; set; }
+    [JsonPropertyName("label")]    public string Label    { get; set; } = string.Empty;
+    [JsonPropertyName("quantity")] public int    Quantity { get; set; } = 1;
+}
+
+public class ContestConditionDto
+{
+    [JsonPropertyName("label")]    public string Label    { get; set; } = string.Empty;
+    [JsonPropertyName("required")] public bool   Required { get; set; } = true;
+}
+
+public class ContestWinnerDto
+{
+    [JsonPropertyName("name")]  public string  Name  { get; set; } = string.Empty;
+    [JsonPropertyName("prize")] public string? Prize { get; set; }
+}
+
+public class ContestMeDto
+{
+    [JsonPropertyName("entered")] public bool    Entered { get; set; }
+    [JsonPropertyName("won")]     public bool    Won     { get; set; }
+    [JsonPropertyName("prize")]   public string? Prize   { get; set; }
+}
+
+public class ContestListDto
+{
+    [JsonPropertyName("items")] public List<ContestItemDto> Items { get; set; } = [];
+}
+
 /// <summary>Périodes officielles des événements saisonniers, relevées par le site sur le Lodestone.</summary>
 public class SeasonWindowsDto
 {
@@ -1399,6 +1456,22 @@ public class ApiClient : IDisposable
         {
             var res = await _publicHttp.GetFromJsonAsync<NewsListDto>(
                 $"api/plugin/news?lang={Uri.EscapeDataString(languageCode)}", JsonOptions, ct);
+            return res?.Items;
+        }
+        catch { return null; }
+    }
+
+    /// <summary>
+    /// Concours du site. Passe par le client authentifié : avec un jeton, le
+    /// serveur ajoute l'état du compte ; sans jeton, il sert la vue publique.
+    /// <c>null</c> sur un échec.
+    /// </summary>
+    public async Task<List<ContestItemDto>?> GetContestsAsync(string languageCode, CancellationToken ct = default)
+    {
+        try
+        {
+            var res = await _http.GetFromJsonAsync<ContestListDto>(
+                $"api/plugin/contests?lang={Uri.EscapeDataString(languageCode)}", JsonOptions, ct);
             return res?.Items;
         }
         catch { return null; }

@@ -596,6 +596,16 @@ public class Configuration : IPluginConfiguration
     /// </summary>
     public DateTime? NewsSeenUpTo { get; set; }
 
+    /// <summary>
+    /// Ouverture du concours ouvert le plus récent déjà vu. null = jamais
+    /// relevé : le premier relevé la fixe, plutôt que d'annoncer comme nouveaux
+    /// tous les concours en cours d'un coup.
+    /// </summary>
+    public DateTime? ContestsSeenUpTo { get; set; }
+
+    /// <summary>Concours dont le bandeau a été fermé. Un autre concours mis en avant le rouvre.</summary>
+    public string? DismissedContestId { get; set; }
+
     // ─── Ancien état, commun à tout le compte ────────────────────────────────
     //
     // Conservé pour la migration vers la version 4. Les nouveaux écrans passent

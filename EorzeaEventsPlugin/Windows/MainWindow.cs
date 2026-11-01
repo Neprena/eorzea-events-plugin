@@ -98,6 +98,10 @@ public class MainWindow : ThemedWindow, IDisposable
     private readonly FriendsPage   _friends = new();
     private readonly EncountersPage _encounters = new();
     private readonly NewsPage       _news = new();
+    private readonly ContestsPage   _contests = new();
+
+    /// <summary>Dernière version d'un concours relevé, pour sa fenêtre de détail.</summary>
+    public EorzeaEventsPlugin.Api.ContestItemDto? FindContest(string id) => _contests.Find(id);
 
     // Le nom de la fenêtre est la clé de persistance de imgui.ini : le changer
     // réinitialiserait position et taille chez tous les utilisateurs.
@@ -169,6 +173,17 @@ public class MainWindow : ThemedWindow, IDisposable
                 Badge   = () => _friends.VisibleCount,
                 Locked  = () => !Plugin.Api.HasToken,
             },
+            // Publique : sans compte lié, la page montre les concours sans
+            // l'état « Tu participes ».
+            new ShellPage
+            {
+                Id      = "contests",
+                Icon    = Icons.Gift,
+                Label   = () => Plugin.L.TabContests,
+                Section = () => Plugin.L.NavSectionCommunity,
+                Draw    = _contests.Draw,
+                Badge   = () => _contests.UnreadCount,
+            },
 
             // ── Agenda : ce qui est prévu ─────────────────────────────────────
             new ShellPage
@@ -224,6 +239,7 @@ public class MainWindow : ThemedWindow, IDisposable
             {
                 ServerNotice.Draw();
                 _news.DrawBanners(activeId == "news");
+                _contests.DrawBanner(activeId == "contests");
                 Ui.Seasons.YearRecap.Draw(activeId, () => OpenAt("encounters"));
                 Ui.Seasons.Souvenir.Draw(activeId, () => OpenAt("encounters"));
             },
@@ -254,6 +270,7 @@ public class MainWindow : ThemedWindow, IDisposable
         if (_sessionsFailed && !_sessionsLoading) FetchSessions();
         _rpProfile.OnServerBack();
         _news.OnServerBack();
+        _contests.OnServerBack();
     }
 
     /// <summary>
@@ -270,6 +287,7 @@ public class MainWindow : ThemedWindow, IDisposable
     {
         _rpProfile.NotifyWindowOpened();
         _news.NotifyWindowOpened();
+        _contests.NotifyWindowOpened();
     }
 
     /// <summary>Ouvre la fenêtre sur une page donnée.</summary>
@@ -336,6 +354,7 @@ public class MainWindow : ThemedWindow, IDisposable
         // Relevé des actualités : la pastille et le bandeau épinglé ne se
         // voient que fenêtre ouverte, inutile de les tenir à jour ailleurs.
         _news.Tick();
+        _contests.Tick();
 
         // Les écrans bloquants court-circuitent la navigation, mais conservent
         // la barre de titre : sans elle, la fenêtre ne serait ni déplaçable ni

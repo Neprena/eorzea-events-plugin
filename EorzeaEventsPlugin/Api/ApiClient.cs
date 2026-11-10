@@ -14,6 +14,7 @@ public class PluginVersionInfoDto
     [JsonPropertyName("emergencyBlock")] public bool   EmergencyBlock { get; set; }
     [JsonPropertyName("message")]        public string? Message       { get; set; }
     [JsonPropertyName("updateUrl")]      public string? UpdateUrl     { get; set; }
+    [JsonPropertyName("discordInvite")]  public string? DiscordInvite { get; set; }
 }
 
 public class RpSessionAuthorDto

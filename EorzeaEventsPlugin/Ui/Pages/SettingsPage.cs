@@ -965,6 +965,20 @@ internal sealed class SettingsPage(Configuration config)
         Layout.Spacer(Theme.GapS);
         if (Btn.Draw(l.CfgWhatsNew, BtnTone.Secondary, BtnSize.Medium, Icons.Sparkle))
             Plugin.OpenWhatsNew();
+
+        // Le lien vient du site : sans lui (site injoignable, invitation
+        // retirée), la ligne disparaît plutôt que d'ouvrir une adresse morte.
+        if (Plugin.OfficialDiscordInvite is { } invite)
+        {
+            Layout.Spacer(Theme.GapM);
+            Text.Hint(l.CfgOfficialDiscordHint);
+            Layout.Spacer(Theme.GapS);
+            if (Btn.Draw(l.CfgOfficialDiscord, BtnTone.Secondary, BtnSize.Medium, Icons.Language))
+            {
+                try { Dalamud.Utility.Util.OpenLink(invite); }
+                catch { /* le navigateur peut être indisponible */ }
+            }
+        }
     }
 
     // ─── Développement ────────────────────────────────────────────────────────

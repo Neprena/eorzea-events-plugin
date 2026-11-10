@@ -3259,12 +3259,32 @@ public sealed class Plugin : IDalamudPlugin
         OpenSetup(tokenInvalid: true);
     }
 
+    /// <summary>
+    /// Invitation du serveur Discord officiel, transmise par le site avec les
+    /// versions minimales, ou null quand le site n'en annonce pas.
+    /// </summary>
+    public static string? OfficialDiscordInvite { get; private set; }
+
+    /// <summary>
+    /// N'accepte qu'une invitation Discord en https : le lien s'ouvre dans le
+    /// navigateur du joueur, une réponse du serveur ne doit pas pouvoir y
+    /// glisser une autre adresse.
+    /// </summary>
+    private static string? SafeDiscordInvite(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return null;
+        if (!Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps) return null;
+        return uri.Host is "discord.gg" or "discord.com" or "www.discord.com" ? uri.AbsoluteUri : null;
+    }
+
     private static async Task CheckMinimumVersionAsync()
     {
         try
         {
             var info = await Api.GetVersionInfoAsync();
             if (info == null) return;
+
+            OfficialDiscordInvite = SafeDiscordInvite(info.DiscordInvite);
 
             var current      = PluginInterface.Manifest.AssemblyVersion;
             var currentLabel = VersionLabel();

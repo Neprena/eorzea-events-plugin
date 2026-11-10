@@ -757,6 +757,8 @@ internal sealed partial class Loc
         CfgWhatsNew         = "Neuerungen ansehen",
         CfgWhatsNewAuto     = "Neuerungen nach Updates anzeigen",
         CfgWhatsNewAutoHint = "Das Fenster öffnet sich einmalig beim ersten Start nach der Installation einer neuen Version.",
+        CfgOfficialDiscord     = "Dem offiziellen Discord beitreten",
+        CfgOfficialDiscordHint = "Der Server der Community, auf Französisch und Englisch: ein Kanal pro Ort, die News der Website, Hilfe und Vorschläge.",
 
         RpProfileNoProfile  = "Für diese Person wurde noch kein Profil ausgefüllt.",
         RpProfileNsfw       = "Sensible Inhalte",

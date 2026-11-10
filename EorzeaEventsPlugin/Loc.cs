@@ -771,6 +771,8 @@ internal sealed partial class Loc
     public required string CfgWhatsNew         { get; init; }
     public required string CfgWhatsNewAuto     { get; init; }
     public required string CfgWhatsNewAutoHint { get; init; }
+    public required string CfgOfficialDiscord     { get; init; }
+    public required string CfgOfficialDiscordHint { get; init; }
 
     // ── Fiche d'un autre joueur ───────────────────────────────────────────────
     public required string RpProfileNoProfile  { get; init; }
@@ -1778,6 +1780,8 @@ internal sealed partial class Loc
         CfgWhatsNew         = "Voir les nouveautés",
         CfgWhatsNewAuto     = "Afficher les nouveautés après une mise à jour",
         CfgWhatsNewAutoHint = "La fenêtre s'ouvre une seule fois, au premier lancement suivant l'installation d'une nouvelle version.",
+        CfgOfficialDiscord     = "Rejoindre le Discord officiel",
+        CfgOfficialDiscordHint = "Le serveur de la communauté, en français et en anglais : un salon par établissement, les actualités du site, l'aide et les suggestions.",
 
         RpProfileNoProfile  = "Ce joueur n'a pas encore rempli sa fiche.",
         RpProfileNsfw       = "Contenu sensible",
@@ -2761,6 +2765,8 @@ internal sealed partial class Loc
         CfgWhatsNew         = "View what's new",
         CfgWhatsNewAuto     = "Show what's new after an update",
         CfgWhatsNewAutoHint = "The window opens once, the first time you launch after a new version is installed.",
+        CfgOfficialDiscord     = "Join the official Discord",
+        CfgOfficialDiscordHint = "The community server, in French and English: a channel for every venue, site news, help and suggestions.",
 
         RpProfileNoProfile  = "This player hasn't filled in their profile yet.",
         RpProfileNsfw       = "Sensitive content",

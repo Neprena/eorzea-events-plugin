@@ -65,6 +65,16 @@ internal static class ReleaseNotes
     public static readonly ReleaseNote[] All =
     [
         new(
+            Version: "2.19.0",
+            TitleFr: "Le Discord officiel",
+            TitleEn: "The official Discord",
+            BodyFr: """
+                    - **Nouveauté :** Dans Paramètres › Divers › À propos, le bouton « Rejoindre le Discord officiel » ouvre dans ton navigateur l'invitation au serveur Discord d'Eorzea Events. Le serveur parle français et anglais : chaque établissement public y a son salon, et les actualités du site comme l'ouverture des concours y sont annoncées.
+                    """,
+            BodyEn: """
+                    - **New:** In Settings › Misc › About, the "Join the official Discord" button opens the invite to the Eorzea Events Discord server in your browser. The server speaks French and English: every public venue has its own channel there, and site news and contest openings are announced there.
+                    """),
+        new(
             Version: "2.18.0",
             TitleFr: "Les concours dans le plugin",
             TitleEn: "Contests in the plugin",

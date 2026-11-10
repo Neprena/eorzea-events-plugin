@@ -29,6 +29,11 @@ internal static class Fonts
     private static ushort[]?   _iconRanges;
     private static bool        _loggedFailure;
 
+    /// <summary>Police d'un seul glyphe, le logo Discord (<see cref="Icons.Discord"/>).</summary>
+    private const string DiscordResource = "Fonts.Discord.ttf";
+
+    private static readonly ushort[] _discordRange = [(ushort)Icons.Discord, (ushort)Icons.Discord, 0];
+
     /// <summary>
     /// Cinzel, la police de la marque. Réservée au logo et aux noms de profil
     /// RP : posée sur chaque titre de carte, une police décorative en petites
@@ -159,6 +164,16 @@ internal static class Fonts
             GlyphOffset = new Vector2(0f, Theme.S(1f)),
         };
         p.AddFontAwesomeIconFont(in icons);
+
+        // Le logo Discord, absent de la police FontAwesome de Dalamud, qui n'a
+        // que les icônes pleines. Même taille et même décalage que les autres
+        // icônes : le sous-ensemble a reçu les métriques verticales de
+        // FontAwesome Free Solid, il s'aligne donc sur elles.
+        using var discordStream = Asm.GetManifestResourceStream(DiscordResource)
+            ?? throw new FileNotFoundException($"Ressource de police introuvable : {DiscordResource}");
+
+        var discord = icons with { GlyphRanges = _discordRange };
+        p.AddFontFromStream(discordStream, in discord, leaveOpen: false, DiscordResource);
 
         p.SetFontScaleMode(font, FontScaleMode.Default);
     }

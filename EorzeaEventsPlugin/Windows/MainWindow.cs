@@ -173,6 +173,20 @@ public class MainWindow : ThemedWindow, IDisposable
                 Badge   = () => _friends.VisibleCount,
                 Locked  = () => !Plugin.Api.HasToken,
             },
+            // Un lien et non une page : le clic ouvre l'invitation du serveur
+            // officiel dans le navigateur. Le lien vient du site ; sans lui (site
+            // injoignable, invitation retirée), l'entrée disparaît.
+            new ShellPage
+            {
+                Id       = "discord",
+                Icon     = Icons.Discord,
+                Label    = () => Plugin.L.TabDiscord,
+                Section  = () => Plugin.L.NavSectionCommunity,
+                Draw     = () => { },
+                OnSelect = Plugin.OpenOfficialDiscord,
+                External = true,
+                Visible  = () => Plugin.OfficialDiscordInvite != null,
+            },
             // Publique : sans compte lié, la page montre les concours sans
             // l'état « Tu participes ».
             new ShellPage
@@ -1512,7 +1526,7 @@ public class MainWindow : ThemedWindow, IDisposable
 
                     if (!string.IsNullOrEmpty(e.DiscordInvite))
                     {
-                        if (Btn.Icon(Icons.Language, $"discord_{e.Id}", BtnTone.Ghost, l.EstabDiscord))
+                        if (Btn.Icon(Icons.Discord, $"discord_{e.Id}", BtnTone.Ghost, l.EstabDiscord))
                             OpenUrl($"https://discord.gg/{e.DiscordInvite}");
                         ImGui.SameLine(0f, Theme.S(Theme.GapXs));
                     }

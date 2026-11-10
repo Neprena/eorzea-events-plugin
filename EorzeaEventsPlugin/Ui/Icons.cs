@@ -27,6 +27,15 @@ internal static class Icons
     public const FontAwesomeIcon Debug    = FontAwesomeIcon.Bug;
     public const FontAwesomeIcon News     = FontAwesomeIcon.Newspaper;
 
+    /// <summary>
+    /// Le logo Discord. La police FontAwesome de Dalamud n'a que les icônes
+    /// pleines, sans les logos de marques, et son énumération ne le nomme pas :
+    /// le glyphe vient d'une police à part (<c>Assets/Fonts/Discord.ttf</c>),
+    /// que <see cref="Fonts"/> fusionne derrière FontAwesome. Il ne figure donc
+    /// pas dans <see cref="All"/>. Point de code de Font Awesome Brands.
+    /// </summary>
+    public const FontAwesomeIcon Discord  = (FontAwesomeIcon)0xF392;
+
     // ─── Onglets des réglages ─────────────────────────────────────────────────
     public const FontAwesomeIcon Notification = FontAwesomeIcon.Bell;
     public const FontAwesomeIcon Misc         = FontAwesomeIcon.EllipsisH;

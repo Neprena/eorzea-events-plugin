@@ -65,6 +65,18 @@ internal static class ReleaseNotes
     public static readonly ReleaseNote[] All =
     [
         new(
+            Version: "2.19.1",
+            TitleFr: "Le Discord dans le menu",
+            TitleEn: "The Discord in the menu",
+            BodyFr: """
+                    - **Nouveauté :** Une entrée « Discord », dans la section Communauté du menu, ouvre dans ton navigateur l'invitation au serveur Discord officiel d'Eorzea Events.
+                    - **Amélioration :** Les boutons qui mènent à un serveur Discord portent le logo de Discord, à la place de l'icône de bulles : celui du serveur officiel dans les Paramètres, et ceux des établissements, sur leur fiche et dans la liste.
+                    """,
+            BodyEn: """
+                    - **New:** A "Discord" entry, in the Community section of the menu, opens the invite to the official Eorzea Events Discord server in your browser.
+                    - **Improvement:** Buttons that lead to a Discord server show the Discord logo instead of the speech bubbles icon: the official server's button in Settings, and the venue buttons, on their page and in the list.
+                    """),
+        new(
             Version: "2.19.0",
             TitleFr: "Le Discord officiel",
             TitleEn: "The official Discord",

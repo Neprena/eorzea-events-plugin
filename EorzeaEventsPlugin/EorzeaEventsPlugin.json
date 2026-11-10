@@ -3,7 +3,7 @@
   "Author": "Neprena",
   "Description": "Gère tes sessions RP Eorzea Events directement depuis le jeu.",
   "Punchline": "Sessions RP Eorzea Events en un clic.",
-  "Changelog": "Un bouton dans Paramètres › Divers › À propos ouvre l'invitation au serveur Discord officiel d'Eorzea Events, en français et en anglais : un salon par établissement public, les actualités du site et l'ouverture des concours. L'historique complet des nouveautés est dans le plugin.",
+  "Changelog": "Une entrée « Discord » dans la section Communauté du menu ouvre l'invitation au serveur Discord officiel d'Eorzea Events. Les boutons Discord, celui des Paramètres comme ceux des établissements, portent maintenant le logo de Discord. L'historique complet des nouveautés est dans le plugin.",
   "InternalName": "EorzeaEventsPlugin",
   "RepoUrl": "https://github.com/Neprena/eorzea-events-plugin",
   "Tags": [

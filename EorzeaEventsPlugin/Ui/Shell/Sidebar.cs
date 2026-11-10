@@ -327,6 +327,8 @@ internal static class Sidebar
 
         if (rail)
         {
+            // Pas de flèche « externe » en mode repli : elle ne tiendrait qu'à
+            // la place de la pastille, sur le coin de l'icône, et s'y lirait mal.
             DrawRailItem(dl, origin, width, slot.Height, glyph, label, tint, mark, count, lock_);
 
             // Libellé abrégé sous l'icône : le nom entier reste au survol.
@@ -334,14 +336,15 @@ internal static class Sidebar
         }
         else
         {
-            DrawDrawerItem(dl, origin, width, slot.Height, glyph, label, tint, mark, count, lock_);
+            DrawDrawerItem(dl, origin, width, slot.Height, glyph, label, tint, mark, count, lock_, page.External);
         }
 
         return clicked;
     }
 
     private static void DrawDrawerItem(ImDrawListPtr dl, Vector2 origin, float width, float item,
-                                       string glyph, string label, uint tint, uint mark, int count, bool locked)
+                                       string glyph, string label, uint tint, uint mark, int count, bool locked,
+                                       bool external)
     {
         // FontAwesome étant fusionné dans la police de corps, ni la mesure ni le
         // tracé ne nécessitent de bascule de police.
@@ -349,7 +352,7 @@ internal static class Sidebar
         var gutter    = Theme.S(IconGutter);
         dl.AddText(origin + new Vector2(gutter - glyphSize.X * 0.5f, (item - glyphSize.Y) * 0.5f), mark, glyph);
 
-        var trailing  = count > 0 || locked ? Theme.S(34f) : Theme.S(10f);
+        var trailing  = count > 0 || locked || external ? Theme.S(34f) : Theme.S(10f);
         var labelX    = origin.X + Theme.S(IconGutter + 18f);
         var text      = Truncate(label, origin.X + width - trailing - labelX);
         var labelSize = ImGui.CalcTextSize(text);
@@ -358,6 +361,7 @@ internal static class Sidebar
         var center = origin + new Vector2(width - Theme.S(22f), item * 0.5f);
         if (count > 0) DrawBadge(dl, center, count);
         else if (locked) DrawLock(dl, center);
+        else if (external) DrawMark(dl, center, Icons.External);
     }
 
     private static void DrawRailItem(ImDrawListPtr dl, Vector2 origin, float width, float item,
@@ -400,10 +404,13 @@ internal static class Sidebar
     /// Cadenas discret, à la place de la pastille. L'entrée reste cliquable :
     /// montrer ce qu'on gagne à lier un personnage vaut mieux que le cacher.
     /// </summary>
-    private static void DrawLock(ImDrawListPtr dl, Vector2 center)
+    private static void DrawLock(ImDrawListPtr dl, Vector2 center) => DrawMark(dl, center, Icons.Locked);
+
+    /// <summary>Petit glyphe discret en bout de ligne : cadenas, lien externe.</summary>
+    private static void DrawMark(ImDrawListPtr dl, Vector2 center, Dalamud.Interface.FontAwesomeIcon icon)
     {
         using var font = Fonts.PushSmall();
-        var glyph = Icons.Locked.S();
+        var glyph = icon.S();
         var size  = ImGui.CalcTextSize(glyph);
         dl.AddText(center - size * 0.5f, ImGui.GetColorU32(Theme.TextFaint), glyph);
     }

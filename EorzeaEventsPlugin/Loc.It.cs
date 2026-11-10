@@ -25,6 +25,7 @@ internal sealed partial class Loc
 
         // Concours
         TabContests          = "Concorsi",
+        TabDiscord           = "Discord",
         ContestsEmpty        = "Nessun concorso al momento.",
         ContestsAllOnSite    = "Tutti i concorsi sul sito",
         ContestPhaseOpen     = "In corso",

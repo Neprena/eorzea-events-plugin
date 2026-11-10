@@ -115,7 +115,7 @@ public class EstabDetailWindow : ThemedWindow, IDisposable
         var first = true;
         if (!string.IsNullOrEmpty(_estab.DiscordInvite))
         {
-            if (Btn.Draw(l.EstabDiscord, BtnTone.Primary, BtnSize.Medium, Icons.Language, id: "estab_discord"))
+            if (Btn.Draw(l.EstabDiscord, BtnTone.Primary, BtnSize.Medium, Icons.Discord, id: "estab_discord"))
                 OpenUrl(NormalizeDiscordInvite(_estab.DiscordInvite!));
             first = false;
         }

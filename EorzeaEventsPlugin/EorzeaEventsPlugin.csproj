@@ -1,6 +1,6 @@
 <Project Sdk="Dalamud.NET.Sdk/15.0.0">
   <PropertyGroup>
-    <Version>2.19.0</Version>
+    <Version>2.19.1</Version>
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
@@ -17,6 +17,9 @@
     <EmbeddedResource Include="Assets\Fonts\Nunito-Regular.ttf" LogicalName="Fonts.Nunito-Regular.ttf" />
     <EmbeddedResource Include="Assets\Fonts\Nunito-Bold.ttf"    LogicalName="Fonts.Nunito-Bold.ttf" />
     <EmbeddedResource Include="Assets\Fonts\Cinzel-Bold.ttf"    LogicalName="Fonts.Cinzel-Bold.ttf" />
+    <!-- Le seul logo Discord, tiré de Font Awesome Brands : la police
+         FontAwesome de Dalamud n'a pas les logos de marques. -->
+    <EmbeddedResource Include="Assets\Fonts\Discord.ttf"        LogicalName="Fonts.Discord.ttf" />
     <!-- Le logo, pour la barre de titre. Réduit à 128 px : il n'est jamais
          affiché plus grand, et l'original pèse un demi-mégaoctet. -->
     <EmbeddedResource Include="Assets\Images\logo.png" LogicalName="Images.logo.png" />

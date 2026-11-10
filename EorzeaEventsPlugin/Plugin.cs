@@ -3265,6 +3265,14 @@ public sealed class Plugin : IDalamudPlugin
     /// </summary>
     public static string? OfficialDiscordInvite { get; private set; }
 
+    /// <summary>Ouvre l'invitation du serveur Discord officiel dans le navigateur, s'il y en a une.</summary>
+    internal static void OpenOfficialDiscord()
+    {
+        if (OfficialDiscordInvite is not { } invite) return;
+        try { Dalamud.Utility.Util.OpenLink(invite); }
+        catch { /* le navigateur peut être indisponible */ }
+    }
+
     /// <summary>
     /// N'accepte qu'une invitation Discord en https : le lien s'ouvre dans le
     /// navigateur du joueur, une réponse du serveur ne doit pas pouvoir y

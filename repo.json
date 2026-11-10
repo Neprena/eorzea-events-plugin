@@ -3,8 +3,8 @@
     "Author": "Neprena",
     "Name": "Eorzea Events",
     "InternalName": "EorzeaEventsPlugin",
-    "AssemblyVersion": "2.19.0.0",
-    "TestingAssemblyVersion": "2.19.0.0",
+    "AssemblyVersion": "2.19.1.0",
+    "TestingAssemblyVersion": "2.19.1.0",
     "Description": "Gérez vos sessions RP Eorzea Events directement depuis le jeu.",
     "Punchline": "Sessions RP Eorzea Events en un clic.",
     "ApplicableVersion": "any",
@@ -15,12 +15,12 @@
     "DalamudApiLevel": 15,
     "IconUrl": "https://raw.githubusercontent.com/Neprena/eorzea-events-plugin/main/Plugin_Logo.png",
     "RepoUrl": "https://github.com/Neprena/eorzea-events-plugin",
-    "DownloadLinkInstall": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.19.0/EorzeaEventsPlugin.zip",
-    "DownloadLinkTesting": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.19.0/EorzeaEventsPlugin.zip",
-    "DownloadLinkUpdate": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.19.0/EorzeaEventsPlugin.zip",
+    "DownloadLinkInstall": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.19.1/EorzeaEventsPlugin.zip",
+    "DownloadLinkTesting": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.19.1/EorzeaEventsPlugin.zip",
+    "DownloadLinkUpdate": "https://github.com/Neprena/eorzea-events-plugin/releases/download/v2.19.1/EorzeaEventsPlugin.zip",
     "TestingChangelog": "Proposez une relation d'un clic droit : la personne visée reçoit une demande, et le lien n'apparaît sur vos deux fiches qu'une fois qu'elle a accepté. Les demandes reçues se répondent depuis votre fiche RP, où une pastille les compte. Une relation liée ne se renomme plus en jeu, et la retirer prévient qu'elle disparaîtra aussi de la fiche d'en face. L'historique complet des nouveautés est dans le plugin.",
     "TestingDalamudApiLevel": 15,
-    "Changelog": "Un bouton dans Paramètres › Divers › À propos ouvre l'invitation au serveur Discord officiel d'Eorzea Events, en français et en anglais : un salon par établissement public, les actualités du site et l'ouverture des concours. L'historique complet des nouveautés est dans le plugin.",
-    "LastUpdate": 1794327723
+    "Changelog": "Une entrée « Discord » dans la section Communauté du menu ouvre l'invitation au serveur Discord officiel d'Eorzea Events. Les boutons Discord, celui des Paramètres comme ceux des établissements, portent maintenant le logo de Discord. L'historique complet des nouveautés est dans le plugin.",
+    "LastUpdate": 1794339207
   }
 ]

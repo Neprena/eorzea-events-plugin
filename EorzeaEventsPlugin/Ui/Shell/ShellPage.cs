@@ -29,6 +29,12 @@ internal sealed class ShellPage
     /// </summary>
     public Action? OnSelect { get; init; }
 
+    /// <summary>
+    /// L'entrée ouvre une page dans le navigateur, hors du jeu : une flèche le
+    /// signale en bout de ligne avant le clic, à la place de la pastille.
+    /// </summary>
+    public bool External { get; init; }
+
     /// <summary>Compteur affiché en pastille. Zéro masque la pastille.</summary>
     public Func<int>? Badge { get; init; }
 

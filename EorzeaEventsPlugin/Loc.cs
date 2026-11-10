@@ -32,6 +32,7 @@ internal sealed partial class Loc
 
     // ── Concours ──────────────────────────────────────────────────────────────
     public required string TabContests          { get; init; }
+    public required string TabDiscord           { get; init; }
     public required string ContestsEmpty        { get; init; }
     public required string ContestsAllOnSite    { get; init; }
     public required string ContestPhaseOpen     { get; init; }
@@ -1048,6 +1049,7 @@ internal sealed partial class Loc
 
         // Concours
         TabContests          = "Concours",
+        TabDiscord           = "Discord",
         ContestsEmpty        = "Aucun concours pour le moment.",
         ContestsAllOnSite    = "Tous les concours sur le site",
         ContestPhaseOpen     = "En cours",
@@ -2033,6 +2035,7 @@ internal sealed partial class Loc
 
         // Concours
         TabContests          = "Contests",
+        TabDiscord           = "Discord",
         ContestsEmpty        = "No contests right now.",
         ContestsAllOnSite    = "All contests on the website",
         ContestPhaseOpen     = "Open",

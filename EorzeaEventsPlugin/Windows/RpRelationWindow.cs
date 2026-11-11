@@ -19,6 +19,8 @@ internal enum RelationWindowMode
     Respond,
     /// <summary>Corriger ou retirer une de ses lignes.</summary>
     Edit,
+    /// <summary>Inscrire une ligne en texte libre, qui ne désigne aucune fiche.</summary>
+    Free,
 }
 
 /// <summary>
@@ -39,6 +41,9 @@ public sealed class RpRelationWindow : ThemedWindow
     /// <summary>Plafond de RP_MAX_RELATION_NOTE, appliqué aussi par le serveur.</summary>
     private const int MaxNote = 300;
 
+    /// <summary>Longueur maximale d'un nom, celle de la colonne <c>targetName</c>.</summary>
+    private const int MaxName = 80;
+
     private RelationWindowMode _mode = RelationWindowMode.Propose;
 
     private string _name  = string.Empty;
@@ -56,6 +61,9 @@ public sealed class RpRelationWindow : ThemedWindow
 
     /// <summary>La ligne corrigée vient d'une demande acceptée.</summary>
     private bool _linked;
+
+    /// <summary>Nom de la ligne à l'ouverture : seul un nom changé part au serveur.</summary>
+    private string _originalName = string.Empty;
 
     /// <summary>Rappel de l'appelant après un succès : recharger sa liste.</summary>
     private Action? _onDone;
@@ -144,18 +152,37 @@ public sealed class RpRelationWindow : ThemedWindow
         Show();
     }
 
-    /// <summary>Corrige ou retire une de ses lignes.</summary>
+    /// <summary>
+    /// Corrige ou retire une de ses lignes. Le nom d'une ligne en texte libre se
+    /// change ici aussi ; celui d'une ligne liée vient de l'acceptation.
+    /// </summary>
     public void OpenEdit(string relationId, string name, string kind, string? note, bool linked,
                          Action? onChanged = null)
     {
         Reset();
-        _mode       = RelationWindowMode.Edit;
-        _relationId = relationId;
-        _name       = name;
+        _mode         = RelationWindowMode.Edit;
+        _relationId   = relationId;
+        _name         = name;
+        _originalName = name;
         _linked     = linked;
         _note       = note ?? string.Empty;
         _onDone     = onChanged;
         _kindIndex  = IndexOfKind(kind);
+        Show();
+    }
+
+    /// <summary>
+    /// Inscrit une relation en texte libre : un PNJ, ou quelqu'un qui n'a pas de
+    /// fiche ici. La page Relations n'a pas d'autre voie d'ajout : un lien vers
+    /// une fiche se propose depuis cette fiche, jamais en tapant un nom.
+    /// </summary>
+    public void OpenFree(Action? onAdded = null)
+    {
+        Reset();
+        _mode      = RelationWindowMode.Free;
+        _name      = string.Empty;
+        _onDone    = onAdded;
+        _kindIndex = IndexOfKind("friend");
         Show();
     }
 
@@ -178,6 +205,7 @@ public sealed class RpRelationWindow : ThemedWindow
         _relationId    = null;
         _onDone        = null;
         _linked        = false;
+        _originalName  = string.Empty;
         _proposedKind  = string.Empty;
         _note          = string.Empty;
         _world         = string.Empty;
@@ -203,7 +231,8 @@ public sealed class RpRelationWindow : ThemedWindow
     private string Title(Loc l) => _mode switch
     {
         RelationWindowMode.Respond => string.Format(l.RpRelationRespondTitle, _name),
-        RelationWindowMode.Edit    => string.Format(l.RpRelationEditTitle, _name),
+        RelationWindowMode.Edit    => string.Format(l.RpRelationEditTitle, _originalName),
+        RelationWindowMode.Free    => l.RpRelationFreeTitle,
         _                          => l.RpRelationPropose,
     };
 
@@ -211,11 +240,25 @@ public sealed class RpRelationWindow : ThemedWindow
     {
         var l = Plugin.L;
 
-        Layout.SectionHeader(Title(l), Icons.Friend);
+        var freeText = _mode == RelationWindowMode.Free
+                    || (_mode == RelationWindowMode.Edit && !_linked);
 
-        Text.Body(_world.Length > 0
-            ? string.Format(l.RpRelationWith, _name, _world)
-            : string.Format(l.RpRelationWithPlain, _name));
+        Layout.SectionHeader(_mode == RelationWindowMode.Free ? l.RpRelationFreeHeading : Title(l),
+                             _mode == RelationWindowMode.Free ? Icons.Plus : Icons.Link);
+
+        // Une ligne en texte libre n'appartient qu'à son auteur : son nom est un
+        // champ. Partout ailleurs, il désigne une fiche et se lit seulement.
+        if (freeText)
+        {
+            Inputs.Field("##relname", l.RpRelationNameLabel, ref _name, MaxName,
+                         placeholder: l.RpProfileRelationName);
+        }
+        else
+        {
+            Text.Body(_world.Length > 0
+                ? string.Format(l.RpRelationWith, _name, _world)
+                : string.Format(l.RpRelationWithPlain, _name));
+        }
 
         if (_mode == RelationWindowMode.Respond)
             Text.Hint(string.Format(l.RpRelationTheirKind, _name,
@@ -223,9 +266,14 @@ public sealed class RpRelationWindow : ThemedWindow
 
         Layout.Spacer(Theme.GapS);
 
-        Text.Muted(_mode == RelationWindowMode.Respond
-            ? l.RpRelationYourKind
-            : l.RpRelationKindQuestion);
+        // « Quel lien proposes-tu ? » ne se dit qu'en proposant : corriger sa
+        // ligne ou en inscrire une ne propose rien à personne.
+        Text.Muted(_mode switch
+        {
+            RelationWindowMode.Respond => l.RpRelationYourKind,
+            RelationWindowMode.Propose => l.RpRelationKindQuestion,
+            _                          => l.RpRelationKindLabel,
+        });
         DrawKinds(l);
 
         Layout.Spacer(Theme.GapS);
@@ -236,6 +284,12 @@ public sealed class RpRelationWindow : ThemedWindow
         {
             Layout.Spacer(Theme.GapXs);
             Text.Hint(l.RpRelationBreakWarning);
+        }
+
+        if (_mode == RelationWindowMode.Free)
+        {
+            Layout.Spacer(Theme.GapXs);
+            Text.Hint(l.RpRelationFreeHint, Theme.Accent);
         }
 
         Layout.Divider(Theme.GapS);
@@ -294,13 +348,19 @@ public sealed class RpRelationWindow : ThemedWindow
 
             case RelationWindowMode.Edit:
                 if (Btn.Draw(l.RpRelationSave, BtnTone.Primary, BtnSize.Medium, Icons.Check,
-                             disabled: _busy, id: "rel_save"))
+                             disabled: _busy || _name.Trim().Length == 0, id: "rel_save"))
                     SaveEdit();
 
                 ImGui.SameLine(0f, Theme.S(Theme.GapS));
 
                 if (Btn.Hold(l.RpRelationRemove, "rel_remove", Icons.Trash, BtnSize.Medium, disabled: _busy))
                     Remove();
+                break;
+
+            case RelationWindowMode.Free:
+                if (Btn.Draw(l.RpRelationAdd, BtnTone.Primary, BtnSize.Medium, Icons.Check,
+                             disabled: _busy || _name.Trim().Length == 0, id: "rel_add_free"))
+                    AddFree();
                 break;
         }
 
@@ -364,6 +424,7 @@ public sealed class RpRelationWindow : ThemedWindow
             case ApiClient.RelationRequestResult.AcceptedNow:
                 Say(l.RpRelationSelfAccepted, error: false);
                 _onDone?.Invoke();
+                Plugin.RefreshOwnRelations();
                 break;
 
             case ApiClient.RelationRequestResult.NoTarget:
@@ -391,6 +452,17 @@ public sealed class RpRelationWindow : ThemedWindow
 
             case ApiClient.RelationRequestResult.NoProfile:
                 Say(l.RpRelationNeedProfile, error: true);
+                break;
+
+            case ApiClient.RelationRequestResult.Blocked:
+                Say(l.RpRelationBlocked, error: true);
+                break;
+
+            case ApiClient.RelationRequestResult.IncomingRequest:
+                Say(l.RpRelationIncoming, error: true);
+                // La demande reçue n'était peut-être pas encore relevée : la
+                // page Relations doit l'afficher quand on y va répondre.
+                Plugin.RequestRelationRequestsRefresh();
                 break;
 
             case ApiClient.RelationRequestResult.RateLimited:
@@ -431,6 +503,7 @@ public sealed class RpRelationWindow : ThemedWindow
                     case ApiClient.RelationRespondResult.Accepted:
                         Say(l.RpRelationAccepted, error: false);
                         _onDone?.Invoke();
+                        Plugin.RefreshOwnRelations();
                         break;
                     case ApiClient.RelationRespondResult.Declined:
                         Say(l.RpRelationDeclined, error: false);
@@ -468,9 +541,13 @@ public sealed class RpRelationWindow : ThemedWindow
         _busy     = true;
         _feedback = string.Empty;
 
+        var name = _name.Trim();
         var body = new UpdateRelationBody
         {
-            Kind = RpVocab.RelationKinds[_kindIndex],
+            // Seul un nom changé part : le serveur refuse de renommer une ligne
+            // liée, et une ligne liée ne présente de toute façon pas le champ.
+            TargetName = !_linked && name != _originalName ? name : null,
+            Kind       = RpVocab.RelationKinds[_kindIndex],
             // Vidé, le champ efface la note : les valeurs nulles étant omises à
             // la sérialisation, la chaîne vide est le seul moyen de le dire.
             Note = _note.Trim(),
@@ -491,7 +568,10 @@ public sealed class RpRelationWindow : ThemedWindow
                 }
 
                 Say(l.RpRelationSaved, error: false);
+                _originalName = name;
+                WindowName    = $"{Title(l)}##rprelation";
                 _onDone?.Invoke();
+                Plugin.RefreshOwnRelations();
             });
         });
     }
@@ -520,6 +600,7 @@ public sealed class RpRelationWindow : ThemedWindow
                 // liste qui l'affichait vient d'être prévenue.
                 _onDone?.Invoke();
                 Plugin.RequestRelationRequestsRefresh();
+                Plugin.RefreshOwnRelations();
                 IsOpen = false;
             });
         });
@@ -533,7 +614,7 @@ public sealed class RpRelationWindow : ThemedWindow
 
         var body = new FreeRelationBody
         {
-            TargetName = _name,
+            TargetName = _name.Trim(),
             Kind       = RpVocab.RelationKinds[_kindIndex],
             Note       = Trimmed(_note),
         };
@@ -551,6 +632,10 @@ public sealed class RpRelationWindow : ThemedWindow
                     case ApiClient.FreeRelationResult.Added:
                         Say(l.RpRelationFreeAdded, error: false);
                         _onDone?.Invoke();
+                        Plugin.RefreshOwnRelations();
+                        // Ouverte pour ajouter, la fenêtre a fini : la ligne
+                        // apparaît sur la page d'où l'on vient.
+                        if (_mode == RelationWindowMode.Free) IsOpen = false;
                         break;
                     case ApiClient.FreeRelationResult.ProfileFull:
                         Say(l.RpRelationFull, error: true);

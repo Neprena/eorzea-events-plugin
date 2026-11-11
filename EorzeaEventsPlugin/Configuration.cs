@@ -303,6 +303,15 @@ public class Configuration : IPluginConfiguration
     /// <summary>Notifier quand un événement communautaire démarre via message chat.</summary>
     public bool NotifyEventStartChat { get; set; } = true;
 
+    /// <summary>
+    /// Demande de relation reçue, ou demande envoyée qui vient d'être acceptée :
+    /// notification Dalamud, cliquable vers la page Relations.
+    /// </summary>
+    public bool NotifyRelationScreen { get; set; } = true;
+
+    /// <summary>Même alerte que <see cref="NotifyRelationScreen"/>, en ligne de chat.</summary>
+    public bool NotifyRelationChat { get; set; } = true;
+
     // Les trois morceaux de l'entrée « EorzeaEvents » de la barre de statut du
     // serveur. Les noms datent du temps où chacun était une entrée à part ; ils
     // restent tels quels pour ne pas perdre le réglage des joueurs.

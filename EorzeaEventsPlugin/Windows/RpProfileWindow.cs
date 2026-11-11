@@ -248,11 +248,60 @@ public class RpProfileWindow : ThemedWindow
             && _viewCharacterId is { Length: > 0 } relationTarget)
         {
             ImGui.SameLine(0f, Theme.S(Theme.GapS));
-
-            if (Btn.Draw(l.RpRelationPropose, BtnTone.Ghost, BtnSize.Medium, Icons.Friend,
-                         id: "rpview_relation"))
-                Plugin.OpenRelationProposal(relationTarget, 0, entry.CharacterName, entry.Server);
+            DrawRelationState(relationTarget, entry.CharacterName, entry.Server, l);
         }
+    }
+
+    /// <summary>
+    /// Où en est le lien avec la personne dont on lit la fiche.
+    ///
+    /// Le bouton proposait toujours d'en créer un : une demande déjà partie ne
+    /// s'apprenait qu'au clic sur « Envoyer », et une demande reçue de cette
+    /// personne ne se voyait pas du tout. Tout vient de ce que le plugin a déjà
+    /// en mémoire, sans appel réseau.
+    /// </summary>
+    private static void DrawRelationState(string characterId, string name, string? server, Loc l)
+    {
+        var linked = Plugin.OwnRelations.FirstOrDefault(r => r.Linked && r.TargetCharacterId == characterId);
+        if (linked?.Id is { Length: > 0 } relationId)
+        {
+            Chip.Draw(string.Format(l.RpRelationStateLinked, RpProfileView.RelationLabel(linked.Kind, l)),
+                      ChipTone.Success, Icons.Link, alignToFrame: true);
+            ImGui.SameLine(0f, Theme.S(Theme.GapXs));
+
+            if (Btn.Draw(l.RpRelationEdit, BtnTone.Ghost, BtnSize.Small, Icons.Edit, id: "rpview_rel_edit"))
+                Plugin.OpenRelationEdit(relationId, linked.TargetName, linked.Kind, linked.Note, linked: true);
+            return;
+        }
+
+        var received = Plugin.RelationRequestsReceived.FirstOrDefault(r => r.Character.Id == characterId);
+        if (received != null)
+        {
+            Chip.Draw(string.Format(l.RpRelationStateReceived, RpProfileView.RelationLabel(received.Kind, l)),
+                      ChipTone.Gold, alignToFrame: true);
+            ImGui.SameLine(0f, Theme.S(Theme.GapXs));
+
+            if (Btn.Draw(l.RpRelationRespond, BtnTone.Primary, BtnSize.Small, Icons.Check, id: "rpview_rel_reply"))
+                Plugin.OpenRelationResponse(received.Id, received.Character.Name,
+                                            received.Character.WorldName, received.Kind);
+            return;
+        }
+
+        var sent = Plugin.RelationRequestsSent.FirstOrDefault(
+            r => r.Character.Id == characterId && r.Status != "accepted");
+        if (sent != null)
+        {
+            Chip.Draw(string.Format(l.RpRelationStateSent, RpProfileView.RelationLabel(sent.Kind, l)),
+                      ChipTone.Neutral, Icons.Clock, alignToFrame: true);
+            ImGui.SameLine(0f, Theme.S(Theme.GapXs));
+
+            if (Btn.Hold(l.RpRelationCancel, "rpview_rel_cancel"))
+                Plugin.CancelRelationRequest(sent.Id);
+            return;
+        }
+
+        if (Btn.Draw(l.RpRelationPropose, BtnTone.Ghost, BtnSize.Medium, Icons.Link, id: "rpview_relation"))
+            Plugin.OpenRelationProposal(characterId, 0, name, server);
     }
 
     /// <summary>

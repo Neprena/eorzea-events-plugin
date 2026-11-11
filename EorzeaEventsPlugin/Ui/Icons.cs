@@ -117,6 +117,11 @@ internal static class Icons
     public const FontAwesomeIcon Friend    = FontAwesomeIcon.UserFriends;
     public const FontAwesomeIcon FriendAdd = FontAwesomeIcon.UserPlus;
 
+    // ─── Relations ────────────────────────────────────────────────────────────
+    public const FontAwesomeIcon Link  = FontAwesomeIcon.Link;
+    public const FontAwesomeIcon Inbox = FontAwesomeIcon.Inbox;
+    public const FontAwesomeIcon Send  = FontAwesomeIcon.PaperPlane;
+
     // ─── Coup d'œil ───────────────────────────────────────────────────────────
     //
     // Vocabulaire fermé de 24 clés, aligné sur RP_GLANCE_ICONS

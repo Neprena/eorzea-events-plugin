@@ -96,6 +96,7 @@ public class MainWindow : ThemedWindow, IDisposable
     private readonly RpProfilePage _rpProfile;
     private readonly AroundPage    _around = new();
     private readonly FriendsPage   _friends = new();
+    private readonly RelationsPage _relations = new();
     private readonly EncountersPage _encounters = new();
     private readonly NewsPage       _news = new();
     private readonly ContestsPage   _contests = new();
@@ -157,11 +158,20 @@ public class MainWindow : ThemedWindow, IDisposable
                 Label   = () => Plugin.L.RpProfileTitle,
                 Section = () => Plugin.L.NavSectionCommunity,
                 Draw    = _rpProfile.Draw,
-                // Les demandes reçues attendent une réponse : c'est la seule
-                // chose de la fiche qui appelle un geste, et le compteur ne suit
-                // rien d'autre.
-                Badge  = () => Plugin.RelationRequestsReceived.Count,
-                Locked = () => !Plugin.Api.HasToken,
+                Locked  = () => !Plugin.Api.HasToken,
+            },
+            new ShellPage
+            {
+                Id      = "relations",
+                Icon    = Icons.Link,
+                Label   = () => Plugin.L.TabRelations,
+                Section = () => Plugin.L.NavSectionCommunity,
+                Draw    = _relations.Draw,
+                // Les demandes reçues attendent une réponse : la pastille mène
+                // à la page où elles se trouvent, et non plus à une fiche où il
+                // fallait les chercher au fond d'un onglet.
+                Badge   = () => Plugin.RelationRequestsReceived.Count,
+                Locked  = () => !Plugin.Api.HasToken,
             },
             new ShellPage
             {

@@ -840,8 +840,9 @@ internal static class RpProfileView
     };
 
     /// <summary>
-    /// Relations. Toujours en consultation : les nouer se fait sur le site, où
-    /// l'on dispose du clavier et de la recherche de personnages.
+    /// Relations d'une fiche consultée. Elles se lisent ici ; elles se nouent
+    /// par une demande, depuis la fiche d'autrui ou le menu du clic droit, et se
+    /// gèrent sur la page Relations.
     /// </summary>
     public static void DrawRelations(RpProfileDto p, Loc l, Vector4? tone = null)
     {

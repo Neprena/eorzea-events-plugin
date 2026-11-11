@@ -216,7 +216,7 @@ internal sealed class EncountersPage
         return string.Format(l.EncounterMet, Relative(e.FirstMetAt, l));
     }
 
-    private static string Relative(DateTime utc, Loc l)
+    internal static string Relative(DateTime utc, Loc l)
     {
         var span = DateTime.UtcNow - utc;
         if (span < TimeSpan.FromMinutes(1)) return l.TimeJustNow;

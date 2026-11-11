@@ -65,6 +65,28 @@ internal static class ReleaseNotes
     public static readonly ReleaseNote[] All =
     [
         new(
+            Version: "2.20.0",
+            TitleFr: "Une page pour tes relations",
+            TitleEn: "A page for your relationships",
+            BodyFr: """
+                    - **Nouveauté :** Une page Relations, dans la section Communauté du menu, rassemble les demandes de relation reçues, les relations de ta fiche publiée et les demandes que tu as envoyées. Sa pastille compte les demandes qui attendent ta réponse. Dans « Mon profil RP », il ne reste qu'un résumé et le bouton « Gérer mes relations ».
+                    - **Nouveauté :** Une demande reçue, et une demande envoyée qui vient d'être acceptée, s'annoncent par une notification à l'écran et une ligne dans le chat. À la connexion, le plugin rappelle les demandes qui t'attendent. Les deux alertes se règlent dans Paramètres › Rôleplay, et la commande /eorzea relations ouvre la page.
+                    - **Amélioration :** Sur la fiche d'un autre joueur, le bouton de relation dit où vous en êtes : une demande envoyée se retire, une demande reçue a son bouton « Répondre », un lien existant son bouton « Modifier ».
+                    - **Amélioration :** Une relation en texte libre, pour un PNJ ou quelqu'un sans fiche, s'ajoute depuis la page Relations et peut être renommée. Une demande sans réponse expire au bout de 30 jours.
+                    - **Amélioration :** Au clic droit sur un joueur, les entrées d'Eorzea Events sont réunies dans un sous-menu « Eorzea Events ».
+                    - **Nouveauté :** Avec ton compte lié, « Voir la fiche RP » s'y trouve pour tout joueur croisé : sa fiche s'ouvre s'il en a une visible en jeu.
+                    - **Nouveauté :** « Bloquer », dans ce même sous-menu, demande une confirmation. Ensuite, tes personnages et le sien ne peuvent plus se proposer de relation, s'ajouter en ami RP ni rejoindre leurs RP ouverts, et ce qui vous liait est retiré. Aucune notification n'est envoyée.
+                    """,
+            BodyEn: """
+                    - **New:** A Relationships page, in the Community section of the menu, gathers the relationship requests you received, the relationships on your published profile and the requests you sent. Its badge counts the requests awaiting your reply. "My RP profile" now only keeps a summary and the "Manage my relationships" button.
+                    - **New:** A request you receive, and a request you sent that has just been accepted, show up as an on-screen notification and a chat line. When you log in, the plugin reminds you of the requests waiting for you. Both alerts are set in Settings › Roleplay, and the /eorzea relations command opens the page.
+                    - **Improvement:** On another player's profile, the relationship button tells where you stand: a sent request can be withdrawn, a received request has its "Reply" button, an existing tie its "Edit" button.
+                    - **Improvement:** A free-text relationship, for an NPC or someone without a profile, can be added from the Relationships page and renamed. An unanswered request expires after 30 days.
+                    - **Improvement:** When you right-click a player, the Eorzea Events entries are grouped in an "Eorzea Events" submenu.
+                    - **New:** With your account linked, "View RP profile" is there for any player you come across: their profile opens if it is visible in game.
+                    - **New:** "Block", in the same submenu, asks for confirmation. Afterwards, your characters and theirs can no longer propose relationships to each other, add each other as RP friends or join each other's open RPs, and what tied you is removed. No notification is sent.
+                    """),
+        new(
             Version: "2.19.1",
             TitleFr: "Le Discord dans le menu",
             TitleEn: "The Discord in the menu",

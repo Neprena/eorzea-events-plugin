@@ -113,6 +113,7 @@ public sealed class Plugin : IDalamudPlugin
     private static   MarkdownEditorWindow?  _markdownEditor;
     private static   RpProfileWizardWindow? _rpWizard;
     private static   RpRelationWindow?      _relationWindow;
+    private static   BlockCharacterWindow?  _blockWindow;
 
     /// <summary>Voyage assisté vers une parcelle, si Lifestream est présent.</summary>
     internal static Ipc.LifestreamIpc Lifestream { get; private set; } = null!;
@@ -783,6 +784,7 @@ public sealed class Plugin : IDalamudPlugin
         _markdownEditor     = new MarkdownEditorWindow();
         _rpWizard           = new RpProfileWizardWindow();
         _relationWindow     = new RpRelationWindow();
+        _blockWindow        = new BlockCharacterWindow();
         _windowSystem.AddWindow(_mainWindow);
         _windowSystem.AddWindow(_sessionWindow);
         _windowSystem.AddWindow(_setupWindow);
@@ -798,10 +800,11 @@ public sealed class Plugin : IDalamudPlugin
         _windowSystem.AddWindow(_markdownEditor);
         _windowSystem.AddWindow(_rpWizard);
         _windowSystem.AddWindow(_relationWindow);
+        _windowSystem.AddWindow(_blockWindow);
 
         CommandManager.AddHandler(CommandMain, new CommandInfo(OnCommand)
         {
-            HelpMessage = "Ouvre le panneau. /eorzea config = paramètres. /eorzea link = lier le personnage actuel. /eorzea rp <texte> = remplacer les jetons %xt et %xp.",
+            HelpMessage = "Ouvre le panneau. /eorzea config = paramètres. /eorzea link = lier le personnage actuel. /eorzea relations = demandes et relations RP. /eorzea rp <texte> = remplacer les jetons %xt et %xp.",
         });
 
         // Le thème de saison d'abord : les fenêtres lisent la palette dès leur PreDraw.
@@ -895,6 +898,10 @@ public sealed class Plugin : IDalamudPlugin
             OpenConfig();
         else if (trimmed.Equals("link", StringComparison.OrdinalIgnoreCase))
             _ = StartCharacterLinkAsync();
+        // Cité par les alertes de demande de relation, qui s'écrivent dans le
+        // chat : la ligne dit où répondre, la commande y mène.
+        else if (trimmed.Equals("relations", StringComparison.OrdinalIgnoreCase))
+            OpenRelations();
         // Substitution des jetons de saisie. Explicite et manuelle : le résultat
         // atterrit dans le presse-papiers, rien n'est envoyé à la place du
         // joueur, ce que les règles de publication de Dalamud interdisent.
@@ -1014,6 +1021,35 @@ public sealed class Plugin : IDalamudPlugin
     }
 
     /// <summary>
+    /// Ouvre la fiche d'un joueur qu'on a sous les yeux, absent de la liste des
+    /// disponibilités. Le ContentId part haché, comme pour la relation ; le
+    /// serveur ne répond que pour une fiche visible en jeu.
+    /// </summary>
+    internal static void OpenRpProfileByContentId(ulong contentId, string name, string world)
+    {
+        if (IsBlocked)
+        {
+            OpenMain();
+            return;
+        }
+
+        var hash = HashContentId(contentId);
+        Task.Run(async () =>
+        {
+            var result = await Api.ResolveRpProfileAsync(hash);
+            await Framework.RunOnFrameworkThread(() =>
+            {
+                if (result.Failed)
+                    ChatGui.PrintError($"[Eorzea Events] {Ui.Components.ServerNotice.Explain(L.RpProfileResolveFailed)}");
+                else if (result.CharacterId is { Length: > 0 } id)
+                    OpenRpProfileViewer(id, name, world);
+                else
+                    ChatGui.Print(string.Format(L.RpProfileNoneVisible, name));
+            });
+        });
+    }
+
+    /// <summary>
     /// Ouvre la proposition de relation sur un joueur qu'on a sous les yeux.
     ///
     /// Le ContentId part haché : l'identifiant brut d'un tiers ne quitte jamais
@@ -1034,17 +1070,51 @@ public sealed class Plugin : IDalamudPlugin
         // le savoir d'ici, et c'est le serveur qui le dira.
         if (characterId is { Length: > 0 })
         {
-            var existing = _ownRelations.FirstOrDefault(r => r.TargetCharacterId == characterId);
+            var existing = _ownRelations.FirstOrDefault(r => r.Linked && r.TargetCharacterId == characterId);
             if (existing?.Id is { Length: > 0 } relationId)
             {
                 _relationWindow?.OpenEdit(relationId, existing.TargetName, existing.Kind,
-                                          existing.Note, linked: true);
+                                          existing.Note, linked: true, onChanged: RefreshOwnRelations);
+                return;
+            }
+
+            // Cette personne a déjà proposé un lien : y répondre, plutôt que
+            // d'envoyer une demande croisée que le serveur refuserait.
+            var received = RelationRequestsReceived.FirstOrDefault(r => r.Character.Id == characterId);
+            if (received != null)
+            {
+                _relationWindow?.OpenRespond(received.Id, received.Character.Name,
+                                             received.Character.WorldName, received.Kind);
                 return;
             }
         }
 
         var hash = contentId != 0 ? HashContentId(contentId) : null;
         _relationWindow?.OpenPropose(characterId, hash, name, world);
+    }
+
+    /// <summary>Ouvre la page Relations de la fenêtre principale.</summary>
+    internal static void OpenRelations()
+    {
+        if (IsBlocked)
+        {
+            OpenMain();
+            return;
+        }
+
+        _mainWindow?.OpenAt("relations");
+    }
+
+    /// <summary>Ouvre l'ajout d'une relation en texte libre.</summary>
+    internal static void OpenRelationFree()
+    {
+        if (IsBlocked)
+        {
+            OpenMain();
+            return;
+        }
+
+        _relationWindow?.OpenFree();
     }
 
     /// <summary>Ouvre la réponse à une demande reçue.</summary>
@@ -1498,17 +1568,94 @@ public sealed class Plugin : IDalamudPlugin
     internal static IReadOnlyList<Api.RpFriendDto> Friends { get; private set; } = [];
 
     /// <summary>
-    /// Relations de sa propre fiche, telles que la page les a lues.
+    /// Relations de la fiche publiée du personnage courant.
     ///
-    /// Écho du dernier chargement et rien de plus : la source reste le serveur.
-    /// Sert au clic droit, pour ouvrir la ligne existante au lieu de proposer un
-    /// lien à qui en a déjà un.
+    /// Écho du dernier relevé et rien de plus : la source reste le serveur. La
+    /// page Relations les affiche ; le clic droit et la fiche d'autrui s'en
+    /// servent pour dire où en est le lien avec quelqu'un. Seule la fiche
+    /// publiée compte : c'est la seule que les routes de relation modifient, et
+    /// la seule que les autres voient.
     /// </summary>
+    internal static IReadOnlyList<Api.RpRelationDto> OwnRelations => _ownRelations;
     private static IReadOnlyList<Api.RpRelationDto> _ownRelations = [];
 
-    /// <summary>Confie au plugin les relations que la page vient de lire.</summary>
+    /// <summary>Où en est la lecture de ses propres relations.</summary>
+    internal enum OwnRelationsState { Unknown, NoProfile, Loaded }
+
+    internal static OwnRelationsState OwnRelationsStatus { get; private set; } = OwnRelationsState.Unknown;
+
+    private static string?  _ownRelationsFor;
+    private static DateTime _ownRelationsAt = DateTime.MinValue;
+    private static bool     _ownRelationsLoading;
+
+    /// <summary>
+    /// Confie au plugin les relations de la fiche publiée, que la page de profil
+    /// vient de lire : un appel de moins quand on passe d'une page à l'autre.
+    /// </summary>
     internal static void RememberOwnRelations(IReadOnlyList<Api.RpRelationDto> relations)
-        => _ownRelations = relations;
+    {
+        if (CurrentCharacter is not { } character) return;
+
+        _ownRelationsFor   = Configuration.CharacterKey(character.Name, character.WorldId);
+        _ownRelations      = relations;
+        OwnRelationsStatus = OwnRelationsState.Loaded;
+        _ownRelationsAt    = DateTime.UtcNow;
+    }
+
+    /// <summary>Relit ses relations si le dernier relevé date de plus de <paramref name="maxAge"/>.</summary>
+    internal static void EnsureOwnRelationsFresh(TimeSpan maxAge)
+    {
+        if (DateTime.UtcNow - _ownRelationsAt >= maxAge) RefreshOwnRelations();
+    }
+
+    /// <summary>
+    /// Relit la fiche publiée pour en tirer les relations.
+    ///
+    /// Personne ne prévient quand l'autre côté retire un lien : sans relecture,
+    /// la page montrerait une ligne qui n'existe plus. Un échec réseau garde ce
+    /// qui est affiché ; une réponse vide alors que le site répond veut dire
+    /// qu'il n'y a pas de fiche.
+    /// </summary>
+    internal static void RefreshOwnRelations()
+    {
+        if (CurrentCharacter is not { } character || !Api.HasToken) return;
+
+        var key = Configuration.CharacterKey(character.Name, character.WorldId);
+        if (key != _ownRelationsFor)
+        {
+            _ownRelationsFor   = key;
+            _ownRelations      = [];
+            OwnRelationsStatus = OwnRelationsState.Unknown;
+        }
+        else if (_ownRelationsLoading) return;
+
+        _ownRelationsLoading = true;
+        // Posé avant l'appel : un échec ne doit pas déclencher une relecture à
+        // chaque image tant que la page reste ouverte.
+        _ownRelationsAt = DateTime.UtcNow;
+
+        Task.Run(async () =>
+        {
+            var profile = await Api.GetRpProfileAsync();
+            await Framework.RunOnFrameworkThread(() =>
+            {
+                if (CurrentCharacter is not { } current) return;
+                if (Configuration.CharacterKey(current.Name, current.WorldId) != key) return;
+
+                _ownRelationsLoading = false;
+                if (profile != null)
+                {
+                    _ownRelations      = profile.Relations;
+                    OwnRelationsStatus = OwnRelationsState.Loaded;
+                }
+                else if (!Api.IsServerDown)
+                {
+                    _ownRelations      = [];
+                    OwnRelationsStatus = OwnRelationsState.NoProfile;
+                }
+            });
+        });
+    }
 
     /// <summary>Demandes de relation reçues, en attente de réponse.</summary>
     internal static IReadOnlyList<Api.RpRelationRequestDto> RelationRequestsReceived { get; private set; } = [];
@@ -1520,9 +1667,41 @@ public sealed class Plugin : IDalamudPlugin
     /// </summary>
     internal static IReadOnlyList<Api.RpRelationRequestDto> RelationRequestsSent { get; private set; } = [];
 
+    /// <summary>
+    /// Demandes qui attendent les autres personnages du compte. On ne peut y
+    /// répondre qu'en jouant le personnage visé ; le plugin les signale pour
+    /// qu'elles ne restent pas invisibles tant qu'on joue celui-ci.
+    /// </summary>
+    internal static IReadOnlyList<Api.RpRelationElsewhereDto> RelationRequestsElsewhere { get; private set; } = [];
+
+    /// <summary>
+    /// Le premier relevé du personnage a eu lieu : les suivants annoncent ce qui
+    /// a changé depuis. Le premier, lui, annonce ce qui attendait déjà.
+    /// </summary>
+    private static bool            _relationRequestsPrimed;
+    private static HashSet<string> _seenReceivedIds = [];
+    private static HashSet<string> _pendingSentIds  = [];
+
     private static HashSet<string> _friendIds     = [];
     private static HashSet<string> _friendHashes  = [];
     private static string?         _friendsLoadedFor;
+
+    /// <summary>
+    /// Blocages du compte. Le blocage appartient au compte et non au
+    /// personnage : le cache ne se vide donc pas quand on change de personnage.
+    /// </summary>
+    internal static IReadOnlyList<Api.CharacterBlockDto> CharacterBlocks { get; private set; } = [];
+
+    private static Dictionary<string, string> _blockIdsByHash = [];
+    private static string?                    _blocksLoadedFor;
+
+    /// <summary>
+    /// Identifiant du blocage visant ce joueur, ou <c>null</c> s'il n'est pas
+    /// bloqué. Pas de nom en `IsBlocked` : il désigne déjà le blocage d'urgence
+    /// du plugin.
+    /// </summary>
+    internal static string? CharacterBlockIdFor(ulong contentId) =>
+        contentId != 0 && _blockIdsByHash.TryGetValue(HashContentId(contentId), out var id) ? id : null;
 
     /// <summary>Ce personnage figure-t-il dans ma liste d'accès ?</summary>
     internal static bool IsFriend(string? characterId) =>
@@ -1566,9 +1745,17 @@ public sealed class Plugin : IDalamudPlugin
         {
             // Changement de personnage : ce qui est en mémoire concerne quelqu'un
             // d'autre et ne doit pas rester à l'écran une image de plus.
-            _relationRequestsFor     = key;
-            RelationRequestsReceived = [];
-            RelationRequestsSent     = [];
+            _relationRequestsFor      = key;
+            RelationRequestsReceived  = [];
+            RelationRequestsSent      = [];
+            RelationRequestsElsewhere = [];
+            _relationRequestsPrimed   = false;
+            _seenReceivedIds          = [];
+            _pendingSentIds           = [];
+
+            // Les relations de la fiche suivent le personnage : celles d'avant
+            // ne le concernent pas.
+            RefreshOwnRelations();
         }
 
         Task.Run(async () =>
@@ -1582,8 +1769,118 @@ public sealed class Plugin : IDalamudPlugin
                 if (CurrentCharacter is not { } current) return;
                 if (Configuration.CharacterKey(current.Name, current.WorldId) != key) return;
 
-                RelationRequestsReceived = requests.Received;
-                RelationRequestsSent     = requests.Sent;
+                var received = requests.Received;
+                var sent     = requests.Sent;
+
+                if (_relationRequestsPrimed)
+                {
+                    var fresh = received.Where(r => !_seenReceivedIds.Contains(r.Id)).ToList();
+                    if (fresh.Count > 0) AnnounceReceivedRelations(fresh);
+
+                    // Seule une demande vue en attente puis acceptée s'annonce :
+                    // celle d'un personnage du même compte naît acceptée, et son
+                    // auteur sait déjà ce qu'il vient de faire.
+                    var accepted = sent.Where(r => r.Status == "accepted" && _pendingSentIds.Contains(r.Id))
+                                       .ToList();
+                    foreach (var request in accepted) AnnounceAcceptedRelation(request);
+                    if (accepted.Count > 0) RefreshOwnRelations();
+                }
+                else if (received.Length > 0)
+                {
+                    AnnounceReceivedRelations(received);
+                }
+
+                _relationRequestsPrimed = true;
+                _seenReceivedIds        = received.Select(r => r.Id).ToHashSet();
+                _pendingSentIds         = sent.Where(r => r.Status != "accepted").Select(r => r.Id).ToHashSet();
+
+                RelationRequestsReceived  = received;
+                RelationRequestsSent      = sent;
+                RelationRequestsElsewhere = requests.Elsewhere;
+            });
+        });
+    }
+
+    /// <summary>
+    /// Annonce des demandes reçues : une seule se nomme, plusieurs se comptent.
+    /// La pastille du menu ne suffisait pas : rien n'invitait à la regarder, et
+    /// une demande pouvait attendre des semaines.
+    /// </summary>
+    private static void AnnounceReceivedRelations(IReadOnlyList<Api.RpRelationRequestDto> requests)
+    {
+        var body = requests.Count == 1
+            ? string.Format(L.NotifRelationBody, requests[0].Character.Name, requests[0].Character.WorldName,
+                            Ui.Components.RpProfileView.RelationLabel(requests[0].Kind, L))
+            : string.Format(L.NotifRelationMany, requests.Count);
+
+        AnnounceRelation(L.NotifRelationTitle, body, $"{body} {L.NotifRelationChatHint}");
+    }
+
+    private static void AnnounceAcceptedRelation(Api.RpRelationRequestDto request)
+    {
+        var body = string.Format(L.NotifRelationAcceptedBody, request.Character.Name,
+                                 Ui.Components.RpProfileView.RelationLabel(request.Kind, L));
+        AnnounceRelation(L.NotifRelationAcceptedTitle, body, body);
+    }
+
+    /// <summary>Notification cliquable vers la page Relations, et ligne de chat, selon les réglages.</summary>
+    private static void AnnounceRelation(string title, string body, string chat)
+    {
+        if (Config.NotifyRelationScreen)
+        {
+            var active = NotificationMgr.AddNotification(new Notification
+            {
+                Title           = title,
+                Content         = body,
+                Type            = NotificationType.Info,
+                InitialDuration = TimeSpan.FromSeconds(8),
+            });
+
+            active.Click += _ =>
+            {
+                OpenRelations();
+                active.DismissNow();
+            };
+        }
+
+        if (Config.NotifyRelationChat)
+            ChatGui.Print(new SeStringBuilder()
+                .AddUiForeground(32)
+                .AddText("[Eorzea Events] ")
+                .AddUiForegroundOff()
+                .AddText(chat)
+                .Build());
+    }
+
+    /// <summary>
+    /// Ignore une demande reçue, depuis la page Relations comme depuis la fiche
+    /// de son auteur. <paramref name="done"/> reçoit vrai quand le serveur l'a
+    /// enregistré.
+    /// </summary>
+    internal static void DeclineRelationRequest(string requestId, Action<bool>? done = null)
+    {
+        Task.Run(async () =>
+        {
+            var result = await Api.RespondRelationRequestAsync(
+                requestId, new Api.RespondRelationRequestBody { Action = "decline" });
+            await Framework.RunOnFrameworkThread(() =>
+            {
+                RequestRelationRequestsRefresh();
+                done?.Invoke(result != ApiClient.RelationRespondResult.Failed);
+            });
+        });
+    }
+
+    /// <summary>Retire une demande envoyée, ce qui rouvre la possibilité d'en refaire une.</summary>
+    internal static void CancelRelationRequest(string requestId, Action<bool>? done = null)
+    {
+        Task.Run(async () =>
+        {
+            var ok = await Api.CancelRelationRequestAsync(requestId);
+            await Framework.RunOnFrameworkThread(() =>
+            {
+                RequestRelationRequestsRefresh();
+                done?.Invoke(ok);
             });
         });
     }
@@ -1611,6 +1908,46 @@ public sealed class Plugin : IDalamudPlugin
                     .Select(f => f.ContentIdHash)
                     .Where(h => !string.IsNullOrEmpty(h))
                     .Select(h => h!)];
+            });
+        });
+    }
+
+    /// <summary>
+    /// Recharge les blocages du compte, en gardant l'ancienne liste si l'appel
+    /// échoue : un cache vidé par une coupure réseau remettrait en jeu des
+    /// joueurs bloqués.
+    /// </summary>
+    internal static void RefreshCharacterBlocks()
+    {
+        Task.Run(async () =>
+        {
+            var blocks = await Api.GetCharacterBlocksAsync();
+            if (blocks == null) return; // échec réseau : on garde ce qu'on a
+
+            await Framework.RunOnFrameworkThread(() =>
+            {
+                CharacterBlocks = blocks;
+                _blockIdsByHash = blocks
+                    .Where(b => !string.IsNullOrEmpty(b.ContentIdHash))
+                    .GroupBy(b => b.ContentIdHash!)
+                    .ToDictionary(g => g.Key, g => g.First().Id);
+            });
+        });
+    }
+
+    /// <summary>Lève le blocage d'un joueur depuis le menu, puis relit la liste.</summary>
+    internal static void UnblockCharacter(string blockId, string label)
+    {
+        Task.Run(async () =>
+        {
+            var ok = await Api.UnblockCharacterAsync(blockId);
+            await Framework.RunOnFrameworkThread(() =>
+            {
+                if (ok) ChatGui.Print($"[Eorzea Events] {string.Format(L.UnblockDone, label)}");
+                else    ChatGui.PrintError($"[Eorzea Events] {Ui.Components.ServerNotice.Explain(L.UnblockFailed)}");
+
+                // Aussi après un échec : on repart de l'état réel du serveur.
+                RefreshCharacterBlocks();
             });
         });
     }
@@ -1656,6 +1993,9 @@ public sealed class Plugin : IDalamudPlugin
                         break;
                     case EorzeaEventsPlugin.Api.ApiClient.AddFriendResult.LimitReached:
                         ChatGui.PrintError($"[Eorzea Events] {L.RpFriendAddLimit}");
+                        break;
+                    case EorzeaEventsPlugin.Api.ApiClient.AddFriendResult.Blocked:
+                        ChatGui.PrintError($"[Eorzea Events] {L.RpFriendAddBlocked}");
                         break;
                     case EorzeaEventsPlugin.Api.ApiClient.AddFriendResult.NoCharacterToken:
                         ChatGui.PrintError($"[Eorzea Events] {L.RpFriendNoToken}");
@@ -2168,6 +2508,14 @@ public sealed class Plugin : IDalamudPlugin
         // Liste d'accès : rechargée au premier passage et à chaque changement de
         // personnage, jamais en boucle, puisque seul son propriétaire la modifie.
         RefreshFriends();
+
+        // Blocages : relus à l'arrivée d'un jeton, pas à chaque personnage. Les
+        // blocages et déblocages relancent eux-mêmes la lecture.
+        if (Api.CurrentToken is { } blockToken && blockToken != _blocksLoadedFor)
+        {
+            _blocksLoadedFor = blockToken;
+            RefreshCharacterBlocks();
+        }
 
         // Surveillance tag RP (chaque frame, lecture uint = négligeable)
         var rpPlayer = ObjectTable.LocalPlayer;
@@ -2984,41 +3332,63 @@ public sealed class Plugin : IDalamudPlugin
     /// <summary>
     /// Ajoute « Voir la fiche RP » au menu contextuel d'un joueur.
     ///
-    /// L'entrée n'apparaît que pour les joueurs figurant déjà dans la liste
-    /// publique des disponibilités, à laquelle ils ont consenti. C'est une
-    /// contrainte, pas une simplification : résoudre un nom arbitraire côté
-    /// serveur reviendrait à offrir un annuaire de joueurs, ce que
-    /// <c>src/lib/rp-relations.ts</c> proscrit explicitement. Effet de bord
-    /// heureux, un clic droit sur quelqu'un qui n'a pas consenti ne révèle même
-    /// pas qu'il possède une fiche.
+    /// L'entrée s'affiche sur tout joueur. La résolution se fait par l'empreinte
+    /// du ContentId d'un joueur qu'on a sous les yeux, jamais par un nom
+    /// arbitraire, ce qui reviendrait à offrir un annuaire de joueurs (ce que
+    /// <c>src/lib/rp-relations.ts</c> proscrit). Le serveur ne répond que pour
+    /// une fiche visible en jeu et donne la même absence dans tous les autres
+    /// cas : le menu ne révèle donc toujours pas qui possède une fiche.
     /// </summary>
     private void OnMenuOpened(IMenuOpenedArgs args)
     {
         if (args.Target is not MenuTargetDefault target) return;
         if (string.IsNullOrEmpty(target.TargetName)) return;
 
+        // Toutes les entrées tiennent dans un seul sous-menu. Le menu contextuel
+        // est partagé avec les autres plugins : nos lignes « E » s'y noyaient
+        // parmi les leurs, jusqu'à se confondre avec la consultation de fiche
+        // d'un autre plugin. Le nom écrit en toutes lettres dit d'où elles
+        // viennent, et le menu ne compte jamais qu'une ligne de plus.
+        var items = BuildMenuItems(target);
+        if (items.Count == 0) return;
+
+        args.AddMenuItem(new MenuItem
+        {
+            Name        = this.Name,
+            PrefixChar  = 'E',
+            PrefixColor = 52, // même teinte que le titre de nameplate
+            IsSubmenu   = true,
+            OnClicked   = clicked => clicked.OpenSubmenu(items),
+        });
+    }
+
+    /// <summary>
+    /// Entrées du sous-menu « Eorzea Events », chacune avec ses propres
+    /// conditions d'affichage. Sans préfixe : Dalamud ne l'exige qu'en dehors
+    /// d'un sous-menu, et on sait déjà d'où elles viennent.
+    /// </summary>
+    private List<IMenuItem> BuildMenuItems(MenuTargetDefault target)
+    {
+        var items = new List<IMenuItem>();
+
         // Même rapprochement nom + monde que les nameplates.
         var entry = FindAvailableEntry(target.TargetName, target.TargetHomeWorld.Value.Name.ToString());
 
         if (entry != null)
         {
-            args.AddMenuItem(new MenuItem
+            items.Add(new MenuItem
             {
-                Name        = L.MenuViewRpProfile,
-                PrefixChar  = 'E',
-                PrefixColor = 52, // même teinte que le titre de nameplate
-                OnClicked   = _ => OpenRpProfileViewer(entry),
+                Name      = L.MenuViewRpProfile,
+                OnClicked = _ => OpenRpProfileViewer(entry),
             });
 
             if (HasFreshPosition(entry))
             {
                 var located = entry;
-                args.AddMenuItem(new MenuItem
+                items.Add(new MenuItem
                 {
-                    Name        = L.AroundFindOnMap,
-                    PrefixChar  = 'E',
-                    PrefixColor = 52,
-                    OnClicked   = _ => OpenOnMap(located),
+                    Name      = L.AroundFindOnMap,
+                    OnClicked = _ => OpenOnMap(located),
                 });
             }
 
@@ -3032,12 +3402,10 @@ public sealed class Plugin : IDalamudPlugin
                 var noteName  = target.TargetName;
                 var noteWorld = target.TargetHomeWorld.Value.Name.ToString();
                 var noteEntry = entry;
-                args.AddMenuItem(new MenuItem
+                items.Add(new MenuItem
                 {
-                    Name        = L.RpFriendNote,
-                    PrefixChar  = 'E',
-                    PrefixColor = 52,
-                    OnClicked   = _ =>
+                    Name      = L.RpFriendNote,
+                    OnClicked = _ =>
                     {
                         EncounterRegistry.RecordNoteGesture(noteTarget, noteName, noteWorld, noteEntry);
                         OpenEncounterNote(noteTarget);
@@ -3052,24 +3420,37 @@ public sealed class Plugin : IDalamudPlugin
         // un personnage dont la fiche est visible en jeu ; les autres cas
         // reçoivent le même refus, sans dire s'ils ont un compte.
         var contentId = target.TargetContentId;
-        if (CurrentCharacter is not { } self) return;
-        if (string.Equals(target.TargetName, self.Name, StringComparison.Ordinal)) return;
+        if (CurrentCharacter is not { } self) return items;
+        if (string.Equals(target.TargetName, self.Name, StringComparison.Ordinal)) return items;
 
         var label = target.TargetName;
         var world = target.TargetHomeWorld.Value.Name.ToString();
 
+        // Un joueur bloqué ne reçoit ni relation ni ami RP : le serveur les
+        // refuserait de toute façon, autant ne pas les proposer.
+        var blockId = contentId != 0 && Api.HasToken ? CharacterBlockIdFor(contentId) : null;
+
+        // Joueur hors liste des disponibilités : la fiche se résout au clic, par
+        // l'empreinte du ContentId. Toujours en tête du sous-menu.
+        if (entry == null && Api.HasToken && contentId != 0)
+        {
+            items.Insert(0, new MenuItem
+            {
+                Name      = L.MenuViewRpProfile,
+                OnClicked = _ => OpenRpProfileByContentId(contentId, label, world),
+            });
+        }
+
         // Proposer une relation s'offre sur tout le monde : le menu ne doit pas
         // laisser deviner qui a une fiche ici. C'est le serveur qui répondra, et
         // sa réponse n'ira qu'à celui qui a demandé.
-        if (Api.HasToken && (contentId != 0 || entry?.Profile?.CharacterId != null))
+        if (blockId == null && Api.HasToken && (contentId != 0 || entry?.Profile?.CharacterId != null))
         {
-            args.AddMenuItem(new MenuItem
+            items.Add(new MenuItem
             {
-                Name        = L.RpRelationPropose,
-                PrefixChar  = 'E',
-                PrefixColor = 52,
-                OnClicked   = _ => OpenRelationProposal(entry?.Profile?.CharacterId, contentId,
-                                                        label, world),
+                Name      = L.RpRelationPropose,
+                OnClicked = _ => OpenRelationProposal(entry?.Profile?.CharacterId, contentId,
+                                                      label, world),
             });
         }
 
@@ -3081,15 +3462,36 @@ public sealed class Plugin : IDalamudPlugin
 
         // Les deux gestes s'écrivent sur le serveur, au nom d'un personnage :
         // sans jeton, le menu ne les propose pas plutôt que de les voir échouer.
-        if (!Api.HasToken || contentId == 0 || already) return;
+        if (!Api.HasToken || contentId == 0) return items;
 
-        args.AddMenuItem(new MenuItem
+        if (blockId == null && !already)
         {
-            Name        = L.RpFriendAdd,
-            PrefixChar  = 'E',
-            PrefixColor = 52,
-            OnClicked   = _ => AddFriend(entry?.Profile?.CharacterId, contentId, label),
-        });
+            items.Add(new MenuItem
+            {
+                Name      = L.RpFriendAdd,
+                OnClicked = _ => AddFriend(entry?.Profile?.CharacterId, contentId, label),
+            });
+        }
+
+        // Toujours en dernier : un geste rare et lourd de conséquences.
+        if (blockId != null)
+        {
+            var id = blockId;
+            items.Add(new MenuItem
+            {
+                Name      = L.MenuUnblock,
+                OnClicked = _ => UnblockCharacter(id, label),
+            });
+        }
+        else
+        {
+            items.Add(new MenuItem
+            {
+                Name      = L.MenuBlock,
+                OnClicked = _ => _blockWindow?.Open(contentId, label, world),
+            });
+        }
+        return items;
     }
 
     private void OnNamePlateUpdate(
@@ -3500,6 +3902,7 @@ public sealed class Plugin : IDalamudPlugin
         // Même raison : sa référence est statique, et un rechargement du plugin
         // repartirait avec la fenêtre de l'instance précédente.
         _relationWindow = null;
+        _blockWindow    = null;
         _mainWindow?.Dispose();
         _estabDetailWindow?.Dispose();
         Ui.Fonts.Dispose();

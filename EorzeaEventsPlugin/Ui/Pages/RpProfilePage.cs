@@ -43,7 +43,6 @@ internal sealed class RpProfilePage(Configuration config)
     private bool          _loadFailed;
 
     /// <summary>Échec du dernier refus ou retrait d'une demande de relation, vide sinon.</summary>
-    private string        _requestError = string.Empty;
     private bool          _saving;
     private DateTime      _savedUntil = DateTime.MinValue;
 
@@ -517,8 +516,7 @@ internal sealed class RpProfilePage(Configuration config)
         DrawIdentity(l);
         DrawStyling(l);
         DrawProfileLinks(l);
-        DrawRelationRequests(l);
-        DrawRelations(l);
+        DrawRelationsSection(l);
         DrawDescription(l);
         DrawLimits(l);
         if (_profile is { } linked) RpProfileView.DrawLinks(linked, l, Tone);
@@ -578,8 +576,7 @@ internal sealed class RpProfilePage(Configuration config)
                 DrawPreferences(l);
                 DrawThemes(l);
                 DrawLimits(l);
-                DrawRelationRequests(l);
-                DrawRelations(l);
+                DrawRelationsSection(l);
                 break;
 
             case "links":
@@ -705,9 +702,10 @@ internal sealed class RpProfilePage(Configuration config)
                 _profile = fetched;
                 _profileFromNetwork = true;
 
-                // Le clic droit s'en sert pour savoir si un lien existe déjà avec
-                // la personne visée.
-                Plugin.RememberOwnRelations(fetched.Relations);
+                // La page Relations, le clic droit et la fiche d'autrui s'en
+                // servent pour dire où en est le lien avec quelqu'un. Seule la
+                // fiche publiée compte : celle en réserve ne lie personne.
+                if (slot.Length == 0) Plugin.RememberOwnRelations(fetched.Relations);
                 _lastFetchedAt = DateTime.UtcNow;
 
                 // Seule la fiche publiée alimente le cache : y écrire une fiche
@@ -1725,134 +1723,72 @@ internal sealed class RpProfilePage(Configuration config)
     }
 
     /// <summary>
-    /// Demandes de relation, au-dessus des relations : c'est ce qui attend un
-    /// geste, et une ligne liée ne peut naître que d'ici.
+    /// Relations de la fiche ouverte.
     ///
-    /// La carte disparaît quand il n'y a rien à montrer. Sur une page qui compte
-    /// déjà douze sections, une carte vide ne dit rien que l'absence ne dise
-    /// mieux.
+    /// Celles de la fiche publiée se gèrent sur la page Relations, avec les
+    /// demandes qui les font naître : elles y sont à l'unité, sans formulaire à
+    /// enregistrer, et ce qui se passe de l'autre côté (une acceptation, un lien
+    /// retiré) s'y voit. La fiche n'en garde qu'un résumé et le chemin.
+    ///
+    /// Une fiche en réserve garde l'éditeur d'ici : la page Relations ne montre
+    /// que la fiche publiée, celle que les autres voient. Ses lignes libres
+    /// partent avec l'enregistrement de la fiche ; ses lignes liées se
+    /// corrigent et se retirent par la fenêtre de relation, comme les autres :
+    /// l'enregistrement les conserve.
     /// </summary>
-    private void DrawRelationRequests(Loc l)
+    private void DrawRelationsSection(Loc l)
     {
-        var received = Plugin.RelationRequestsReceived;
-        var sent     = Plugin.RelationRequestsSent;
-        if (received.Count == 0 && sent.Count == 0) return;
-
-        using var card = Card.Begin("rp_relation_requests", interactive: false);
-        Layout.SectionHeader(l.RpRelationRequests, Icons.Friend, received.Count, tone: Tone);
-
-        for (var i = 0; i < received.Count; i++)
+        if (_loadedProfile.Length > 0)
         {
-            if (i > 0) Layout.Divider(Theme.GapS);
-            DrawReceivedRequest(received[i], l);
+            DrawRelations(l);
+            return;
         }
 
-        if (sent.Count > 0)
-        {
-            Layout.Spacer(Theme.GapS);
-            Text.Muted(l.RpRelationSentTitle);
+        var relations = Plugin.OwnRelations;
+        var pending   = Plugin.RelationRequestsReceived.Count;
 
-            foreach (var request in sent)
-                DrawSentRequest(request, l);
+        using var card = Card.Begin("rp_relations_summary", interactive: false);
+        Layout.SectionHeader($"{l.RpProfileRelations}  ·  {relations.Count}/{MaxRelations}",
+                             Icons.Link, tone: Tone);
+
+        if (relations.Count == 0)
+        {
+            Text.Muted(l.RpProfileRelationsEmpty);
+        }
+        else
+        {
+            // Trois noms suffisent à reconnaître sa fiche ; la liste entière
+            // est sur la page Relations.
+            var row = FlowRow.Fill(Theme.S(Theme.GapXs));
+            foreach (var relation in relations.Take(3))
+            {
+                var label = $"{relation.TargetName} · {RpProfileView.RelationLabel(relation.Kind, l)}";
+                row.Next(Chip.Measure(label));
+                Chip.Draw(label, ChipTone.Accent);
+            }
+
+            if (relations.Count > 3)
+            {
+                var more = $"+{relations.Count - 3}";
+                row.Next(Chip.Measure(more));
+                Chip.Draw(more, ChipTone.Neutral);
+            }
         }
 
-        if (_requestError.Length > 0)
+        Layout.Spacer(Theme.GapS);
+
+        if (Btn.Draw(l.RpRelationsManage, pending > 0 ? BtnTone.Primary : BtnTone.Secondary,
+                     BtnSize.Small, Icons.Link, id: "rp_relations_manage"))
+            Plugin.OpenRelations();
+
+        if (pending > 0)
         {
-            Layout.Spacer(Theme.GapXs);
-            Text.Hint(_requestError, Theme.Danger);
+            ImGui.SameLine(0f, Theme.S(Theme.GapS));
+            ImGui.AlignTextToFramePadding();
+            Text.Small(pending == 1
+                ? l.RpRelationsPendingOne
+                : string.Format(l.RpRelationsPendingMany, pending), Theme.Gold);
         }
-    }
-
-    /// <summary>
-    /// Une demande reçue : qui la fait, quel lien elle propose, et de quoi
-    /// répondre. Accepter ouvre la fenêtre de relation, où se choisit le type de
-    /// sa propre ligne ; refuser se fait ici, en deux clics.
-    /// </summary>
-    private void DrawReceivedRequest(Api.RpRelationRequestDto request, Loc l)
-    {
-        Chip.Draw(RpProfileView.RelationLabel(request.Kind, l), ChipTone.Accent);
-        ImGui.SameLine(0f, Theme.S(Theme.GapS));
-        ImGui.AlignTextToFramePadding();
-        Text.Body($"{request.Character.Name} ({request.Character.WorldName})");
-
-        if (request.Note is { Length: > 0 } note) Text.Small(note);
-
-        Layout.Spacer(Theme.GapXs);
-
-        if (Btn.Draw(l.RpRelationAccept, BtnTone.Primary, BtnSize.Small, Icons.Check,
-                     id: $"relreq_ok_{request.Id}"))
-        {
-            Plugin.OpenRelationResponse(request.Id, request.Character.Name,
-                                        request.Character.WorldName, request.Kind,
-                                        onAnswered: ReloadAfterRelationChange);
-        }
-
-        ImGui.SameLine(0f, Theme.S(Theme.GapS));
-
-        if (Btn.Hold(l.RpRelationDecline, $"relreq_no_{request.Id}"))
-            Decline(request.Id);
-    }
-
-    /// <summary>
-    /// Une demande qu'on a envoyée. Le serveur n'en dit que deux choses :
-    /// acceptée, ou sans réponse. Un refus se présente comme une attente, et rien
-    /// ici ne doit laisser deviner la différence.
-    /// </summary>
-    private void DrawSentRequest(Api.RpRelationRequestDto request, Loc l)
-    {
-        var accepted = request.Status == "accepted";
-
-        Chip.Draw(accepted ? l.RpRelationSentAccepted : l.RpRelationSentPending,
-                  accepted ? ChipTone.Success : ChipTone.Neutral);
-        ImGui.SameLine(0f, Theme.S(Theme.GapS));
-        ImGui.AlignTextToFramePadding();
-        Text.Small($"{request.Character.Name} ({request.Character.WorldName})");
-
-        if (accepted) return;
-
-        ImGui.SameLine(0f, Theme.S(Theme.GapS));
-
-        if (Btn.Hold(l.RpRelationCancel, $"relreq_cancel_{request.Id}"))
-            CancelRequest(request.Id);
-    }
-
-    /// <summary>
-    /// Refuse une demande sans quitter la page. Le demandeur ne verra pas de
-    /// refus : le serveur continue de lui présenter sa demande comme sans
-    /// réponse, et une relance restera impossible trente jours durant.
-    /// </summary>
-    private void Decline(string requestId)
-    {
-        _requestError = string.Empty;
-        Task.Run(async () =>
-        {
-            var result = await Plugin.Api.RespondRelationRequestAsync(
-                requestId, new Api.RespondRelationRequestBody { Action = "decline" });
-            await Plugin.Framework.RunOnFrameworkThread(() =>
-                AfterRequestGesture(result != Api.ApiClient.RelationRespondResult.Failed));
-        });
-    }
-
-    /// <summary>Retire une demande qu'on a envoyée, ce qui rouvre la possibilité d'en refaire une.</summary>
-    private void CancelRequest(string requestId)
-    {
-        _requestError = string.Empty;
-        Task.Run(async () =>
-        {
-            var ok = await Plugin.Api.CancelRelationRequestAsync(requestId);
-            await Plugin.Framework.RunOnFrameworkThread(() => AfterRequestGesture(ok));
-        });
-    }
-
-    /// <summary>
-    /// Le résultat n'était pas lu : un refus parti pendant une maintenance
-    /// laissait la demande à l'écran sans rien dire, comme si le clic s'était
-    /// perdu.
-    /// </summary>
-    private void AfterRequestGesture(bool ok)
-    {
-        if (!ok) _requestError = ServerNotice.Explain(Plugin.L.RpRelationFailed);
-        Plugin.RequestRelationRequestsRefresh();
     }
 
     /// <summary>
@@ -2777,7 +2713,13 @@ internal sealed class RpProfilePage(Configuration config)
         //
         // Un emplacement sans nom n'existe pas : il n'est pas envoyé, et ne
         // consomme donc pas l'un des huit que le serveur accepte.
-        if (_profileFromNetwork) request.Relations =
+        //
+        // La fiche publiée n'en envoie plus : ses relations se gèrent à l'unité
+        // sur la page Relations, et un envoi parti d'un formulaire ouvert avant
+        // une acceptation retirerait le lien qu'elle vient de créer, des deux
+        // côtés. Seule une fiche en réserve, que les routes à l'unité ne
+        // touchent pas, porte encore ses lignes par ce chemin.
+        if (_profileFromNetwork && _loadedProfile.Length > 0) request.Relations =
         [
             .. Enumerable.Range(0, _relationCount)
                 .Where(i => _relationNames[i].Trim().Length > 0)

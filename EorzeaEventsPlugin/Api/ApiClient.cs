@@ -467,7 +467,10 @@ public class RpRelationDto
     [JsonPropertyName("kind")]       public string  Kind       { get; set; } = string.Empty;
     [JsonPropertyName("note")]       public string? Note       { get; set; }
 
-    /// <summary>Renseigné par le serveur quand la cible a une fiche publique.</summary>
+    /// <summary>
+    /// Personnage visé par une ligne liée, née d'une demande acceptée. Sur une
+    /// fiche consultée, absent quand la fiche visée n'est pas visible.
+    /// </summary>
     [JsonPropertyName("targetCharacterId")] public string? TargetCharacterId { get; set; }
 
     /// <summary>
@@ -508,6 +511,16 @@ public class RpRelationRequestsDto
 {
     [JsonPropertyName("received")] public RpRelationRequestDto[] Received { get; set; } = [];
     [JsonPropertyName("sent")]     public RpRelationRequestDto[] Sent     { get; set; } = [];
+
+    /// <summary>Absent d'un serveur antérieur : la liste reste alors vide.</summary>
+    [JsonPropertyName("elsewhere")] public RpRelationElsewhereDto[] Elsewhere { get; set; } = [];
+}
+
+/// <summary>Demandes en attente d'un autre personnage du même compte.</summary>
+public class RpRelationElsewhereDto
+{
+    [JsonPropertyName("character")] public RpRelationPartyDto Character { get; set; } = new();
+    [JsonPropertyName("count")]     public int                Count     { get; set; }
 }
 
 /// <summary>
@@ -548,6 +561,12 @@ public class FreeRelationBody
 /// </summary>
 public class UpdateRelationBody
 {
+    /// <summary>
+    /// Nouveau nom, pour une ligne en texte libre seulement : le serveur refuse
+    /// de renommer une ligne liée. Omis quand il ne change pas.
+    /// </summary>
+    [JsonPropertyName("targetName")] public string? TargetName { get; set; }
+
     [JsonPropertyName("kind")] public string? Kind { get; set; }
     [JsonPropertyName("note")] public string? Note { get; set; }
 }
@@ -777,6 +796,15 @@ public class RpAvailabilityEntryDto
     [JsonIgnore]
     public bool HasPosition => PosX.HasValue && PosZ.HasValue && MapId.HasValue && TerritoryId.HasValue;
 }
+
+/// <summary>
+/// Résultat d'une résolution d'empreinte en fiche. <see cref="CharacterId"/> nul
+/// et <see cref="Failed"/> faux : le serveur n'a pas de fiche visible à montrer.
+/// </summary>
+public record RpProfileResolution(string? CharacterId, bool Failed);
+
+/// <summary>Un blocage du compte. Le serveur ne donne jamais l'identifiant du personnage visé : seul le haché désigne la cible.</summary>
+public record CharacterBlockDto(string Id, string Name, string World, string? ContentIdHash);
 
 /// <summary>
 /// Personnage à qui l'on a ouvert sa fiche.
@@ -2067,6 +2095,37 @@ public class ApiClient : IDisposable
         catch { return null; }
     }
 
+    /// <summary>
+    /// Identifiant du personnage dont la fiche est visible en jeu, à partir du
+    /// haché de son ContentId. Un 404 couvre tous les cas sans fiche à montrer,
+    /// sans les distinguer : ce n'est pas une panne.
+    /// </summary>
+    public async Task<RpProfileResolution> ResolveRpProfileAsync(string contentIdHash,
+                                                                 CancellationToken ct = default)
+    {
+        try
+        {
+            var res = await _http.GetAsync(
+                $"api/rp-profile/resolve?contentIdHash={Uri.EscapeDataString(contentIdHash)}", ct);
+
+            // Traité avant HandleAuthResponse, comme la fiche publique : un 404
+            // n'apprend rien sur le jeton.
+            if (res.StatusCode == System.Net.HttpStatusCode.NotFound)
+                return new RpProfileResolution(null, false);
+
+            HandleAuthResponse(res);
+            if (!res.IsSuccessStatusCode) return new RpProfileResolution(null, true);
+
+            var body = await res.Content.ReadFromJsonAsync<ResolveRpProfileBody>(JsonOptions, ct);
+            return string.IsNullOrEmpty(body?.CharacterId)
+                ? new RpProfileResolution(null, true)
+                : new RpProfileResolution(body.CharacterId, false);
+        }
+        catch { return new RpProfileResolution(null, true); }
+    }
+
+    private sealed record ResolveRpProfileBody(string? CharacterId);
+
     // ─── Amis RP ─────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -2106,7 +2165,7 @@ public class ApiClient : IDisposable
     }
 
     /// <summary>Motif d'échec d'un ajout d'ami, pour dire lequel à l'utilisateur.</summary>
-    public enum AddFriendResult { Added, NotFound, LimitReached, NoCharacterToken, Failed }
+    public enum AddFriendResult { Added, NotFound, LimitReached, NoCharacterToken, Blocked, Failed }
 
     /// <summary>
     /// Ouvre sa fiche à un personnage. Idempotent côté serveur.
@@ -2145,11 +2204,76 @@ public class ApiClient : IDisposable
         try
         {
             var body = await res.Content.ReadAsStringAsync(ct);
+            // « blocked » d'abord : c'est le compte qui a bloqué la cible.
+            if (body.Contains("blocked", StringComparison.Ordinal)) return AddFriendResult.Blocked;
             return body.Contains("friend_limit", StringComparison.Ordinal)
                 ? AddFriendResult.LimitReached
                 : AddFriendResult.NoCharacterToken;
         }
         catch { return AddFriendResult.Failed; }
+    }
+
+    // ─── Blocages de personnages ─────────────────────────────────────────────
+
+    /// <summary>Issue d'un blocage, motif de refus compris.</summary>
+    public enum BlockCharacterResult { Blocked, Self, LimitReached, Failed }
+
+    /// <summary>
+    /// Blocages du compte, ou <c>null</c> si la requête a échoué : une liste
+    /// vide ferait croire qu'on a tout débloqué.
+    /// </summary>
+    public async Task<List<CharacterBlockDto>?> GetCharacterBlocksAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var res = await _http.GetAsync("api/character-blocks", ct);
+            HandleAuthResponse(res);
+            if (!res.IsSuccessStatusCode) return null;
+
+            return await res.Content.ReadFromJsonAsync<List<CharacterBlockDto>>(JsonOptions, ct) ?? [];
+        }
+        catch { return null; }
+    }
+
+    /// <summary>Bloque un joueur désigné par le haché de son ContentId. 200 et 201 valent succès.</summary>
+    public async Task<BlockCharacterResult> BlockCharacterAsync(string contentIdHash, string name,
+                                                                string world,
+                                                                CancellationToken ct = default)
+    {
+        try
+        {
+            var res = await _http.PostAsJsonAsync("api/character-blocks",
+                new { contentIdHash, name, world }, JsonOptions, ct);
+            HandleAuthResponse(res);
+
+            if (res.IsSuccessStatusCode) return BlockCharacterResult.Blocked;
+
+            // Le 400 et le 409 se distinguent par le corps, comme pour les amis.
+            var body = await res.Content.ReadAsStringAsync(ct);
+            if (res.StatusCode == System.Net.HttpStatusCode.Conflict
+                && body.Contains("limit", StringComparison.Ordinal))
+                return BlockCharacterResult.LimitReached;
+            if (res.StatusCode == System.Net.HttpStatusCode.BadRequest
+                && body.Contains("self", StringComparison.Ordinal))
+                return BlockCharacterResult.Self;
+
+            return BlockCharacterResult.Failed;
+        }
+        catch { return BlockCharacterResult.Failed; }
+    }
+
+    /// <summary>Lève un blocage. Un 404 (déjà levé ailleurs) vaut succès : l'état voulu est atteint.</summary>
+    public async Task<bool> UnblockCharacterAsync(string blockId, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(blockId)) return false;
+
+        try
+        {
+            var res = await _http.DeleteAsync($"api/character-blocks/{Uri.EscapeDataString(blockId)}", ct);
+            HandleAuthResponse(res);
+            return res.IsSuccessStatusCode || res.StatusCode == System.Net.HttpStatusCode.NotFound;
+        }
+        catch { return false; }
     }
 
     /// <summary>Retire l'accès accordé à un personnage. Idempotent.</summary>
@@ -2234,6 +2358,10 @@ public class ApiClient : IDisposable
         /// <summary>Ce personnage n'est pas lié, ou n'a pas de fiche RP.</summary>
         NoProfile,
         RateLimited,
+        /// <summary>Le compte a bloqué cette personne.</summary>
+        Blocked,
+        /// <summary>Cette personne a déjà proposé un lien : il reste à lui répondre.</summary>
+        IncomingRequest,
         Failed,
     }
 
@@ -2291,6 +2419,8 @@ public class ApiClient : IDisposable
                 "no_profile"               => RelationRequestResult.NoProfile,
                 "character_token_required" => RelationRequestResult.NoProfile,
                 "not_found"                => RelationRequestResult.NoTarget,
+                "blocked"                  => RelationRequestResult.Blocked,
+                "incoming_request"         => RelationRequestResult.IncomingRequest,
                 _                          => RelationRequestResult.Failed,
             };
         }

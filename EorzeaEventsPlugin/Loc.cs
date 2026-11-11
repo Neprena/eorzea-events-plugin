@@ -783,6 +783,8 @@ internal sealed partial class Loc
     public required string RpProfileNsfwWithheldCta  { get; init; }
     public required string RpProfileViewOnSite { get; init; }
     public required string MenuViewRpProfile   { get; init; }
+    public required string RpProfileNoneVisible   { get; init; }
+    public required string RpProfileResolveFailed { get; init; }
     public required string RpFriendAdd         { get; init; }
     public required string RpFriendAddHint     { get; init; }
     public required string RpFriendAdded       { get; init; }
@@ -791,6 +793,18 @@ internal sealed partial class Loc
     public required string RpFriendAddNotFound { get; init; }
     public required string RpFriendAddLimit    { get; init; }
     public required string RpFriendNoToken     { get; init; }
+    public required string MenuBlock { get; init; }
+    public required string MenuUnblock { get; init; }
+    public required string BlockConfirmTitle { get; init; }
+    public required string BlockConfirmBody { get; init; }
+    public required string BlockConfirmAction { get; init; }
+    public required string BlockDone { get; init; }
+    public required string UnblockDone { get; init; }
+    public required string BlockLimit { get; init; }
+    public required string BlockFailed { get; init; }
+    public required string UnblockFailed { get; init; }
+    public required string RpRelationBlocked { get; init; }
+    public required string RpFriendAddBlocked { get; init; }
     public required string RpFriendChip        { get; init; }
     public required string RpFriendMutual      { get; init; }
     public required string RpFriendRenamed     { get; init; }
@@ -1015,14 +1029,55 @@ internal sealed partial class Loc
     public required string RpRelationRemove        { get; init; }
     public required string RpRelationRemoved       { get; init; }
     public required string RpRelationBreakWarning  { get; init; }
-    public required string RpRelationRequests      { get; init; }
     public required string RpRelationSentTitle     { get; init; }
     public required string RpRelationSentPending   { get; init; }
-    public required string RpRelationSentAccepted  { get; init; }
     public required string RpRelationCancel        { get; init; }
     public required string RpProfileRelationLinked { get; init; }
     public required string RpRelationEdit          { get; init; }
     public required string RpRelationSaveFirst     { get; init; }
+
+    // ── Page Relations ────────────────────────────────────────────────────────
+    public required string TabRelations                 { get; init; }
+    public required string RpRelationsReceivedTitle     { get; init; }
+    public required string RpRelationsReceivedEmpty     { get; init; }
+    public required string RpRelationsReceivedEmptyHint { get; init; }
+    public required string RpRelationsProposes          { get; init; }
+    public required string RpRelationsReceivedHint      { get; init; }
+    public required string RpRelationsMineTitle         { get; init; }
+    public required string RpRelationsFreeChip          { get; init; }
+    public required string RpRelationsLinkedHint        { get; init; }
+    public required string RpRelationsEmptyIntro        { get; init; }
+    public required string RpRelationsWayLinkedTitle    { get; init; }
+    public required string RpRelationsWayLinkedBody     { get; init; }
+    public required string RpRelationsWayFreeTitle      { get; init; }
+    public required string RpRelationsWayFreeBody       { get; init; }
+    public required string RpRelationsSentHint          { get; init; }
+    public required string RpRelationIncoming           { get; init; }
+    public required string RpRelationsElsewhereOne      { get; init; }   // {0} = nom, {1} = monde
+    public required string RpRelationsElsewhereMany     { get; init; }   // {0} = nom, {1} = monde, {2} = nombre
+    public required string RpRelationsManage            { get; init; }
+    public required string RpRelationsPendingOne        { get; init; }
+    public required string RpRelationsPendingMany       { get; init; }   // {0} = nombre
+    public required string RpRelationStateSent          { get; init; }   // {0} = type
+    public required string RpRelationStateReceived      { get; init; }   // {0} = type
+    public required string RpRelationStateLinked        { get; init; }   // {0} = type
+    public required string RpRelationRespond            { get; init; }
+    public required string RpRelationFreeTitle          { get; init; }
+    public required string RpRelationFreeHeading        { get; init; }
+    public required string RpRelationNameLabel          { get; init; }
+    public required string RpRelationKindLabel          { get; init; }
+    public required string RpRelationFreeHint           { get; init; }
+    public required string RpRelationAdd                { get; init; }
+    public required string NotifRelationTitle           { get; init; }
+    public required string NotifRelationBody            { get; init; }   // {0} = nom, {1} = monde, {2} = type
+    public required string NotifRelationMany            { get; init; }   // {0} = nombre
+    public required string NotifRelationChatHint        { get; init; }
+    public required string NotifRelationAcceptedTitle   { get; init; }
+    public required string NotifRelationAcceptedBody    { get; init; }   // {0} = nom, {1} = type
+    public required string CfgRelationNotifHeader       { get; init; }
+    public required string CfgRelationNotifScreen       { get; init; }
+    public required string CfgRelationNotifChat         { get; init; }
+    public required string CfgRelationNotifHint         { get; init; }
 
     // ── Static instances ──────────────────────────────────────────────────────
 
@@ -1669,14 +1724,14 @@ internal sealed partial class Loc
         RpProfileAvailabilityLabel = "Disponibilité",
         RpProfileQuoteHint      = "Une réplique qui résume le personnage.",
         RpProfileRelations      = "Relations",
-        RpProfileRelationAlly    = "Allié",
-        RpProfileRelationFriend  = "Ami",
+        RpProfileRelationAlly    = "Alliance",
+        RpProfileRelationFriend  = "Amitié",
         RpProfileRelationFamily  = "Famille",
         RpProfileRelationLover   = "Amour",
         RpProfileRelationMentor  = "Mentor",
         RpProfileRelationStudent = "Élève",
-        RpProfileRelationRival   = "Rival",
-        RpProfileRelationEnemy   = "Ennemi",
+        RpProfileRelationRival   = "Rivalité",
+        RpProfileRelationEnemy   = "Inimitié",
         RpProfileRelationOther   = "Autre",
         RpProfileLevel          = "Niveau de RP",
         RpProfileLevelBeginner  = "Débutant — Je découvre le RP",
@@ -1792,6 +1847,8 @@ internal sealed partial class Loc
         RpProfileNsfwWithheldCta  = "Régler sur le site",
         RpProfileViewOnSite = "Voir sur le site",
         MenuViewRpProfile   = "Voir la fiche RP",
+        RpProfileNoneVisible   = "Pas de fiche RP visible en jeu pour {0}.",
+        RpProfileResolveFailed = "La fiche n'a pas pu être chargée.",
         RpFriendAdd         = "Ajouter comme ami RP",
         RpFriendAddHint     = "Lui ouvre les sections de TA fiche réservées aux amis. Ne te donne rien sur la sienne, et il n'en sera pas informé.",
         RpFriendAdded       = "[Eorzea Events] {0} peut désormais voir les sections de ta fiche réservées à tes amis.",
@@ -1800,6 +1857,18 @@ internal sealed partial class Loc
         RpFriendAddNotFound = "Ce personnage n'a pas de fiche visible en jeu : il n'y a rien à ouvrir pour lui.",
         RpFriendAddLimit    = "Ta liste d'amis est pleine. Retire quelqu'un avant d'ajouter.",
         RpFriendNoToken     = "Lie ce personnage depuis les réglages pour gérer ses amis RP.",
+        MenuBlock = "Bloquer",
+        MenuUnblock = "Débloquer",
+        BlockConfirmTitle = "Bloquer {0} ?",
+        BlockConfirmBody = "Tes personnages et {0} ne pourront plus se proposer de relation, s'ajouter en ami RP ni rejoindre leurs RP ouverts. Les accès amis RP et les relations entre vous seront retirés, sans retour possible. Aucune notification n'est envoyée. Les fiches restent lisibles par tout le monde : contre le harcèlement, signale-le sur le site.",
+        BlockConfirmAction = "Bloquer",
+        BlockDone = "Blocage de {0} enregistré.",
+        UnblockDone = "Blocage de {0} levé.",
+        BlockLimit = "Tu as atteint la limite de 200 blocages.",
+        BlockFailed = "Le blocage n'a pas pu être enregistré.",
+        UnblockFailed = "Le déblocage n'a pas pu être enregistré.",
+        RpRelationBlocked = "Tu as bloqué ce personnage.",
+        RpFriendAddBlocked = "Tu as bloqué ce personnage.",
         RpFriendChip        = "Ami",
         RpFriendMutual      = "T'a ajouté aussi",
         RpFriendRenamed     = "ajouté sous {0}",
@@ -2000,14 +2069,53 @@ internal sealed partial class Loc
         RpRelationRemove        = "Retirer",
         RpRelationRemoved       = "Relation retirée.",
         RpRelationBreakWarning  = "Cette relation vient d'une demande acceptée : la retirer l'efface aussi de la fiche d'en face.",
-        RpRelationRequests      = "Demandes de relation",
         RpRelationSentTitle     = "Demandes envoyées",
         RpRelationSentPending   = "Sans réponse",
-        RpRelationSentAccepted  = "Acceptée",
         RpRelationCancel        = "Retirer ma demande",
         RpProfileRelationLinked = "Liée",
         RpRelationEdit          = "Modifier",
         RpRelationSaveFirst     = "Enregistre tes modifications avant de toucher à une relation liée.",
+        TabRelations                 = "Relations",
+        RpRelationsReceivedTitle     = "À toi de répondre",
+        RpRelationsReceivedEmpty     = "Aucune demande en attente.",
+        RpRelationsReceivedEmptyHint = "Quand quelqu'un te propose un lien, la demande arrive ici et une alerte s'affiche en jeu.",
+        RpRelationsProposes          = "te propose",
+        RpRelationsReceivedHint      = "Accepter te laisse choisir le lien tel que ton personnage le voit. Ignorer ne prévient personne : de l'autre côté, la demande reste « sans réponse ».",
+        RpRelationsMineTitle         = "Sur ta fiche",
+        RpRelationsFreeChip          = "Texte libre",
+        RpRelationsLinkedHint        = "Une relation liée figure sur les deux fiches. Elle se propose depuis la fiche de l'autre personnage, ou d'un clic droit sur lui en jeu.",
+        RpRelationsEmptyIntro        = "Aucune relation sur ta fiche pour l'instant. Il y a deux façons d'en ajouter :",
+        RpRelationsWayLinkedTitle    = "Avec un personnage qui a une fiche ici",
+        RpRelationsWayLinkedBody     = "Ouvre sa fiche, ou fais un clic droit sur son personnage en jeu, puis choisis « Proposer une relation ». Une fois la demande acceptée, le lien figure sur vos deux fiches.",
+        RpRelationsWayFreeTitle      = "Avec un PNJ, ou quelqu'un sans fiche",
+        RpRelationsWayFreeBody       = "Écris son nom en texte libre. La ligne n'apparaît que sur ta fiche et ne demande l'accord de personne.",
+        RpRelationsSentHint          = "Une demande sans réponse expire au bout de 30 jours. Une alerte s'affiche en jeu dès qu'une demande est acceptée, et la relation rejoint alors ta fiche.",
+        RpRelationIncoming           = "Cette personne t'a déjà proposé un lien : réponds à sa demande dans « Relations ».",
+        RpRelationsElsewhereOne      = "{0} ({1}), ton autre personnage, a une demande en attente. Joue ce personnage pour y répondre.",
+        RpRelationsElsewhereMany     = "{0} ({1}), ton autre personnage, a {2} demandes en attente. Joue ce personnage pour y répondre.",
+        RpRelationsManage            = "Gérer mes relations",
+        RpRelationsPendingOne        = "Une demande attend ta réponse.",
+        RpRelationsPendingMany       = "{0} demandes attendent ta réponse.",
+        RpRelationStateSent          = "Demande envoyée : {0}",
+        RpRelationStateReceived      = "Te propose : {0}",
+        RpRelationStateLinked        = "Liée : {0}",
+        RpRelationRespond            = "Répondre",
+        RpRelationFreeTitle          = "Ajouter une relation",
+        RpRelationFreeHeading        = "Relation en texte libre",
+        RpRelationNameLabel          = "Nom",
+        RpRelationKindLabel          = "Le lien",
+        RpRelationFreeHint           = "Cette ligne n'apparaît que sur ta fiche, sans lien vers une autre. Si ce personnage a une fiche ici, propose-lui plutôt une relation depuis sa fiche : elle figurera alors sur les deux.",
+        RpRelationAdd                = "Ajouter",
+        NotifRelationTitle           = "Demande de relation",
+        NotifRelationBody            = "{0} ({1}) te propose un lien : {2}.",
+        NotifRelationMany            = "{0} demandes de relation t'attendent.",
+        NotifRelationChatHint        = "Réponds dans « Relations » (/eorzea relations).",
+        NotifRelationAcceptedTitle   = "Relation acceptée",
+        NotifRelationAcceptedBody    = "{0} a accepté ton lien : {1}. Il figure maintenant sur vos deux fiches.",
+        CfgRelationNotifHeader       = "Relations",
+        CfgRelationNotifScreen       = "Notification à l'écran",
+        CfgRelationNotifChat         = "Message dans le chat",
+        CfgRelationNotifHint         = "Pour une demande reçue et pour une demande acceptée.",
         AroundFindOnMap = "Trouver sur la carte",
         AroundInstance  = "instance {0}",
     };
@@ -2658,7 +2766,7 @@ internal sealed partial class Loc
         RpProfileRelationAlly    = "Ally",
         RpProfileRelationFriend  = "Friend",
         RpProfileRelationFamily  = "Family",
-        RpProfileRelationLover   = "Lover",
+        RpProfileRelationLover   = "Love",
         RpProfileRelationMentor  = "Mentor",
         RpProfileRelationStudent = "Student",
         RpProfileRelationRival   = "Rival",
@@ -2778,6 +2886,8 @@ internal sealed partial class Loc
         RpProfileNsfwWithheldCta  = "Set it on the website",
         RpProfileViewOnSite = "View on the website",
         MenuViewRpProfile   = "View RP profile",
+        RpProfileNoneVisible   = "No RP profile visible in game for {0}.",
+        RpProfileResolveFailed = "The profile could not be loaded.",
         RpFriendAdd         = "Add as RP friend",
         RpFriendAddHint     = "Opens the sections of YOUR profile reserved for friends. Gives you nothing on theirs, and they will not be told.",
         RpFriendAdded       = "[Eorzea Events] {0} can now see the sections of your profile reserved for your friends.",
@@ -2786,6 +2896,18 @@ internal sealed partial class Loc
         RpFriendAddNotFound = "That character has no profile visible in game: there is nothing to open for them.",
         RpFriendAddLimit    = "Your friend list is full. Remove someone before adding.",
         RpFriendNoToken     = "Link this character in the settings to manage its RP friends.",
+        MenuBlock = "Block",
+        MenuUnblock = "Unblock",
+        BlockConfirmTitle = "Block {0}?",
+        BlockConfirmBody = "Your characters and {0} will no longer be able to propose a relationship, add each other as RP friends or join each other's open RP. RP friend access and the relationships between you will be removed, with no way back. No notification is sent. Profiles stay readable by everyone: for harassment, report them on the website.",
+        BlockConfirmAction = "Block",
+        BlockDone = "Blocked {0}.",
+        UnblockDone = "Unblocked {0}.",
+        BlockLimit = "You have reached the limit of 200 blocks.",
+        BlockFailed = "The block could not be saved.",
+        UnblockFailed = "The unblock could not be saved.",
+        RpRelationBlocked = "You have blocked this character.",
+        RpFriendAddBlocked = "You have blocked this character.",
         RpFriendChip        = "Friend",
         RpFriendMutual      = "Added you back",
         RpFriendRenamed     = "added as {0}",
@@ -2988,14 +3110,53 @@ internal sealed partial class Loc
         RpRelationRemove        = "Remove",
         RpRelationRemoved       = "Relationship removed.",
         RpRelationBreakWarning  = "This relationship comes from an accepted request: removing it also removes it from the other profile.",
-        RpRelationRequests      = "Relationship requests",
         RpRelationSentTitle     = "Requests you sent",
         RpRelationSentPending   = "No answer yet",
-        RpRelationSentAccepted  = "Accepted",
         RpRelationCancel        = "Withdraw my request",
         RpProfileRelationLinked = "Linked",
         RpRelationEdit          = "Edit",
         RpRelationSaveFirst     = "Save your changes before editing a linked relationship.",
+        TabRelations                 = "Relationships",
+        RpRelationsReceivedTitle     = "Awaiting your reply",
+        RpRelationsReceivedEmpty     = "No pending requests.",
+        RpRelationsReceivedEmptyHint = "When someone proposes a tie, the request lands here and an alert shows in game.",
+        RpRelationsProposes          = "proposes",
+        RpRelationsReceivedHint      = "Accepting lets you choose the tie as your character sees it. Ignoring tells no one: on the other side, the request stays unanswered.",
+        RpRelationsMineTitle         = "On your profile",
+        RpRelationsFreeChip          = "Free text",
+        RpRelationsLinkedHint        = "A linked relationship appears on both profiles. Propose it from the other character's profile, or by right-clicking them in game.",
+        RpRelationsEmptyIntro        = "No relationships on your profile yet. There are two ways to add one:",
+        RpRelationsWayLinkedTitle    = "With a character who has a profile here",
+        RpRelationsWayLinkedBody     = "Open their profile, or right-click their character in game, then choose \"Propose a relationship\". Once the request is accepted, the tie appears on both profiles.",
+        RpRelationsWayFreeTitle      = "With an NPC, or someone without a profile",
+        RpRelationsWayFreeBody       = "Write their name as free text. The line only appears on your profile and needs nobody's consent.",
+        RpRelationsSentHint          = "An unanswered request expires after 30 days. An alert shows in game as soon as a request is accepted, and the relationship then joins your profile.",
+        RpRelationIncoming           = "This person already proposed a tie to you: answer their request under \"Relationships\".",
+        RpRelationsElsewhereOne      = "{0} ({1}), your other character, has a pending request. Play that character to answer it.",
+        RpRelationsElsewhereMany     = "{0} ({1}), your other character, has {2} pending requests. Play that character to answer them.",
+        RpRelationsManage            = "Manage my relationships",
+        RpRelationsPendingOne        = "One request is awaiting your reply.",
+        RpRelationsPendingMany       = "{0} requests are awaiting your reply.",
+        RpRelationStateSent          = "Request sent: {0}",
+        RpRelationStateReceived      = "Proposes: {0}",
+        RpRelationStateLinked        = "Linked: {0}",
+        RpRelationRespond            = "Reply",
+        RpRelationFreeTitle          = "Add a relationship",
+        RpRelationFreeHeading        = "Free-text relationship",
+        RpRelationNameLabel          = "Name",
+        RpRelationKindLabel          = "The tie",
+        RpRelationFreeHint           = "This line only appears on your profile, with no link to another. If this character has a profile here, propose a relationship from it instead: it will then appear on both.",
+        RpRelationAdd                = "Add",
+        NotifRelationTitle           = "Relationship request",
+        NotifRelationBody            = "{0} ({1}) proposes a tie: {2}.",
+        NotifRelationMany            = "{0} relationship requests are waiting for you.",
+        NotifRelationChatHint        = "Reply under \"Relationships\" (/eorzea relations).",
+        NotifRelationAcceptedTitle   = "Relationship accepted",
+        NotifRelationAcceptedBody    = "{0} accepted your tie: {1}. It now appears on both profiles.",
+        CfgRelationNotifHeader       = "Relationships",
+        CfgRelationNotifScreen       = "On-screen notification",
+        CfgRelationNotifChat         = "Chat message",
+        CfgRelationNotifHint         = "For a request received and for a request accepted.",
         AroundFindOnMap = "Find on the map",
         AroundInstance  = "instance {0}",
     };

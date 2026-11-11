@@ -25,6 +25,7 @@ internal sealed class SettingsPage(Configuration config)
     private const string SampleServer  = "Ragnarok";
     private const string SampleEvent   = "Soirée contes";
     private const string SampleVenue   = "La Chandelle Verte";
+    private const string SampleRelationName = "Elyne Morrow";
 
     private string _baseUrl = config.BaseUrl;
 
@@ -89,6 +90,7 @@ internal sealed class SettingsPage(Configuration config)
                 DrawRpProfile(l);
                 DrawRpTooltip(l);
                 DrawRpNotifications(l);
+                DrawRelationNotifications(l);
                 break;
 
             case TabNotifications:
@@ -294,6 +296,42 @@ internal sealed class SettingsPage(Configuration config)
 
         Row(l.CfgNotifLanguageFilter, l.CfgNotifLanguageFilterHint,
             () => config.NotifyRpLanguageFilter, v => config.NotifyRpLanguageFilter = v);
+    }
+
+    // ─── Notifications de relations ───────────────────────────────────────────
+
+    /// <summary>
+    /// Demandes de relation reçues et acceptées. Elles se signalaient seulement
+    /// par une pastille dans le menu, que rien n'invitait à regarder : une
+    /// demande pouvait attendre des semaines sans que personne la voie.
+    /// </summary>
+    private void DrawRelationNotifications(Loc l)
+    {
+        using var card = Card.Begin("set_relnotif", interactive: false);
+
+        Layout.SectionHeader(l.CfgRelationNotifHeader, Icons.Link);
+        Text.Hint(l.CfgRelationNotifHint);
+        Layout.Spacer(Theme.GapXs);
+
+        var body = string.Format(l.NotifRelationBody, SampleRelationName, SampleServer,
+                                 RpProfileView.RelationLabel("friend", l));
+
+        Row(l.CfgRelationNotifScreen, null,
+            () => config.NotifyRelationScreen, v => config.NotifyRelationScreen = v,
+            () => Plugin.NotificationMgr.AddNotification(new Notification
+            {
+                Title           = l.NotifRelationTitle,
+                Content         = body,
+                Type            = NotificationType.Info,
+                InitialDuration = TimeSpan.FromSeconds(6),
+            }));
+
+        Row(l.CfgRelationNotifChat, null,
+            () => config.NotifyRelationChat, v => config.NotifyRelationChat = v,
+            () => Plugin.ChatGui.Print(new SeStringBuilder()
+                .AddUiForeground(32).AddText("[Eorzea Events] ").AddUiForegroundOff()
+                .AddText($"{body} {l.NotifRelationChatHint}")
+                .Build()));
     }
 
     // ─── Notifications d'événements ───────────────────────────────────────────
